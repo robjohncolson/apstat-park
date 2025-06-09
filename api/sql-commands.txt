@@ -1,11 +1,11 @@
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
     username VARCHAR(50) UNIQUE NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     last_sync TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE TABLE progress (
+CREATE TABLE IF NOT EXISTS progress (
     id SERIAL PRIMARY KEY,
     user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
     lesson_id VARCHAR(20) NOT NULL,
@@ -17,7 +17,7 @@ CREATE TABLE progress (
     UNIQUE(user_id, lesson_id)
 );
 
-CREATE TABLE bookmarks (
+CREATE TABLE IF NOT EXISTS bookmarks (
     id SERIAL PRIMARY KEY,
     user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
     bookmark_type VARCHAR(20) NOT NULL,
@@ -28,6 +28,6 @@ CREATE TABLE bookmarks (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE INDEX idx_progress_user_lesson ON progress(user_id, lesson_id);
-CREATE INDEX idx_bookmarks_user ON bookmarks(user_id);
-CREATE INDEX idx_users_username ON users(username);
+CREATE INDEX IF NOT EXISTS idx_progress_user_lesson ON progress(user_id, lesson_id);
+CREATE INDEX IF NOT EXISTS idx_bookmarks_user ON bookmarks(user_id);
+CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);

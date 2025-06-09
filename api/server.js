@@ -7,8 +7,8 @@ const port = process.env.PORT || 3000;
 
 // Database connection
 const pool = new Pool({
-    connectionString: process.env.DATABASE_URL || "postgresql://neondb_owner:npg_QACh3gvPt8YN@ep-frosty-waterfall-a8lhnug0-pooler.eastus2.azure.neon.tech/neondb?sslmode=require",
-    ssl: { rejectUnauthorized: false }
+    connectionString: process.env.DATABASE_URL,
+    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
 
 // Middleware
@@ -256,13 +256,75 @@ app.get('/api/health', (req, res) => {
     res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
-// Test database connection on startup
-pool.connect((err, client, done) => {
+// Initialize database tables on startup
+async function initializeDatabase() {
+    try {
+        console.log('Initializing database...');
+        
+        // Create tables if they don't exist
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS users (
+                id SERIAL PRIMARY KEY,
+                username VARCHAR(50) UNIQUE NOT NULL,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                last_sync TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+            );
+        `);
+        
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS progress (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                lesson_id VARCHAR(20) NOT NULL,
+                videos_watched INTEGER[] DEFAULT '{}',
+                quizzes_completed INTEGER[] DEFAULT '{}',
+                lesson_completed BOOLEAN DEFAULT FALSE,
+                completed_at TIMESTAMP WITH TIME ZONE,
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                UNIQUE(user_id, lesson_id)
+            );
+        `);
+        
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS bookmarks (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                bookmark_type VARCHAR(20) NOT NULL,
+                lesson_id VARCHAR(20) NOT NULL,
+                item_index INTEGER,
+                item_type VARCHAR(20),
+                item_title VARCHAR(200),
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+            );
+        `);
+        
+        // Create indexes
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_progress_user_lesson ON progress(user_id, lesson_id);`);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_bookmarks_user ON bookmarks(user_id);`);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);`);
+        
+        console.log('Database initialized successfully');
+        
+    } catch (error) {
+        console.error('Database initialization failed:', error);
+        throw error;
+    }
+}
+
+// Test database connection and initialize on startup
+pool.connect(async (err, client, done) => {
     if (err) {
         console.error('Database connection failed:', err);
     } else {
         console.log('Database connected successfully');
         done();
+        
+        // Initialize database tables
+        try {
+            await initializeDatabase();
+        } catch (initError) {
+            console.error('Failed to initialize database:', initError);
+        }
     }
 });
 
