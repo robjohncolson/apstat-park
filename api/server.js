@@ -7,7 +7,7 @@ const port = process.env.PORT || 3000;
 
 // Database connection
 const pool = new Pool({
-    connectionString: "postgresql://neondb_owner:npg_QACh3gvPt8YN@ep-frosty-waterfall-a8lhnug0-pooler.eastus2.azure.neon.tech/neondb?sslmode=require",
+    connectionString: process.env.DATABASE_URL || "postgresql://neondb_owner:npg_QACh3gvPt8YN@ep-frosty-waterfall-a8lhnug0-pooler.eastus2.azure.neon.tech/neondb?sslmode=require",
     ssl: { rejectUnauthorized: false }
 });
 
@@ -241,8 +241,19 @@ app.get('/api/health', (req, res) => {
     res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
+// Test database connection on startup
+pool.connect((err, client, done) => {
+    if (err) {
+        console.error('Database connection failed:', err);
+    } else {
+        console.log('Database connected successfully');
+        done();
+    }
+});
+
 app.listen(port, () => {
     console.log(`APStat Park API running on port ${port}`);
+    console.log(`Database URL: ${process.env.DATABASE_URL ? 'Set from environment' : 'Using fallback'}`);
 });
 
 module.exports = app; 
