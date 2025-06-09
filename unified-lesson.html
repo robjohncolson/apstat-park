@@ -719,15 +719,114 @@
                 try {
                     await window.syncManager.initializeUser();
                     updateLessonUserDisplay();
+                    setupLessonRealtimeHandlers();
                 } catch (error) {
                     console.warn('Failed to initialize sync manager:', error);
                 }
             }
             
+            // Send lesson opened activity
+            sendLessonActivity(lessonData.id, 'opened');
+            
             loadProgress();
             populateInterface();
             setupEventListeners();
             showInterface();
+        }
+
+        // Setup real-time handlers for lesson page
+        function setupLessonRealtimeHandlers() {
+            if (window.syncManager) {
+                // Progress updates from other devices
+                window.syncManager.onRealtimeUpdate('progress_updates', (data) => {
+                    console.log('📥 Real-time progress update in lesson');
+                    showLessonRealtimeNotification('Progress synced from another device', 'progress');
+                    
+                    // Refresh lesson progress
+                    setTimeout(() => {
+                        loadProgress();
+                        populateVideos();
+                        populateQuizzes();
+                        updateInterface();
+                    }, 300);
+                });
+                
+                // Bookmark updates from other devices
+                window.syncManager.onRealtimeUpdate('bookmark_updates', (data) => {
+                    console.log('📥 Real-time bookmark update in lesson');
+                    showLessonRealtimeNotification('Bookmark synced from another device', 'bookmark');
+                    
+                    // Refresh bookmarks
+                    setTimeout(() => {
+                        loadProgress();
+                        populateVideos();
+                        populateQuizzes();
+                    }, 300);
+                });
+                
+                // Device connection notifications
+                window.syncManager.onRealtimeUpdate('device_connected', (data) => {
+                    if (data.deviceCount > 1) {
+                        showLessonRealtimeNotification(`Another device connected (${data.deviceCount} total)`, 'device');
+                    }
+                });
+            }
+        }
+
+        // Show real-time notification in lesson page
+        function showLessonRealtimeNotification(message, type) {
+            // Create notification element
+            const notification = document.createElement('div');
+            notification.className = 'lesson-realtime-notification';
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                z-index: 1000;
+                background: ${type === 'progress' ? '#4CAF50' : type === 'bookmark' ? '#FFD54F' : '#2196F3'};
+                color: ${type === 'bookmark' ? '#333' : 'white'};
+                padding: 10px 14px;
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+                font-size: 0.85em;
+                font-weight: bold;
+                transform: translateX(100%);
+                transition: transform 0.3s ease;
+                max-width: 250px;
+                word-wrap: break-word;
+            `;
+            
+            // Add icon based on type
+            const icon = type === 'progress' ? '📊' : type === 'bookmark' ? '⭐' : '📱';
+            notification.innerHTML = `${icon} ${message}`;
+            
+            document.body.appendChild(notification);
+            
+            // Slide in
+            setTimeout(() => {
+                notification.style.transform = 'translateX(0)';
+            }, 100);
+            
+            // Slide out and remove
+            setTimeout(() => {
+                notification.style.transform = 'translateX(100%)';
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.parentNode.removeChild(notification);
+                    }
+                }, 300);
+            }, 2500);
+        }
+
+        // Send lesson activity
+        function sendLessonActivity(lessonId, action) {
+            if (window.syncManager) {
+                window.syncManager.sendUserActivity({
+                    type: 'lesson_' + action,
+                    lessonId: lessonId,
+                    timestamp: new Date().toISOString()
+                });
+            }
         }
         
         // Update user display in lesson
@@ -948,6 +1047,8 @@
                 b.index === videoIndex
             );
             
+            const action = existingIndex > -1 ? 'removed' : 'created';
+            
             if (existingIndex > -1) {
                 // Remove this bookmark
                 localStorage.removeItem('item_bookmarks');
@@ -967,7 +1068,15 @@
                 localStorage.removeItem('bookmarked_lessons');
             }
             
-            // Sync bookmark to database
+            // Show immediate feedback
+            showLessonRealtimeNotification(`Video bookmark ${action}`, 'bookmark');
+            
+            // Immediate UI update
+            populateVideos();
+            populateQuizzes();
+            updateInterface();
+            
+            // Sync bookmark to database in background
             if (window.syncManager) {
                 try {
                     const result = await window.syncManager.triggerSync('quick');
@@ -978,10 +1087,6 @@
                     console.warn('Bookmark sync failed:', error);
                 }
             }
-            
-            populateVideos(); // Refresh to update bookmark display
-            populateQuizzes(); // Refresh to update bookmark display
-            updateInterface(); // Update lesson bookmark display
         }
 
         async function bookmarkQuiz(quizIndex) {
@@ -991,6 +1096,8 @@
                 b.type === 'quiz' && 
                 b.index === quizIndex
             );
+            
+            const action = existingIndex > -1 ? 'removed' : 'created';
             
             if (existingIndex > -1) {
                 // Remove this bookmark
@@ -1011,7 +1118,15 @@
                 localStorage.removeItem('bookmarked_lessons');
             }
             
-            // Sync bookmark to database
+            // Show immediate feedback
+            showLessonRealtimeNotification(`Quiz bookmark ${action}`, 'bookmark');
+            
+            // Immediate UI update
+            populateVideos();
+            populateQuizzes();
+            updateInterface();
+            
+            // Sync bookmark to database in background
             if (window.syncManager) {
                 try {
                     const result = await window.syncManager.triggerSync('quick');
@@ -1022,40 +1137,62 @@
                     console.warn('Bookmark sync failed:', error);
                 }
             }
-            
-            populateVideos(); // Refresh to update bookmark display
-            populateQuizzes(); // Refresh to update bookmark display
-            updateInterface(); // Update lesson bookmark display
         }
 
         function toggleVideoCompletion(index) {
             const watched = currentLessonProgress.videosWatched;
+            const action = watched.includes(index) ? 'unmarked' : 'marked';
+            
             if (watched.includes(index)) {
                 currentLessonProgress.videosWatched = watched.filter(i => i !== index);
             } else {
                 currentLessonProgress.videosWatched.push(index);
             }
-            saveProgress();
+            
+            // Show immediate feedback
+            showLessonRealtimeNotification(`Video ${action} as watched`, 'progress');
+            
+            // Immediate UI update
             populateVideos();
             updateInterface();
+            
+            // Save progress in background
+            saveProgress();
         }
 
         function toggleQuizCompletion(index) {
             const completed = currentLessonProgress.quizzesCompleted;
+            const action = completed.includes(index) ? 'unmarked' : 'marked';
+            
             if (completed.includes(index)) {
                 currentLessonProgress.quizzesCompleted = completed.filter(i => i !== index);
             } else {
                 currentLessonProgress.quizzesCompleted.push(index);
             }
-            saveProgress();
+            
+            // Show immediate feedback
+            showLessonRealtimeNotification(`Quiz ${action} as completed`, 'progress');
+            
+            // Immediate UI update
             populateQuizzes();
             updateInterface();
+            
+            // Save progress in background
+            saveProgress();
         }
 
         async function toggleLessonCompletion() {
+            const action = currentLessonProgress.lessonCompleted ? 'unmarked' : 'completed';
             currentLessonProgress.lessonCompleted = !currentLessonProgress.lessonCompleted;
-            await saveProgress();
+            
+            // Show immediate feedback
+            showLessonRealtimeNotification(`Lesson ${action}`, 'progress');
+            
+            // Immediate UI update
             updateInterface();
+            
+            // Send lesson activity
+            sendLessonActivity(currentLessonData.id, currentLessonProgress.lessonCompleted ? 'completed' : 'uncompleted');
             
             if (currentLessonProgress.lessonCompleted) {
                 updateMainAppProgress();
@@ -1072,13 +1209,16 @@
                     }
                 }
                 
-                alert(`■ Congratulations! You've completed: ${currentLessonData.name}\n\nGreat job! Keep up the momentum!`);
+                alert(`🎉 Congratulations! You've completed: ${currentLessonData.name}\n\nGreat job! Keep up the momentum!`);
                 
                 // Automatically navigate back to lesson selector after a brief delay
                 setTimeout(() => {
                     goBack();
                 }, 500);
             }
+            
+            // Save progress in background
+            await saveProgress();
         }
 
         function markVideoWatched(index) {
@@ -1104,12 +1244,22 @@
         async function saveProgress() {
             localStorage.setItem(`lesson_progress_${currentLessonData.id}`, JSON.stringify(currentLessonProgress));
             
-            // Try to sync progress
+            // Try to sync progress with enhanced notifications
             if (window.syncManager) {
                 try {
                     const result = await window.syncManager.triggerSync('quick');
                     if (result && result.success) {
                         console.log('Lesson progress synced successfully');
+                        
+                        // Send user activity for progress changes
+                        window.syncManager.sendUserActivity({
+                            type: 'progress_update',
+                            lessonId: currentLessonData.id,
+                            videosWatched: currentLessonProgress.videosWatched.length,
+                            quizzesCompleted: currentLessonProgress.quizzesCompleted.length,
+                            lessonCompleted: currentLessonProgress.lessonCompleted,
+                            timestamp: new Date().toISOString()
+                        });
                     }
                 } catch (error) {
                     console.warn('Lesson sync failed:', error);
