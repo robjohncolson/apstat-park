@@ -48,12 +48,15 @@ function generateUsername() {
 // Get or create user
 app.post('/api/users/get-or-create', async (req, res) => {
     try {
+        console.log('Creating user request received');
         const { username } = req.body;
         
         if (username) {
+            console.log('Checking for existing username:', username);
             // Try to get existing user
             const result = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
             if (result.rows.length > 0) {
+                console.log('Found existing user');
                 return res.json({ user: result.rows[0] });
             }
         }
@@ -67,16 +70,28 @@ app.post('/api/users/get-or-create', async (req, res) => {
             attempts++;
         } while (attempts < 10); // Prevent infinite loop
         
+        console.log('Creating new user with username:', newUsername);
+        
         // Create new user
         const insertResult = await pool.query(
             'INSERT INTO users (username) VALUES ($1) RETURNING *',
             [newUsername]
         );
         
+        console.log('User created successfully:', insertResult.rows[0]);
         res.json({ user: insertResult.rows[0] });
     } catch (error) {
         console.error('Error in get-or-create user:', error);
-        res.status(500).json({ error: error.message });
+        console.error('Error details:', {
+            message: error.message,
+            code: error.code,
+            detail: error.detail
+        });
+        res.status(500).json({ 
+            error: error.message,
+            code: error.code,
+            detail: error.detail
+        });
     }
 });
 
