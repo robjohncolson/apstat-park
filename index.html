@@ -1591,11 +1591,15 @@
         function openLessonExperience(topic) {
             console.log('openLessonExperience called with topic:', topic);
             console.log('currentUnit:', currentUnit);
+            console.log('window.location:', window.location);
             
-            // Navigate to unified lesson experience
-            const baseUrl = window.location.origin + window.location.pathname.replace('index.html', 'unified-lesson.html');
-            const lessonUrl = baseUrl + `?lesson=${topic.id}&unit=${currentUnit.unitId}`;
+            // Navigate to unified lesson experience - fixed URL construction
+            const currentPath = window.location.pathname;
+            const basePath = currentPath.endsWith('/') ? currentPath : currentPath.replace(/\/[^\/]*$/, '/');
+            const lessonUrl = window.location.origin + basePath + `unified-lesson.html?lesson=${topic.id}&unit=${currentUnit.unitId}`;
             
+            console.log('Current path:', currentPath);
+            console.log('Base path:', basePath);
             console.log('Constructed URL:', lessonUrl);
             console.log('About to navigate to:', lessonUrl);
             
@@ -2003,9 +2007,10 @@
             title.textContent = 'Scan for Mobile Access';
             subtitle.textContent = `${topic.name}: ${topic.description}`;
             
-            // Create unified lesson URL
-            const baseUrl = window.location.origin + window.location.pathname.replace('index.html', 'unified-lesson.html');
-            const mobileUrl = baseUrl + `?mobile=true&lesson=${topic.id}&unit=${currentUnit.unitId}`;
+            // Create unified lesson URL - fixed path construction
+            const currentPath = window.location.pathname;
+            const basePath = currentPath.endsWith('/') ? currentPath : currentPath.replace(/\/[^\/]*$/, '/');
+            const mobileUrl = window.location.origin + basePath + `unified-lesson.html?mobile=true&lesson=${topic.id}&unit=${currentUnit.unitId}`;
             
             console.log('Generated mobile URL:', mobileUrl);
             
