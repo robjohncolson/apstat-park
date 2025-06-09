@@ -831,11 +831,27 @@
             padding: 20px;
         }
 
+        .lesson-mobile-counter {
+            text-align: center;
+            font-size: 1.1em;
+            font-weight: bold;
+            color: #4CAF50;
+            margin-bottom: 20px;
+            padding: 8px 16px;
+            background: rgba(76, 175, 80, 0.1);
+            border-radius: 20px;
+            border: 2px solid #4CAF50;
+        }
+
         .lesson-selector.mobile .lesson-mobile-container {
             display: flex;
         }
 
         .lesson-selector.mobile .lesson-path {
+            display: none;
+        }
+
+        .lesson-selector.mobile .desktop-only {
             display: none;
         }
 
@@ -923,6 +939,17 @@
             background: #9E9E9E;
             border-color: #616161;
             opacity: 0.6;
+        }
+
+        .lesson-mobile-number.clickable {
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .lesson-mobile-number.clickable:hover,
+        .lesson-mobile-number.clickable:active {
+            transform: scale(1.1);
+            box-shadow: 0 8px 16px rgba(0,0,0,0.2);
         }
 
         @keyframes mobilePulse {
@@ -1385,7 +1412,7 @@
         
         <h2 class="world-title" id="unitTitle">SELECT LESSON</h2>
         
-        <div class="instructions">
+        <div class="instructions desktop-only">
             Navigate with arrow keys or tap to select lessons. Complete each lesson to unlock the next!
         </div>
 
@@ -1395,29 +1422,13 @@
 
         <!-- Mobile-specific lesson interface -->
         <div class="lesson-mobile-container" id="lessonMobileContainer">
-            <div class="lesson-mobile-navigation">
-                <button class="lesson-nav-btn" id="prevLessonBtn" onclick="navigateMobileLesson(-1)">‹</button>
-                <div class="lesson-mobile-counter" id="lessonCounter">1 / 10</div>
-                <button class="lesson-nav-btn" id="nextLessonBtn" onclick="navigateMobileLesson(1)">›</button>
-            </div>
+            <div class="lesson-mobile-counter" id="lessonCounter">1 / 10</div>
 
             <div class="lesson-mobile-display" id="mobileDisplay">
-                <div class="lesson-mobile-number" id="mobileNumber">1</div>
+                <div class="lesson-mobile-number clickable" id="mobileNumber" onclick="startMobileLesson()">1</div>
                 <div class="lesson-mobile-title" id="mobileTitle">Lesson Title</div>
                 <div class="lesson-mobile-description" id="mobileDescription">Lesson description goes here</div>
                 <div class="lesson-mobile-status" id="mobileStatus">Available</div>
-                <div class="lesson-mobile-actions">
-                    <button class="lesson-mobile-btn primary" id="mobileStartBtn" onclick="startMobileLesson()">
-                        ▶ Start Lesson
-                    </button>
-                    <button class="lesson-mobile-btn secondary" id="mobileQRBtn" onclick="showMobileLessonQR()">
-                        📱 QR Code
-                    </button>
-                </div>
-            </div>
-
-            <div class="lesson-mobile-swipe-hint">
-                Swipe left/right or use arrows to navigate lessons
             </div>
         </div>
     </div>
