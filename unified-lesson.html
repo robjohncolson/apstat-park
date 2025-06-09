@@ -507,6 +507,16 @@
             .lesson-content {
                 gap: 15px;
             }
+
+            /* Hide keyboard instructions on mobile */
+            .keyboard-help {
+                display: none !important;
+            }
+        }
+
+        /* Mobile detection class */
+        .lesson-experience.mobile .keyboard-help {
+            display: none !important;
         }
 
         /* Loading states */
@@ -612,14 +622,27 @@
         let currentSection = 0;
         let currentItem = 0;
         let currentSubItem = 0;
+        let isMobile = false;
+
+        // Mobile detection function
+        function detectMobile() {
+            const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+            const mobileKeywords = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i;
+            const screenSize = window.innerWidth <= 768;
+            return mobileKeywords.test(userAgent) || screenSize;
+        }
 
         // Initialize lesson on page load
         window.addEventListener('load', initializeLesson);
 
         function initializeLesson() {
+            // Detect mobile device
+            isMobile = detectMobile();
+            
             const params = getUrlParams();
             console.log('URL Params:', params);
             console.log('ALL_UNITS_DATA:', typeof ALL_UNITS_DATA, ALL_UNITS_DATA);
+            console.log('Mobile detected:', isMobile);
             
             if (!params.lesson || !params.unit) {
                 console.log('Missing lesson or unit parameter');
@@ -798,12 +821,14 @@
             document.getElementById('completionBtn').onclick = toggleLessonCompletion;
             document.addEventListener('keydown', handleKeyboard);
             
-            // Show keyboard help briefly
-            setTimeout(() => {
-                const help = document.getElementById('keyboardHelp');
-                help.classList.add('show');
-                setTimeout(() => help.classList.remove('show'), 3000);
-            }, 1000);
+            // Show keyboard help briefly - but only on desktop
+            if (!isMobile) {
+                setTimeout(() => {
+                    const help = document.getElementById('keyboardHelp');
+                    help.classList.add('show');
+                    setTimeout(() => help.classList.remove('show'), 3000);
+                }, 1000);
+            }
         }
 
 

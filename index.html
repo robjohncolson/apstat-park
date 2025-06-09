@@ -1488,7 +1488,7 @@
             const bookmarkBtn = document.getElementById('bookmarkButton');
             const bookmark = checkBookmarkExists();
             
-            if (bookmark) {
+            if (bookmark && bookmarkBtn) {
                 bookmarkBtn.classList.add('show');
                 if (bookmark.type === 'lesson') {
                     // Extract lesson number from ID (e.g., "1-7" from lesson ID)
@@ -1518,7 +1518,7 @@
                     
                     bookmarkBtn.innerHTML = `★ ${lessonNumber} ${description}`;
                 }
-            } else {
+            } else if (bookmarkBtn) {
                 bookmarkBtn.classList.remove('show');
             }
         }
@@ -1527,7 +1527,7 @@
             const lessonBookmarkBtn = document.getElementById('lessonBookmarkButton');
             const bookmark = checkBookmarkExists();
             
-            if (bookmark) {
+            if (bookmark && lessonBookmarkBtn) {
                 lessonBookmarkBtn.classList.add('show');
                 if (bookmark.type === 'lesson') {
                     const lessonNumber = bookmark.id.replace('unit', '').replace('-', '.');
@@ -1553,7 +1553,7 @@
                     
                     lessonBookmarkBtn.innerHTML = `★ ${lessonNumber} ${description}`;
                 }
-            } else {
+            } else if (lessonBookmarkBtn) {
                 lessonBookmarkBtn.classList.remove('show');
             }
         }
