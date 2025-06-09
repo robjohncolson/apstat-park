@@ -123,6 +123,11 @@
             position: absolute;
             top: 0;
             right: 20px;
+            display: none;
+        }
+
+        .lesson-bookmark.show {
+            display: block;
         }
 
         /* Unit selector screen */
@@ -1428,7 +1433,6 @@
                 <div class="lesson-mobile-number clickable" id="mobileNumber" onclick="startMobileLesson()">1</div>
                 <div class="lesson-mobile-title" id="mobileTitle">Lesson Title</div>
                 <div class="lesson-mobile-description" id="mobileDescription">Lesson description goes here</div>
-                <div class="lesson-mobile-status" id="mobileStatus">Available</div>
             </div>
         </div>
     </div>
@@ -1982,45 +1986,19 @@
             
             // Update number styling
             const numberEl = document.getElementById('mobileNumber');
-            numberEl.className = 'lesson-mobile-number';
+            numberEl.className = 'lesson-mobile-number clickable';
             if (topic.completed) numberEl.classList.add('completed');
             else if (topic.isCurrent) numberEl.classList.add('current');
             else if (!isUnlocked) numberEl.classList.add('locked');
             
-            // Update status
-            const statusEl = document.getElementById('mobileStatus');
-            if (topic.completed) {
-                statusEl.textContent = '✅ Completed';
-                statusEl.className = 'lesson-mobile-status completed';
-            } else if (topic.isCurrent) {
-                statusEl.textContent = '🔥 Current Lesson';
-                statusEl.className = 'lesson-mobile-status current';
-            } else if (isUnlocked) {
-                statusEl.textContent = '📖 Available';
-                statusEl.className = 'lesson-mobile-status available';
+            // Make number non-clickable if locked
+            if (!isUnlocked) {
+                numberEl.style.cursor = 'not-allowed';
+                numberEl.onclick = null;
             } else {
-                statusEl.textContent = '🔒 Locked';
-                statusEl.className = 'lesson-mobile-status locked';
+                numberEl.style.cursor = 'pointer';
+                numberEl.onclick = startMobileLesson;
             }
-            
-            // Update buttons - hide QR button for locked lessons
-            const startBtn = document.getElementById('mobileStartBtn');
-            const qrBtn = document.getElementById('mobileQRBtn');
-            
-            if (isUnlocked) {
-                startBtn.disabled = false;
-                startBtn.textContent = topic.completed ? '📖 Review Lesson' : '▶ Start Lesson';
-                qrBtn.style.display = 'flex';
-                qrBtn.disabled = false;
-            } else {
-                startBtn.disabled = true;
-                startBtn.textContent = '🔒 Complete Previous Lessons';
-                qrBtn.style.display = 'none'; // Hide QR button for locked lessons
-            }
-            
-            // Update navigation buttons
-            document.getElementById('prevLessonBtn').disabled = mobileLessonIndex === 0;
-            document.getElementById('nextLessonBtn').disabled = mobileLessonIndex === currentUnit.topics.length - 1;
         }
 
         // Navigate mobile lessons
@@ -2496,6 +2474,9 @@
             document.getElementById('lessonSelector').classList.remove('active');
             document.getElementById('unitSelector').style.display = 'block';
             setTimeout(updateSelectedUnit, 100);
+            
+            // Update bookmark button for unit selector
+            updateBookmarkButton();
         }
 
         // Keyboard navigation pattern:
