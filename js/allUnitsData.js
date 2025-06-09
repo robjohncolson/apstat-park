@@ -2590,3 +2590,6 @@ function getTotalItemCounts(allUnitsDataArray = ALL_UNITS_DATA) {
 
 // Example of how other scripts might use this (don't include this line if using getTotalItemCounts):
 // const globalCounts = getTotalItemCounts();
+
+alert("JavaScript is working!");
+console.log("Script started");
