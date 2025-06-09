@@ -715,8 +715,6 @@
             }
         }
 
-
-
         /* Mobile responsive */
         @media (max-width: 768px) {
             .game-title {
@@ -760,6 +758,222 @@
             .lesson-connector {
                 width: 4px;
                 height: 20px;
+            }
+        }
+
+        /* Mobile-specific lesson selector */
+        .lesson-selector.mobile {
+            padding: 20px;
+        }
+
+        .lesson-mobile-container {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 60vh;
+            padding: 20px;
+        }
+
+        .lesson-selector.mobile .lesson-mobile-container {
+            display: flex;
+        }
+
+        .lesson-selector.mobile .lesson-path {
+            display: none;
+        }
+
+        .lesson-mobile-display {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            max-width: 400px;
+            background: white;
+            border-radius: 20px;
+            padding: 40px 20px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+            margin: 20px 0;
+            position: relative;
+            min-height: 300px;
+        }
+
+        .lesson-mobile-number {
+            font-size: 4em;
+            font-weight: bold;
+            color: #4CAF50;
+            margin-bottom: 15px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .lesson-mobile-number.completed {
+            color: #FFD54F;
+        }
+
+        .lesson-mobile-number.current {
+            color: #FF7043;
+            animation: mobilePulse 2s infinite;
+        }
+
+        .lesson-mobile-number.locked {
+            color: #9E9E9E;
+        }
+
+        @keyframes mobilePulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .lesson-mobile-title {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #2d5a2d;
+            text-align: center;
+            margin-bottom: 10px;
+            line-height: 1.3;
+        }
+
+        .lesson-mobile-description {
+            color: #666;
+            text-align: center;
+            font-size: 0.95em;
+            line-height: 1.4;
+            margin-bottom: 20px;
+            max-width: 300px;
+        }
+
+        .lesson-mobile-status {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+
+        .lesson-mobile-status.completed {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .lesson-mobile-status.current {
+            background: #FF7043;
+            color: white;
+        }
+
+        .lesson-mobile-status.available {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+
+        .lesson-mobile-status.locked {
+            background: #f5f5f5;
+            color: #999;
+        }
+
+        .lesson-mobile-actions {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .lesson-mobile-btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 25px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.95em;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .lesson-mobile-btn.primary {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .lesson-mobile-btn.primary:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+        }
+
+        .lesson-mobile-btn.secondary {
+            background: #2196F3;
+            color: white;
+        }
+
+        .lesson-mobile-btn.secondary:hover {
+            background: #1976D2;
+            transform: translateY(-2px);
+        }
+
+        .lesson-mobile-btn:disabled {
+            background: #ccc;
+            color: #666;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .lesson-mobile-navigation {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            max-width: 400px;
+            margin: 20px 0;
+        }
+
+        .lesson-nav-btn {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            font-size: 1.5em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .lesson-nav-btn:hover {
+            background: #45a049;
+            transform: scale(1.1);
+        }
+
+        .lesson-nav-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .lesson-mobile-counter {
+            background: rgba(255,255,255,0.9);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            color: #2d5a2d;
+            font-weight: bold;
+        }
+
+        .lesson-mobile-swipe-hint {
+            color: #666;
+            font-size: 0.85em;
+            text-align: center;
+            margin-top: 15px;
+            opacity: 0.8;
+        }
+
+        /* Hide mobile elements on desktop */
+        @media (min-width: 769px) {
+            .lesson-mobile-container {
+                display: none !important;
             }
         }
     </style>
@@ -808,9 +1022,35 @@
         <div class="lesson-path" id="lessonPath">
             <!-- Will be populated by JavaScript -->
         </div>
+
+        <!-- Mobile-specific lesson interface -->
+        <div class="lesson-mobile-container" id="lessonMobileContainer">
+            <div class="lesson-mobile-navigation">
+                <button class="lesson-nav-btn" id="prevLessonBtn" onclick="navigateMobileLesson(-1)">‹</button>
+                <div class="lesson-mobile-counter" id="lessonCounter">1 / 10</div>
+                <button class="lesson-nav-btn" id="nextLessonBtn" onclick="navigateMobileLesson(1)">›</button>
+            </div>
+
+            <div class="lesson-mobile-display" id="mobileDisplay">
+                <div class="lesson-mobile-number" id="mobileNumber">1</div>
+                <div class="lesson-mobile-title" id="mobileTitle">Lesson Title</div>
+                <div class="lesson-mobile-description" id="mobileDescription">Lesson description goes here</div>
+                <div class="lesson-mobile-status" id="mobileStatus">Available</div>
+                <div class="lesson-mobile-actions">
+                    <button class="lesson-mobile-btn primary" id="mobileStartBtn" onclick="startMobileLesson()">
+                        ▶ Start Lesson
+                    </button>
+                    <button class="lesson-mobile-btn secondary" id="mobileQRBtn" onclick="showMobileLessonQR()">
+                        📱 QR Code
+                    </button>
+                </div>
+            </div>
+
+            <div class="lesson-mobile-swipe-hint">
+                Swipe left/right or use arrows to navigate lessons
+            </div>
+        </div>
     </div>
-
-
 
     <!-- QR Code Overlay -->
     <div class="qr-overlay" id="qrOverlay">
@@ -841,6 +1081,10 @@
             completedLessons: new Set(),
             currentLesson: '1-1'
         };
+        let isMobile = false;
+        let mobileLessonIndex = 0;
+        let touchStartX = 0;
+        let touchEndX = 0;
 
         // Load progress from localStorage
         function loadProgress() {
@@ -1113,8 +1357,6 @@
             });
         }
 
-
-
         // Select a unit
         function selectUnit(unitIndex) {
             currentUnitIndex = unitIndex;
@@ -1139,6 +1381,14 @@
             // Find current lesson in this unit
             currentLessonIndex = Math.max(0, currentUnit.topics.findIndex(t => !t.completed));
             setTimeout(updateSelectedLesson, 100);
+        }
+
+        // Mobile detection function
+        function detectMobile() {
+            const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+            const mobileKeywords = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i;
+            const screenSize = window.innerWidth <= 768;
+            return mobileKeywords.test(userAgent) || screenSize;
         }
 
         // Generate lesson path for current unit
@@ -1185,6 +1435,131 @@
                     path.appendChild(connector);
                 }
             });
+
+            // Setup mobile interface if needed
+            if (isMobile) {
+                setupMobileLessonInterface();
+            }
+        }
+
+        // Setup mobile lesson interface
+        function setupMobileLessonInterface() {
+            const lessonSelector = document.getElementById('lessonSelector');
+            lessonSelector.classList.add('mobile');
+            
+            // Find current lesson index or first unlocked lesson
+            mobileLessonIndex = Math.max(0, currentUnit.topics.findIndex(t => t.isCurrent || !t.completed));
+            if (mobileLessonIndex === -1) mobileLessonIndex = 0;
+            
+            updateMobileLessonDisplay();
+            setupMobileSwipeGestures();
+        }
+
+        // Update mobile lesson display
+        function updateMobileLessonDisplay() {
+            if (!currentUnit || !currentUnit.topics[mobileLessonIndex]) return;
+            
+            const topic = currentUnit.topics[mobileLessonIndex];
+            const lessonNumber = topic.id.includes('capstone') ? '★' : topic.id.split('-')[1];
+            const isUnlocked = topic.completed || topic.isCurrent || isLessonUnlocked(mobileLessonIndex);
+            
+            // Update display elements
+            document.getElementById('mobileNumber').textContent = lessonNumber;
+            document.getElementById('mobileTitle').textContent = topic.name || `Lesson ${lessonNumber}`;
+            document.getElementById('mobileDescription').textContent = topic.description || '';
+            document.getElementById('lessonCounter').textContent = `${mobileLessonIndex + 1} / ${currentUnit.topics.length}`;
+            
+            // Update number styling
+            const numberEl = document.getElementById('mobileNumber');
+            numberEl.className = 'lesson-mobile-number';
+            if (topic.completed) numberEl.classList.add('completed');
+            else if (topic.isCurrent) numberEl.classList.add('current');
+            else if (!isUnlocked) numberEl.classList.add('locked');
+            
+            // Update status
+            const statusEl = document.getElementById('mobileStatus');
+            if (topic.completed) {
+                statusEl.textContent = '✅ Completed';
+                statusEl.className = 'lesson-mobile-status completed';
+            } else if (topic.isCurrent) {
+                statusEl.textContent = '🔥 Current Lesson';
+                statusEl.className = 'lesson-mobile-status current';
+            } else if (isUnlocked) {
+                statusEl.textContent = '📖 Available';
+                statusEl.className = 'lesson-mobile-status available';
+            } else {
+                statusEl.textContent = '🔒 Locked';
+                statusEl.className = 'lesson-mobile-status locked';
+            }
+            
+            // Update buttons
+            const startBtn = document.getElementById('mobileStartBtn');
+            if (isUnlocked) {
+                startBtn.disabled = false;
+                startBtn.textContent = topic.completed ? '📖 Review Lesson' : '▶ Start Lesson';
+            } else {
+                startBtn.disabled = true;
+                startBtn.textContent = '🔒 Locked';
+            }
+            
+            // Update navigation buttons
+            document.getElementById('prevLessonBtn').disabled = mobileLessonIndex === 0;
+            document.getElementById('nextLessonBtn').disabled = mobileLessonIndex === currentUnit.topics.length - 1;
+        }
+
+        // Navigate mobile lessons
+        function navigateMobileLesson(direction) {
+            const newIndex = mobileLessonIndex + direction;
+            if (newIndex >= 0 && newIndex < currentUnit.topics.length) {
+                mobileLessonIndex = newIndex;
+                updateMobileLessonDisplay();
+            }
+        }
+
+        // Start mobile lesson
+        function startMobileLesson() {
+            const topic = currentUnit.topics[mobileLessonIndex];
+            if (topic && (topic.completed || topic.isCurrent || isLessonUnlocked(mobileLessonIndex))) {
+                selectLesson(topic.id);
+            }
+        }
+
+        // Show QR for mobile lesson
+        function showMobileLessonQR() {
+            const topic = currentUnit.topics[mobileLessonIndex];
+            if (topic && (topic.completed || topic.isCurrent || isLessonUnlocked(mobileLessonIndex))) {
+                showQRCode(topic);
+            }
+        }
+
+        // Setup mobile swipe gestures
+        function setupMobileSwipeGestures() {
+            const mobileDisplay = document.getElementById('mobileDisplay');
+            
+            mobileDisplay.addEventListener('touchstart', (e) => {
+                touchStartX = e.changedTouches[0].screenX;
+            });
+            
+            mobileDisplay.addEventListener('touchend', (e) => {
+                touchEndX = e.changedTouches[0].screenX;
+                handleMobileSwipe();
+            });
+        }
+
+        // Handle mobile swipe
+        function handleMobileSwipe() {
+            const swipeThreshold = 50;
+            const diff = touchStartX - touchEndX;
+            
+            if (Math.abs(diff) > swipeThreshold) {
+                if (diff > 0) {
+                    // Swiped left - next lesson
+                    navigateMobileLesson(1);
+                } else {
+                    // Swiped right - previous lesson
+                    navigateMobileLesson(-1);
+                }
+            }
         }
 
         // Check if a lesson should be unlocked
@@ -1757,6 +2132,9 @@
 
         // Initialize everything when page loads
         window.addEventListener('load', function() {
+            // Detect mobile device
+            isMobile = detectMobile();
+            
             loadProgress();
             initializeUnitsData();
             generateUnitsGrid();
@@ -1775,6 +2153,24 @@
                 if (unitIndex >= 0) {
                     currentUnitIndex = unitIndex;
                     selectUnit(unitIndex);
+                }
+            }
+        });
+
+        // Handle window resize to update mobile detection
+        window.addEventListener('resize', function() {
+            const wasMobile = isMobile;
+            isMobile = detectMobile();
+            
+            // If mobile state changed, update interface
+            if (wasMobile !== isMobile && currentUnit) {
+                const lessonSelector = document.getElementById('lessonSelector');
+                if (lessonSelector.classList.contains('active')) {
+                    if (isMobile) {
+                        setupMobileLessonInterface();
+                    } else {
+                        lessonSelector.classList.remove('mobile');
+                    }
                 }
             }
         });
