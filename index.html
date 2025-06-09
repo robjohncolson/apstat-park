@@ -1083,6 +1083,56 @@
             padding-top: 100px; /* Extra space for bookmark button */
         }
 
+        /* Hide overwhelming header content on mobile */
+        .unit-selector.mobile ~ #gameHeader .game-title {
+            display: none;
+        }
+
+        .unit-selector.mobile ~ #gameHeader {
+            padding: 15px 20px;
+            text-align: center;
+        }
+
+        /* Mobile-only simplified header */
+        .mobile-simple-header {
+            display: none;
+            background: #2d5a2d;
+            color: white;
+            text-align: center;
+            padding: 15px 20px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            position: relative;
+            margin-bottom: 0;
+        }
+
+        .unit-selector.mobile ~ .mobile-simple-header,
+        .mobile-simple-header.show {
+            display: block;
+        }
+
+        .mobile-daily-goal {
+            font-size: 1em;
+            font-weight: bold;
+            line-height: 1.3;
+            margin: 0;
+        }
+
+        .mobile-daily-goal strong {
+            color: #FFD54F;
+        }
+
+        .mobile-daily-goal small {
+            display: block;
+            opacity: 0.8;
+            font-size: 0.85em;
+            margin-top: 5px;
+        }
+
+        /* Hide main header on mobile when unit selector is mobile */
+        body:has(.unit-selector.mobile) #gameHeader {
+            display: none;
+        }
+
         .unit-mobile-container {
             display: none;
             flex-direction: column;
@@ -1323,13 +1373,20 @@
     <!-- Include the actual lesson data -->
     <script src="js/allUnitsData.js"></script>
 
-    <!-- Header -->
+    <!-- Desktop Header -->
     <div class="game-header" id="gameHeader">
         <button class="bookmark-button" id="bookmarkButton" onclick="goToBookmark()">
             ★ GO TO BOOKMARK
         </button>
         <div class="game-title">AP STATISTICS</div>
         <div class="daily-goal" id="dynamicGoal">Loading progress...</div>
+    </div>
+
+    <!-- Mobile Simplified Header -->
+    <div class="mobile-simple-header" id="mobileHeader">
+        <div class="mobile-daily-goal" id="mobileDynamicGoal">
+            Loading progress...
+        </div>
     </div>
 
     <!-- Unit Selector Screen -->
@@ -1632,7 +1689,7 @@
                 
                 const formattedDate = `${dayName}, ${monthName} ${dayNumber}, ${year}`;
                 
-                // Update the display
+                // Update desktop display
                 const goalElement = document.getElementById('dynamicGoal');
                 if (goalElement) {
                     if (remainingLessons > 0) {
@@ -1648,10 +1705,31 @@
                         `;
                     }
                 }
+
+                // Update mobile display - simplified
+                const mobileGoalElement = document.getElementById('mobileDynamicGoal');
+                if (mobileGoalElement) {
+                    if (remainingLessons > 0) {
+                        mobileGoalElement.innerHTML = `
+                            Complete next lesson by <strong>${formattedDate}</strong>
+                            <small>${remainingLessons} lessons remaining</small>
+                        `;
+                    } else {
+                        mobileGoalElement.innerHTML = `
+                            🎉 <strong>All lessons completed!</strong> 🎉
+                            <small>Ready for AP exam!</small>
+                        `;
+                    }
+                }
                 
             } catch (error) {
                 console.error('Error calculating deadline:', error);
-                document.getElementById('dynamicGoal').innerHTML = 'AP Statistics Summer Learning • 78 total lessons';
+                if (document.getElementById('dynamicGoal')) {
+                    document.getElementById('dynamicGoal').innerHTML = 'AP Statistics Summer Learning • 78 total lessons';
+                }
+                if (document.getElementById('mobileDynamicGoal')) {
+                    document.getElementById('mobileDynamicGoal').innerHTML = 'AP Statistics Summer Learning';
+                }
             }
         }
 
@@ -1732,7 +1810,14 @@
         // Setup mobile unit interface
         function setupMobileUnitInterface() {
             const unitSelector = document.getElementById('unitSelector');
+            const mobileHeader = document.getElementById('mobileHeader');
+            const gameHeader = document.getElementById('gameHeader');
+            
             unitSelector.classList.add('mobile');
+            
+            // Show mobile header, hide desktop header
+            if (mobileHeader) mobileHeader.classList.add('show');
+            if (gameHeader) gameHeader.style.display = 'none';
             
             // Start with current unit or first unlocked unit
             mobileUnitIndex = Math.max(0, unitsData.findIndex(u => u.isUnlocked));
@@ -2652,6 +2737,8 @@
             if (wasMobile !== isMobile) {
                 const unitSelector = document.getElementById('unitSelector');
                 const lessonSelector = document.getElementById('lessonSelector');
+                const mobileHeader = document.getElementById('mobileHeader');
+                const gameHeader = document.getElementById('gameHeader');
                 
                 if (unitSelector.style.display !== 'none') {
                     // On unit selector screen
@@ -2659,6 +2746,8 @@
                         setupMobileUnitInterface();
                     } else {
                         unitSelector.classList.remove('mobile');
+                        if (mobileHeader) mobileHeader.classList.remove('show');
+                        if (gameHeader) gameHeader.style.display = 'block';
                     }
                 } else if (lessonSelector.classList.contains('active') && currentUnit) {
                     // On lesson selector screen
