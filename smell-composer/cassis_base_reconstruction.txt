@@ -1,0 +1,554 @@
+X
+Basenotes Forum
+ 
+Articles 
+Wardrobe 
+Directory 
+Reviews 
+SOTD 
+Forums 
+What's new 
+Media 
+Log inRegister Search
+ Forums Making and Understanding Fragrance Fragrance DIY 
+Cassis 345B - How do they do it?
+ Thread starterperfumum  Start dateAug 31, 2017
+gb
+perfumum
+Well-known member
+
+Jun 28, 2016
+326
+148
+Aug 31, 2017
+#1
+Hello all,
+
+We had a thread a while back dissecting Dorinia which I think many found incredibly helpful and inspired Jfrater to delight us with his Rose de Mai formula.
+
+So perhaps we can try a similar thing with Cassis. While Firmenich's C345B is wonderful, using too much of it makes me feel guilty. Moreover, I don't feel as though it is cheap enough to use in things like candles. So I've been working on making my own more cost effective sketch of Cassis, or perhaps an expensive base I can use in fine fragrance and a cheaper approximation for functional use.
+
+My methodology has been to try out as many of the 'trace' ingredients as I can, get those proportions right and then add the rest. By trace here I just mean those superpowers that might affect the odour of Cassis a lot without being present in large amounts.
+
+Labienoxime
+Buccoxime
+Buchu Mercaptan/Thiomenthone
+Sauvignone 100
+Diosphenol (Buchu fractions)
+Theaspirane
+
+So far so good, but many of these ingredients are really pricey (Labienoxime, I'm looking at you). Further, they give quite a sharp Cassis impression. It's there, but lacks body.
+
+So my question concerns what else might go into the base and act as a sort of filler to flesh out the other ingredients. Currently, from looking at a GC of Blackcurrant bud abs and having a think, I reckon the following will be useful:
+
+Citral
+Limonene
+Stemone
+Beta Ionone
+Delta Damascone
+
+But I'm curious to hear what else you might think would work. Ideally, I'd like to keep the amounts of the trace components quite low while bringing up the other things.
+
+Perhaps it's not possible, but something tells me it is: if Firmenich can sell their base and sell it at a profit, I doubt it contains solely maxed out levels of those trace components..
+
+Thanks!
+
+Harry
+Last edited: Aug 31, 2017
+Like
+Reactions:
+jsweet
+David Ruskingb
+David Ruskin
+Well-known member
+
+May 28, 2009
+11,997
+6,813
+Sep 1, 2017
+#2
+It s many years since I smelled this lovely base, but from memory there are various aspects that you haven't covered.
+
+It is Floral, especially Rose; so I would consider various Rose chemicals to fill it out. Geraniol, Citronellol, PEA.
+
+There is a minty quality which Geranium and Geranium chemicals would help with; of course, Geranium and Rose go together well. Pelargene could be useful. Menthone, Menthol, Pulegol and Pulegone. Various esters of Geraniol and PEA such as the Tiglates, Propionates and Butyrates. Rose Oxide.
+
+It is Green. Triplal and Styrallyl Acetate.
+
+I'm not saying that these are definitely in Cassis 345, but they will help you achieve something close.
+
+And don't forget Bourgeons de Cassis (Black Currant Buds) abs. Very expensive, but a little goes a long way.
+gb
+perfumum
+Well-known member
+
+Jun 28, 2016
+326
+148
+Sep 3, 2017
+Thread starter
+#3
+David - thanks so much that is excellent advice. I'll try out your suggestions.
+caribbeanisland
+Well-known member
+
+Aug 8, 2013
+488
+3
+Sep 3, 2017
+#4
+David Ruskin said:
+It s many years since I smelled this lovely base, but from memory there are various aspects that you haven't covered.
+
+It is Floral, especially Rose; so I would consider various Rose chemicals to fill it out. Geraniol, Citronellol, PEA.
+
+There is a minty quality which Geranium and Geranium chemicals would help with; of course, Geranium and Rose go together well. Pelargene could be useful. Menthone, Menthol, Pulegol and Pulegone. Various esters of Geraniol and PEA such as the Tiglates, Propionates and Butyrates. Rose Oxide.
+
+It is Green. Triplal and Styrallyl Acetate.
+
+I'm not saying that these are definitely in Cassis 345, but they will help you achieve something close.
+
+And don't forget Bourgeons de Cassis (Black Currant Buds) abs. Very expensive, but a little goes a long way.
+Click to expand...
+
+I agree with you David in all your impressions. Its one of the loveliest bases used this days, its present in many perfumes, my favorite one using this base is Liaisons Dangerous by Kilian.
+
+jameshillieraustralia
+jameshillier
+Basenotes Plus
+Basenotes Plus
+
+Jul 15, 2020
+319
+101
+May 7, 2021
+#5
+Sorry to resurrect an old thread, but I just came across this info on Scent Tree.
+
+
+The Cassis Base 345 F:
+Composed in increasing order of importance, beta-Pinene, Triplal, Veloutone, 3-7-dimethyloctanol, alpha-pinene, Rose Oxide, Hydroxycitronellal and Dynascone.
+
+Is 345F the same as 345B?
+Like
+Reactions:
+AJ Dave
+gb
+perfumum
+Well-known member
+
+Jun 28, 2016
+326
+148
+May 7, 2021
+Thread starter
+#6
+These components have been known for a while as they're on the SDS. But there are others in this base not listed on the SDS as you can imagine.
+pkiler
+pkiler
+Basenotes Plus
+Basenotes Plus
+
+Dec 5, 2007
+15,459
+5,071
+May 7, 2021
+#7
+No, F and B have different odor profiles.
+szimi.dzimi
+szimi.dzimi
+New member
+
+Jul 2, 2023
+2
+3
+Nov 12, 2023
+#8
+I found a GCMS formula from instagram user "perfume.archeology":
+
+Citronellol 60
+Corps praline 10
+DPG 200
+10% Crystal moss 50
+Hedione 250
+10% Neobutenone 25
+Octalynol (octanoic acid) 25
+Rose oxide 25
+Pinenes 250
+3-hexen-1-lol 5
+Rhubofix 25
+Veloutone 25
+Triplal 25
+Oxane 25
+
+I recreated this formula from what I had at home and I compared it with real base (both B and F).
+This is what I learned:
+
+-Dynascone (Neobutonone), Hedione and B-Pinen are already 80% of the core smell of this base. They are essential for this base.
+
+-The "rancid/milky" note is very important. Responsible for this are Veloutone and Octalynol. I don't have both of them so I used Cremefleur that have a Jasmin/sour milky tone and it worked well.
+
+- Next is the "vegetable" part. I don't have also Oxane and corpse praline. I know how they smell. Instead of Corpse Praline, I used a little more rose oxide but Oxane... I still can smell that my is lacking this "sulfur" vibe from Oxane. I don't know what I can use as a replacement so I will have to buy it I guess.
+
+- Rhubofix is giving a citrus/vetiver vibe tone. It can be replaced with linalyl or styrallyl acetate with a touch of vetiver acetate if you don't have it. Imo linalool will also work great here so give it a try.
+
+-Fresh and green notes come from Triplal and Cis-3 hexenol. If you add more you will get a similarity to 345F which is more green than 345B.
+
+-Citronellol just gives a more fresh fruity tone. You can put whatever similar rose/fruity material you have.
+
+-I'm semi-anosmic to veramoss (crystal moss). I can only notice it if there is a high concentration in the blend. I don't notice any diff after adding it but I think it's gonna be a great fixative for this base.
+Like
+Reactions:
+fhoeflich, letrandung150597 and Charmsander
+orestes13
+Well-known member
+Jun 24, 2022
+234
+205
+Nov 12, 2023
+#9
+szimi.dzimi said:
+4
+jfrater
+jfrater
+Fraterworks Owner
+Basenotes Plus
+
+Jun 2, 2005
+4,468
+6,430
+Nov 12, 2023
+#10
+szimi.dzimi said:
+I found a GCMS formula from instagram user "perfume.archeology":
+
+Citronellol 60
+Corps praline 10
+DPG 200
+10% Crystal moss 50
+Hedione 250
+10% Neobutenone 25
+Octalynol (octanoic acid) 25
+Rose oxide 25
+Pinenes 250
+3-hexen-1-lol 5
+Rhubofix 25
+Veloutone 25
+Triplal 25
+Oxane 25
+
+I recreated this formula from what I had at home and I compared it with real base (both B and F).
+This is what I learned:
+
+-Dynascone (Neobutonone), Hedione and B-Pinen are already 80% of the core smell of this base. They are essential for this base.
+
+-The "rancid/milky" note is very important. Responsible for this are Veloutone and Octalynol. I don't have both of them so I used Cremefleur that have a Jasmin/sour milky tone and it worked well.
+
+- Next is the "vegetable" part. I don't have also Oxane and corpse praline. I know how they smell. Instead of Corpse Praline, I used a little more rose oxide but Oxane... I still can smell that my is lacking this "sulfur" vibe from Oxane. I don't know what I can use as a replacement so I will have to buy it I guess.
+
+- Rhubofix is giving a citrus/vetiver vibe tone. It can be replaced with linalyl or styrallyl acetate with a touch of vetiver acetate if you don't have it. Imo linalool will also work great here so give it a try.
+
+-Fresh and green notes come from Triplal and Cis-3 hexenol. If you add more you will get a similarity to 345F which is more green than 345B.
+
+-Citronellol just gives a more fresh fruity tone. You can put whatever similar rose/fruity material you have.
+
+-I'm semi-anosmic to veramoss (crystal moss). I can only notice it if there is a high concentration in the blend. I don't notice any diff after adding it but I think it's gonna be a great fixative for this base.
+Click to expand...
+Thank you for sharing your results!
+
+Please do bear in mind that "perfume.archeology" simply scrapes old patents at random and assigns names to the formulas he finds based on his guess of what it smells like. They are not what they claim to be and the instagram account does a great disservice to our art form.
+Like
+Reactions:
+Fatmaj, letrandung150597, yoelmh and 4 others
+gb
+perfumum
+Well-known member
+
+Jun 28, 2016
+326
+148
+Nov 12, 2023
+Thread starter
+#11
+If you found it from "perfume.archeology", it's almost certainly incorrect. This account just copies and pastes demo formulae from patents and often claims that they are "the" formulas for XYZ perfume or base. I know a lot of people who have dared to comment asking for clarification or similar and have just been blocked 😅
+Screenshot 2023-11-12 171322.png
+In this case this is a skeletal cassis base but with a few of the main elements misinterpreted/changed. It is a Cassis base type formula to show what Oxane does, rather than the formula for Cassis base 345B as Mathieu claims. To get cassis base there are other sufur components like Cassis pentanone for example.
+
+
+By the way, Octalynol is a Firmenich captive smelling of blackcurrant, rather than octanoic acid.
+Like
+Reactions:
+letrandung150597, Lucofborg, pkiler and 3 others
+szimi.dzimi
+szimi.dzimi
+New member
+
+Jul 2, 2023
+2
+3
+Nov 19, 2023
+#12
+perfumum said:
+If you found it from "perfume.archeology", it's almost certainly incorrect. This account just copies and pastes demo formulae from patents and often claims that they are "the" formulas for XYZ perfume or base...
+
+Good to know for the future! It was just my try to create a blackcurrant base using what I had at home. I learned a lot during that and I'm pleased with my results (for now I guess). I have to admit Instagram formula (I don't know if it's correct or not) is quite similar to real base so for me, it was a great starting point during this project.
+jfrater
+jfrater
+Fraterworks Owner
+Basenotes Plus
+
+Jun 2, 2005
+4,468
+6,430
+Dec 6, 2023
+#13
+szimi.dzimi said:
+Good to know for the future! It was just my try to create a blackcurrant base using what I had at home. I learned a lot during that and I'm pleased with my results (for now I guess). I have to admit Instagram formula (I don't know if it's correct or not) is quite similar to real base so for me, it was a great starting point during this project.
+Might I also suggest @filipeleira's replacer base formula for Cassis Base 345B? I don't have this formula myself but I know Filipe's work is to the very highest standard so I would definitely trust it.
+
+creative-formulas.com
+Cassis 345B Replacer
+This speciality recalls the green, fruity, woody, floral character of blackcurrant combined with the freshness of tropical notes. Extremely useful for giving a diffusive boost to citrus fragrances and fruity-florals even where a blackcurrant note is not required. A powerful top to middle note...
+creative-formulas.com creative-formulas.com
+LikeLove
+Reactions:
+letrandung150597, PeeWee678, filipeleira and 1 other person
+polysom
+polysom
+Well-known member
+
+Apr 4, 2021
+793
+300
+Dec 6, 2023
+#14
+I love Cassis 345B, it's one of my favorite bases. Every time I smell it I see myself as a kid in the garden of my grandma next to her cassis bushes. It smells so spot-on. According to "Scent and Chemistry" 345B contains Isospirene.
+
+szimi.dzimi said:
+I found a GCMS formula from instagram user "perfume.archeology":
+
+Citronellol 60
+Corps praline 10
+...
+
+I've never heard of Corps praline before. It seems to be another name for maltol. In my Cassis 345B I do not smell any malt. I was wondering if this was misspelled and should be Corps racine?
+filipeleirabrazil
+filipeleira
+Basenotes Plus
+Basenotes Plus
+
+Feb 18, 2018
+269
+827
+Dec 6, 2023
+#15
+polysom said:
+I've never heard of Corps praline before. It seems to be another name for maltol. In my Cassis 345B I do not smell any malt. I was wondering if this was misspelled and should be Corps racine?
+It's not Corps Racine; there is some Maltol in Cassis Base 345B
+Like
+Reactions:
+letrandung150597
+Mandous
+Mando
+Basenotes Plus
+Basenotes Plus
+
+Mar 10, 2020
+810
+1,670
+Feb 18, 2024
+#16
+Unimportant question but I still like to ask if anyone knows, when was Cassis 345B created? I love knowing historical facts about things.
+Scntwtkcanada
+Scntwtk
+Well-known member
+
+Mar 6, 2008
+292
+226
+Feb 18, 2024
+#17
+Mando said:
+Unimportant question but I still like to ask if anyone knows, when was Cassis 345B created? I love knowing historical facts about things.
+I'm asking myself the same question,
+Also, Who is the creator of this marvel?
+
+I Was reading an old article of Arcadi Boix Camps' - "Gardenia in Perfumery" from P&F magazine earlier today and it mentions the use of Etaspirene (in addidion to Octalinol and Isospirene that was already mentioned above). I never smelled any of those three molecules obviously but according to Scent and Chemistry, Etaspirene has a "somewhat sulfury, fruity cassis character" and has "beed used to provide volume and diffusivity to 'Pleasures' " by Estée Lauder. By itself or in the form of a base who knows🤷‍♀️🤷
+
+I never saw any of these materials for sale anywhere. Are those materials all captives? (Octalinol, Isospirene, Etaspirene)
+On a similar note, does anyone know if Vitispriane is available as a perfumery ingredient? It seems very intriguing
+Like
+Reactions:
+Mando
+Mandous
+Mando
+Basenotes Plus
+Basenotes Plus
+
+Mar 10, 2020
+810
+1,670
+Feb 18, 2024
+#18
+Scntwtk said:
+I'm asking myself the same question,
+Also, Who is the creator of this marvel?
+
+I Was reading an old article of Arcadi Boix Camps' - "Gardenia in Perfumery" from P&F magazine earlier today and it mentions the use of Etaspirene (in addidion to Octalinol and Isospirene that was already mentioned above). I never smelled any of those three molecules obviously but according to Scent and Chemistry, Etaspirene has a "somewhat sulfury, fruity cassis character" and has "beed used to provide volume and diffusivity to 'Pleasures' " by Estée Lauder. By itself or in the form of a base who knows🤷‍♀️🤷
+
+I never saw any of these materials for sale anywhere. Are those materials all captives? (Octalinol, Isospirene, Etaspirene)
+On a similar note, does anyone know if Vitispriane is available as a perfumery ingredient? It seems very intriguing
+Click to expand...
+Appreciate the info.
+Like
+Reactions:
+Scntwtk
+You must log in or register to reply here.
+
+Similar threads
+Ingredients Cassis Base 345 F suggestions
+adragas Jan 29, 2025 Fragrance DIY
+Replies4
+Views825
+Jan 30, 2025
+adragas
+Dealing with Trace Amounts in Practice Formulas
+_delayed Apr 25, 2025 Fragrance DIY
+Replies2
+Views434
+Apr 25, 2025
+_delayed
+How do you mix your perfume-creations?
+Calvinous Apr 26, 2025 Fragrance DIY
+Replies9
+Views540
+Apr 28, 2025
+pineal
+Cassis 345B in Candles
+Ambr0se Jul 16, 2023 Fragrance DIY 2
+Replies21
+Views3K
+Jul 18, 2023
+David Ruskin
+David Ruskin
+Phenafleur / Hyacinth ether - how do you guys use it?
+Ryderz Jan 21, 2025 Fragrance DIY
+Replies2
+Views454
+Jan 22, 2025
+Ryderz
+Share:
+Facebook
+X
+Bluesky
+LinkedIn
+Reddit
+Pinterest
+Tumblr
+WhatsApp
+Email
+Link
+ Forums Making and Understanding Fragrance Fragrance DIY 
+
+ Log in
+Your name or email address
+Password
+ Forgot your password?
+Stay logged in
+Log in
+Don't have an account? Register now
+ Latest posts
+Monsieur Montana
+SOTD [Vintage] Scent of the Day – June 2025
+Latest: Monsieur Montana 9 minutes ago
+Vintage Perfume
+CookBot
+Vetiver Wednesdays Sync : an invitation to a magical journey (2025)
+Latest: CookBot 12 minutes ago
+General Fragrance Discussion
+VanAllan
+SOTD [Men's] Scent of the Day – Wednesday 4th of June 2025
+Latest: VanAllan 13 minutes ago
+Masculine Fragrance Discussion
+hednic
+Share a picture that represents how your SOTD makes you feel
+Latest: hednic 17 minutes ago
+General Fragrance Discussion
+hednic
+June is Dior Month! Thread
+Latest: hednic 17 minutes ago
+General Fragrance Discussion
+Forum statistics
+Threads277,187
+Messages5,359,129
+Members227,018
+Latest membervladimiringerman
+Share this page
+Facebook
+X
+Bluesky
+LinkedIn
+Reddit
+Pinterest
+Tumblr
+WhatsApp
+Email
+Link
+Trending content
+Basenotes Robot
+Thread '[Vintage] Scent of the Day – May 2025'
+Basenotes Robot Apr 30, 2025
+Replies: 864
+Redneck Perfumisto
+Thread 'Hermais (The Month of Hermès)'
+Redneck Perfumisto May 1, 2025
+Replies: 651
+Basenotes Robot
+Thread '[Vintage] Scent of the Day – June 2025'
+Basenotes Robot Saturday at 10:59 PM
+Replies: 102
+Ufoshowlloao
+Thread 'Human Accords?'
+Ufoshowlloao Oct 22, 2024
+Replies: 11
+98ViperGTS
+Thread 'Ensar Oud Thread'
+98ViperGTS Oct 11, 2024
+Replies: 759
+Support Basenotes
+Basenotes has always been free to access, but with ad revenues falling, we’re asking our community for help.
+
+If you’d like to support the site and enjoy it without ads, you can join our Patreon for a small monthly amount. If you’re not ready for a subscription, a one-time donation still goes a long way.
+
+
+
+
+Join Patreon
+
+Donate
+Basenotes Forum
+Loving Perfume on the Internet Since 2000
+
+BlueSkyMastodonRedditLinkedInPinterestTumblrRSS
+About Us
+ About Us
+ Announcements
+ Contributors
+Get in touch
+ Contact Us
+ News Tips
+ Advertise
+ Write for Us
+ Newsletter Subscription
+ Socials
+More
+ Stinkle
+ Help + FAQs
+ Support Us
+ Cookie Policy
+ Affiliate Statement
+ Random Fragrance
+Change width
+Contact usTerms of UsePrivacy policyLegalHomeRSS
+SHE Media LifestylesAdChoices logo
+Learn More Privacy

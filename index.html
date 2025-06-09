@@ -1,0 +1,1776 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AP Statistics - Summer Learning</title>
+    <style>
+        /* PICO PARK Style CSS */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #e8f5e8 0%, #d4f4d4 50%, #c1f2c1 100%);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Header with game info */
+        .game-header {
+            background: #2d5a2d;
+            color: white;
+            text-align: center;
+            padding: 20px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            position: relative;
+        }
+
+        .game-title {
+            font-size: 2.5em;
+            font-weight: bold;
+            letter-spacing: 2px;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .daily-goal {
+            background: #4a7c4a;
+            padding: 10px 20px;
+            border-radius: 20px;
+            display: inline-block;
+            font-size: 1.1em;
+            margin-top: 10px;
+        }
+
+        /* Bookmark button */
+        .bookmark-button {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: none;
+            border: 2px solid #4CAF50;
+            color: #4CAF50;
+            padding: 10px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 1em;
+            font-weight: bold;
+            font-family: monospace;
+            display: none;
+        }
+
+        .bookmark-button:hover, .bookmark-button:focus {
+            border-color: #FFD54F;
+            color: #FFD54F;
+            background: rgba(255, 213, 79, 0.1);
+            transform: translateY(-2px);
+            outline: none;
+        }
+
+        .bookmark-button.show {
+            display: block;
+        }
+
+        .bookmark-button.keyboard-focused {
+            border-color: #FFD54F !important;
+            color: #FFD54F !important;
+            background: rgba(255, 213, 79, 0.2) !important;
+            transform: translateY(-2px) scale(1.05);
+            box-shadow: 0 0 0 3px rgba(255, 213, 79, 0.6);
+        }
+
+        /* Lesson selector header */
+        .lesson-selector-header {
+            position: relative;
+            margin-bottom: 20px;
+        }
+
+        .lesson-bookmark {
+            position: absolute;
+            top: 0;
+            right: 20px;
+        }
+
+        /* Unit selector screen */
+        .unit-selector {
+            padding: 40px 20px;
+            text-align: center;
+        }
+
+        .world-title {
+            font-size: 2em;
+            color: #2d5a2d;
+            margin-bottom: 30px;
+            font-weight: bold;
+        }
+
+        .units-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 30px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .unit-box {
+            background: #4CAF50;
+            border: 4px solid #2E7D32;
+            border-radius: 8px;
+            padding: 30px 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            position: relative;
+            overflow: hidden;
+            min-height: 150px;
+        }
+
+        .unit-box:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+        }
+
+        .unit-box.locked {
+            background: #9E9E9E;
+            border-color: #616161;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        .unit-box.selected {
+            box-shadow: 0 0 0 4px #FFD54F, 0 8px 16px rgba(0,0,0,0.3);
+            transform: translateY(-8px) scale(1.02);
+        }
+
+        .unit-number {
+            font-size: 3em;
+            font-weight: bold;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            margin-bottom: 10px;
+        }
+
+        .unit-name {
+            color: white;
+            font-weight: bold;
+            font-size: 1em;
+            line-height: 1.3;
+            margin-bottom: 5px;
+        }
+
+        .unit-weight {
+            color: rgba(255,255,255,0.8);
+            font-size: 0.9em;
+            margin-bottom: 10px;
+        }
+
+        .unit-progress {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #FFD54F;
+            color: #333;
+            padding: 5px 10px;
+            border-radius: 12px;
+            font-size: 0.9em;
+            font-weight: bold;
+        }
+
+        /* Lesson selector screen (hidden by default) */
+        .lesson-selector {
+            display: none;
+            padding: 40px 20px;
+            text-align: center;
+            min-height: 70vh;
+        }
+
+        .lesson-selector.active {
+            display: block;
+        }
+
+        .lesson-path {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .lesson-box {
+            background: #4CAF50;
+            border: 4px solid #2E7D32;
+            border-radius: 8px;
+            width: 80px;
+            height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8em;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            position: relative;
+        }
+
+        .lesson-box:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.2);
+        }
+
+        .lesson-box.locked {
+            background: #9E9E9E;
+            border-color: #616161;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        .lesson-box.completed {
+            background: #FFD54F;
+            border-color: #F57F17;
+            color: #333;
+        }
+
+        .lesson-box.current {
+            background: #FF7043;
+            border-color: #E64A19;
+            animation: pulse 2s infinite;
+        }
+
+        .lesson-box.selected {
+            box-shadow: 0 0 0 4px #FFD54F, 0 6px 12px rgba(0,0,0,0.2);
+            transform: scale(1.05);
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .lesson-connector {
+            width: 40px;
+            height: 4px;
+            background: #4CAF50;
+            border-radius: 2px;
+        }
+
+        .lesson-connector.locked {
+            background: #9E9E9E;
+        }
+
+        /* Back button */
+        .back-button {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: none;
+            border: 2px solid #4CAF50;
+            color: #4CAF50;
+            padding: 10px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 1em;
+            font-weight: bold;
+            font-family: monospace;
+        }
+
+        .back-button:hover, .back-button:focus {
+            border-color: #FFD54F;
+            color: #FFD54F;
+            background: rgba(255, 213, 79, 0.1);
+            transform: translateY(-2px);
+            outline: none;
+        }
+
+        /* Instructions */
+        .instructions {
+            background: rgba(255,255,255,0.9);
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px auto;
+            max-width: 600px;
+            text-align: center;
+            color: #2d5a2d;
+        }
+
+        /* QR Code overlay */
+        .qr-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .qr-modal {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+        }
+
+        .qr-title {
+            font-size: 1.5em;
+            color: #2d5a2d;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+
+        .qr-subtitle {
+            color: #666;
+            margin-bottom: 20px;
+            font-size: 0.9em;
+        }
+
+        .qr-code-container {
+            margin: 20px 0;
+            display: flex;
+            justify-content: center;
+        }
+
+        .qr-instructions {
+            color: #666;
+            font-size: 0.9em;
+            margin: 15px 0;
+            line-height: 1.4;
+        }
+
+        .qr-close {
+            background: #FF7043;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-top: 15px;
+        }
+
+        .qr-close:hover {
+            background: #E64A19;
+        }
+
+        .qr-button {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            width: 24px;
+            height: 24px;
+            background: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            font-size: 12px;
+            cursor: pointer;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            z-index: 10;
+        }
+
+        .lesson-box:hover .qr-button,
+        .lesson-box.selected .qr-button {
+            display: flex;
+        }
+
+        .qr-button:hover {
+            background: #1976D2;
+            transform: scale(1.1);
+        }
+
+        /* Lesson Experience Interface */
+        .lesson-experience {
+            display: none;
+            background: linear-gradient(135deg, #e8f5e8 0%, #d4f4d4 50%, #c1f2c1 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .lesson-experience.active {
+            display: block;
+        }
+
+        .lesson-header {
+            background: #2d5a2d;
+            color: white;
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .lesson-back-btn {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            font-size: 0.9em;
+        }
+
+        .lesson-back-btn:hover {
+            background: rgba(255,255,255,0.3);
+            transform: translateY(-2px);
+        }
+
+        .lesson-info {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .lesson-main-title {
+            font-size: 1.8em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .lesson-main-description {
+            opacity: 0.9;
+            font-size: 1em;
+            margin: 0;
+        }
+
+        .lesson-progress-badge {
+            background: #FFD54F;
+            color: #333;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+
+        .lesson-content {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .lesson-section {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            overflow: hidden;
+            border: 2px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .lesson-section:hover {
+            border-color: #4CAF50;
+            transform: translateY(-2px);
+        }
+
+        .section-header {
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .section-icon {
+            font-size: 1.5em;
+            width: 40px;
+            text-align: center;
+        }
+
+        .section-title {
+            flex: 1;
+            font-size: 1.3em;
+            color: #2d5a2d;
+            margin: 0;
+            font-weight: bold;
+        }
+
+        .section-status {
+            background: #e3f2fd;
+            color: #1976d2;
+            padding: 5px 12px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: bold;
+        }
+
+        .section-content {
+            padding: 20px;
+        }
+
+        /* Video Items */
+        .video-item {
+            background: #f5f5f5;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 15px;
+            border-left: 4px solid #4CAF50;
+            transition: all 0.3s ease;
+        }
+
+        .video-item:hover {
+            background: #f0f8f0;
+            transform: translateX(5px);
+        }
+
+        .video-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .video-title {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+
+        .video-links {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .video-link {
+            background: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .video-link:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+        }
+
+        .video-link.alt {
+            background: #2196F3;
+        }
+
+        .video-link.alt:hover {
+            background: #1976D2;
+        }
+
+        /* Quiz Items */
+        .quiz-item {
+            background: #fff3e0;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 15px;
+            border-left: 4px solid #FF7043;
+            transition: all 0.3s ease;
+        }
+
+        .quiz-item:hover {
+            background: #fff8f0;
+            transform: translateX(5px);
+        }
+
+        .quiz-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .quiz-title {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.1em;
+        }
+
+        .quiz-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .quiz-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .quiz-btn.download {
+            background: #FF7043;
+            color: white;
+        }
+
+        .quiz-btn.download:hover {
+            background: #E64A19;
+            transform: translateY(-2px);
+        }
+
+        .quiz-btn.grok {
+            background: #2196F3;
+            color: white;
+        }
+
+        .quiz-btn.grok:hover {
+            background: #1976D2;
+            transform: translateY(-2px);
+        }
+
+        /* Completion Card */
+        .completion-card {
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            color: white;
+            border-radius: 15px;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .completion-message h3 {
+            font-size: 1.4em;
+            margin-bottom: 10px;
+        }
+
+        .completion-message p {
+            opacity: 0.9;
+            margin-bottom: 20px;
+        }
+
+        .completion-btn {
+            background: white;
+            color: #4CAF50;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-size: 1.1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .completion-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+
+        .completion-btn:disabled {
+            background: #ccc;
+            color: #666;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Mobile Responsive for Lesson Experience */
+        @media (max-width: 768px) {
+            .lesson-experience {
+                padding: 10px;
+            }
+
+            .lesson-header {
+                padding: 15px;
+                flex-direction: column;
+                text-align: center;
+                gap: 10px;
+            }
+
+            .lesson-main-title {
+                font-size: 1.5em;
+            }
+
+            .video-links, .quiz-actions {
+                flex-direction: column;
+            }
+
+            .video-link, .quiz-btn {
+                justify-content: center;
+            }
+        }
+
+
+
+        /* Mobile responsive */
+        @media (max-width: 768px) {
+            .game-title {
+                font-size: 2em;
+            }
+            
+            .units-grid {
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+                gap: 20px;
+            }
+            
+            .unit-box {
+                padding: 20px 10px;
+                min-height: 120px;
+            }
+            
+            .unit-number {
+                font-size: 2.5em;
+            }
+            
+            .lesson-box {
+                width: 60px;
+                height: 60px;
+                font-size: 1.4em;
+            }
+            
+            .lesson-connector {
+                width: 20px;
+            }
+            
+            .lesson-path {
+                gap: 10px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .lesson-path {
+                flex-direction: column;
+            }
+            
+            .lesson-connector {
+                width: 4px;
+                height: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Include the actual lesson data -->
+    <script src="js/allUnitsData.js"></script>
+
+    <!-- Header -->
+    <div class="game-header" id="gameHeader">
+        <button class="bookmark-button" id="bookmarkButton" onclick="goToBookmark()">
+            ★ GO TO BOOKMARK
+        </button>
+        <div class="game-title">AP STATISTICS</div>
+        <div class="daily-goal" id="dynamicGoal">Loading progress...</div>
+    </div>
+
+    <!-- Unit Selector Screen -->
+    <div class="unit-selector" id="unitSelector">
+        <h2 class="world-title">SELECT UNIT</h2>
+        
+        <div class="instructions">
+            Complete units sequentially to unlock new content. Navigate with arrow keys or click to select.
+        </div>
+
+        <div class="units-grid" id="unitsGrid">
+            <!-- Will be populated by JavaScript -->
+        </div>
+    </div>
+
+    <!-- Lesson Selector Screen -->
+    <div class="lesson-selector" id="lessonSelector">
+        <div class="lesson-selector-header">
+            <button class="back-button" onclick="backToUnits()">← UNITS</button>
+            <button class="bookmark-button lesson-bookmark" id="lessonBookmarkButton" onclick="goToBookmark()">
+                ★ GO TO BOOKMARK
+            </button>
+        </div>
+        
+        <h2 class="world-title" id="unitTitle">SELECT LESSON</h2>
+        
+        <div class="instructions">
+            Navigate with arrow keys or tap to select lessons. Complete each lesson to unlock the next!
+        </div>
+
+        <div class="lesson-path" id="lessonPath">
+            <!-- Will be populated by JavaScript -->
+        </div>
+    </div>
+
+
+
+    <!-- QR Code Overlay -->
+    <div class="qr-overlay" id="qrOverlay">
+        <div class="qr-modal">
+            <div class="qr-title" id="qrTitle">Scan for Mobile Access</div>
+            <div class="qr-subtitle" id="qrSubtitle">Topic 1.1: Introducing Statistics</div>
+            <div class="qr-code-container">
+                <canvas id="qrCanvas"></canvas>
+            </div>
+            <div class="qr-instructions">
+                Scan this QR code with your phone's camera to access this lesson on mobile with videos, PDFs, and one-click Grok integration.
+                <br><br>
+                <small style="opacity: 0.7;">
+                    For testing: <a href="#" id="testMobileLink" target="_blank" style="color: #2d5a2d;">Click here to test mobile version</a>
+                </small>
+            </div>
+            <button class="qr-close" onclick="closeQRModal()">Close</button>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let currentUnitIndex = 0;
+        let currentLessonIndex = 0;
+        let currentUnit = null;
+        let unitsData = [];
+        let studentProgress = {
+            completedLessons: new Set(),
+            currentLesson: '1-1'
+        };
+
+        // Load progress from localStorage
+        function loadProgress() {
+            const saved = localStorage.getItem('apStatsProgress');
+            if (saved) {
+                const data = JSON.parse(saved);
+                studentProgress.completedLessons = new Set(data.completedLessons || []);
+                studentProgress.currentLesson = data.currentLesson || '1-1';
+            }
+        }
+
+        // Bookmark management functions
+        function checkBookmarkExists() {
+            // Check for lesson bookmarks
+            const lessonBookmarks = JSON.parse(localStorage.getItem('bookmarked_lessons') || '[]');
+            if (lessonBookmarks.length > 0) {
+                return { type: 'lesson', id: lessonBookmarks[0] };
+            }
+            
+            // Check for item bookmarks (video/quiz)
+            const itemBookmarks = JSON.parse(localStorage.getItem('item_bookmarks') || '[]');
+            if (itemBookmarks.length > 0) {
+                return { type: 'item', data: itemBookmarks[0] };
+            }
+            
+            return null;
+        }
+
+        function updateBookmarkButton() {
+            const bookmarkBtn = document.getElementById('bookmarkButton');
+            const bookmark = checkBookmarkExists();
+            
+            if (bookmark) {
+                bookmarkBtn.classList.add('show');
+                if (bookmark.type === 'lesson') {
+                    // Extract lesson number from ID (e.g., "1-7" from lesson ID)
+                    const lessonNumber = bookmark.id.replace('unit', '').replace('-', '.');
+                    bookmarkBtn.innerHTML = `★ ${lessonNumber} LESSON`;
+                } else {
+                    // Create descriptive text for item bookmarks
+                    const itemData = bookmark.data;
+                    const lessonNumber = itemData.lessonId.replace('unit', '').replace('-', '.');
+                    
+                    let description = '';
+                    if (itemData.type === 'video') {
+                        // Check if it's alternate video or main video
+                        if (itemData.title && itemData.title.toLowerCase().includes('alt')) {
+                            description = 'ALTERNATE VIDEO';
+                        } else {
+                            description = 'VIDEO';
+                        }
+                    } else if (itemData.type === 'quiz') {
+                        // Check if it's answers or questions
+                        if (itemData.title && itemData.title.toLowerCase().includes('answer')) {
+                            description = 'QUIZ ANSWERS';
+                        } else {
+                            description = 'QUIZ';
+                        }
+                    }
+                    
+                    bookmarkBtn.innerHTML = `★ ${lessonNumber} ${description}`;
+                }
+            } else {
+                bookmarkBtn.classList.remove('show');
+            }
+        }
+
+        function updateLessonBookmarkButton() {
+            const lessonBookmarkBtn = document.getElementById('lessonBookmarkButton');
+            const bookmark = checkBookmarkExists();
+            
+            if (bookmark) {
+                lessonBookmarkBtn.classList.add('show');
+                if (bookmark.type === 'lesson') {
+                    const lessonNumber = bookmark.id.replace('unit', '').replace('-', '.');
+                    lessonBookmarkBtn.innerHTML = `★ ${lessonNumber} LESSON`;
+                } else {
+                    const itemData = bookmark.data;
+                    const lessonNumber = itemData.lessonId.replace('unit', '').replace('-', '.');
+                    
+                    let description = '';
+                    if (itemData.type === 'video') {
+                        if (itemData.title && itemData.title.toLowerCase().includes('alt')) {
+                            description = 'ALTERNATE VIDEO';
+                        } else {
+                            description = 'VIDEO';
+                        }
+                    } else if (itemData.type === 'quiz') {
+                        if (itemData.title && itemData.title.toLowerCase().includes('answer')) {
+                            description = 'QUIZ ANSWERS';
+                        } else {
+                            description = 'QUIZ';
+                        }
+                    }
+                    
+                    lessonBookmarkBtn.innerHTML = `★ ${lessonNumber} ${description}`;
+                }
+            } else {
+                lessonBookmarkBtn.classList.remove('show');
+            }
+        }
+
+        function getUnitForLesson(lessonId) {
+            // Find which unit contains this lesson
+            for (const unit of ALL_UNITS_DATA) {
+                if (unit.topics.some(topic => topic.id === lessonId)) {
+                    return unit.unitId;
+                }
+            }
+            return null;
+        }
+
+        function goToBookmark() {
+            const bookmark = checkBookmarkExists();
+            if (!bookmark) return;
+            
+            if (bookmark.type === 'lesson') {
+                // Navigate directly to lesson
+                const unitId = getUnitForLesson(bookmark.id);
+                if (!unitId) {
+                    alert('Could not find unit for this lesson. Please try again.');
+                    return;
+                }
+                const lessonUrl = `unified-lesson.html?lesson=${bookmark.id}&unit=${unitId}&mobile=false`;
+                window.location.href = lessonUrl;
+            } else {
+                // Navigate to lesson (the lesson page will handle highlighting the bookmarked item)
+                const itemData = bookmark.data;
+                const unitId = getUnitForLesson(itemData.lessonId);
+                if (!unitId) {
+                    alert('Could not find unit for this lesson. Please try again.');
+                    return;
+                }
+                const lessonUrl = `unified-lesson.html?lesson=${itemData.lessonId}&unit=${unitId}&mobile=false`;
+                window.location.href = lessonUrl;
+            }
+        }
+
+        // Save progress to localStorage
+        function saveProgress() {
+            const data = {
+                completedLessons: Array.from(studentProgress.completedLessons),
+                currentLesson: studentProgress.currentLesson
+            };
+            localStorage.setItem('apStatsProgress', JSON.stringify(data));
+        }
+
+        // Calculate dynamic deadline based on remaining lessons
+        function calculateNextDeadline() {
+            try {
+                const today = new Date();
+                const apExamDate = new Date(2026, 4, 7); // May 7, 2026
+                
+                // Count total and completed lessons
+                const totalLessons = getTotalLessonCount();
+                const completedCount = studentProgress.completedLessons.size;
+                const remainingLessons = totalLessons - completedCount;
+                
+                // Calculate days until exam
+                const msPerDay = 24 * 60 * 60 * 1000;
+                const daysUntilExam = Math.ceil((apExamDate - today) / msPerDay);
+                
+                // Calculate pace (days per lesson)
+                const daysPerLesson = remainingLessons > 0 ? Math.max(1, Math.floor(daysUntilExam / remainingLessons)) : 0;
+                
+                // Calculate next deadline
+                const nextDeadline = new Date(today);
+                nextDeadline.setDate(today.getDate() + daysPerLesson);
+                
+                // Format deadline
+                const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+                const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+                
+                const dayName = days[nextDeadline.getDay()];
+                const monthName = months[nextDeadline.getMonth()];
+                const dayNumber = nextDeadline.getDate();
+                const year = nextDeadline.getFullYear();
+                
+                const formattedDate = `${dayName}, ${monthName} ${dayNumber}, ${year}`;
+                
+                // Update the display
+                const goalElement = document.getElementById('dynamicGoal');
+                if (goalElement) {
+                    if (remainingLessons > 0) {
+                        const paceText = daysPerLesson === 1 ? '1 lesson daily' : `1 lesson every ${daysPerLesson} days`;
+                        goalElement.innerHTML = `
+                            Daily Goal: Complete next lesson by <strong>${formattedDate}</strong><br>
+                            <small style="opacity: 0.8;">${paceText} • ${remainingLessons}/${totalLessons} lessons remaining • ${daysUntilExam} days until AP exam</small>
+                        `;
+                    } else {
+                        goalElement.innerHTML = `
+                            🎉 <strong>All lessons completed!</strong> 🎉<br>
+                            <small style="opacity: 0.8;">Ready for AP exam on May 7, 2026 • ${daysUntilExam} days to review</small>
+                        `;
+                    }
+                }
+                
+            } catch (error) {
+                console.error('Error calculating deadline:', error);
+                document.getElementById('dynamicGoal').innerHTML = 'AP Statistics Summer Learning • 78 total lessons';
+            }
+        }
+
+        // Get total lesson count from data
+        function getTotalLessonCount() {
+            let count = 0;
+            ALL_UNITS_DATA.forEach(unit => {
+                count += unit.topics.length;
+            });
+            return count;
+        }
+
+        // Initialize units data with progress
+        function initializeUnitsData() {
+            unitsData = ALL_UNITS_DATA.map((unit, unitIndex) => {
+                const topics = unit.topics.map(topic => ({
+                    ...topic,
+                    completed: studentProgress.completedLessons.has(topic.id),
+                    isCurrent: topic.id === studentProgress.currentLesson
+                }));
+                
+                const completedCount = topics.filter(t => t.completed).length;
+                const progress = `${completedCount}/${topics.length}`;
+                const isUnlocked = isUnitUnlocked(unitIndex, ALL_UNITS_DATA);
+                
+                return {
+                    ...unit,
+                    topics,
+                    progress,
+                    completedCount,
+                    isUnlocked
+                };
+            });
+        }
+
+        // Check if a unit should be unlocked
+        function isUnitUnlocked(unitIndex, allUnitsData = ALL_UNITS_DATA) {
+            if (unitIndex <= 0) return true;
+            
+            // Check if previous unit is complete by checking completed lessons
+            const prevUnit = allUnitsData[unitIndex - 1];
+            if (!prevUnit) return false;
+            
+            // Count how many lessons from previous unit are completed
+            const prevUnitCompletedCount = prevUnit.topics.filter(topic => 
+                studentProgress.completedLessons.has(topic.id)
+            ).length;
+            
+            return prevUnitCompletedCount === prevUnit.topics.length;
+        }
+
+        // Generate units grid HTML
+        function generateUnitsGrid() {
+            const grid = document.getElementById('unitsGrid');
+            grid.innerHTML = '';
+            
+            unitsData.forEach((unit, index) => {
+                const unitBox = document.createElement('div');
+                unitBox.className = `unit-box ${unit.isUnlocked ? '' : 'locked'}`;
+                unitBox.onclick = () => unit.isUnlocked && selectUnit(index);
+                
+                const unitNumber = parseInt(unit.unitId.replace('unit', ''));
+                
+                unitBox.innerHTML = `
+                    ${unit.isUnlocked ? `<div class="unit-progress">${unit.progress}</div>` : ''}
+                    <div class="unit-number">${unitNumber}</div>
+                `;
+                
+                grid.appendChild(unitBox);
+            });
+        }
+
+
+
+        // Select a unit
+        function selectUnit(unitIndex) {
+            currentUnitIndex = unitIndex;
+            currentUnit = unitsData[unitIndex];
+            
+            if (!currentUnit.isUnlocked) return;
+            
+            // Reset focus to main content when entering lesson selector
+            currentFocus = 'main';
+            
+            // Hide main header and unit selector
+            document.getElementById('gameHeader').style.display = 'none';
+            document.getElementById('unitSelector').style.display = 'none';
+            document.getElementById('lessonSelector').classList.add('active');
+            document.getElementById('unitTitle').textContent = currentUnit.displayName;
+            
+            // Update lesson bookmark button
+            updateLessonBookmarkButton();
+            
+            generateLessonPath();
+            
+            // Find current lesson in this unit
+            currentLessonIndex = Math.max(0, currentUnit.topics.findIndex(t => !t.completed));
+            setTimeout(updateSelectedLesson, 100);
+        }
+
+        // Generate lesson path for current unit
+        function generateLessonPath() {
+            const path = document.getElementById('lessonPath');
+            path.innerHTML = '';
+            
+            currentUnit.topics.forEach((topic, index) => {
+                // Add lesson box
+                const lessonBox = document.createElement('div');
+                const lessonNumber = topic.id.includes('capstone') ? '★' : topic.id.split('-')[1];
+                
+                let classes = 'lesson-box';
+                if (topic.completed) classes += ' completed';
+                else if (topic.isCurrent) classes += ' current';
+                else if (!isLessonUnlocked(index)) classes += ' locked';
+                
+                lessonBox.className = classes;
+                lessonBox.textContent = lessonNumber;
+                lessonBox.onclick = () => selectLesson(topic.id);
+                lessonBox.setAttribute('data-topic-id', topic.id);
+                lessonBox.setAttribute('data-description', topic.description);
+                
+                // Add QR button for unlocked lessons
+                if (topic.completed || topic.isCurrent || isLessonUnlocked(index)) {
+                    const qrButton = document.createElement('button');
+                    qrButton.className = 'qr-button';
+                    qrButton.innerHTML = '📱';
+                    qrButton.title = 'Get QR code for mobile access';
+                    qrButton.onclick = (e) => {
+                        console.log('QR button clicked for topic:', topic.id);
+                        e.stopPropagation();
+                        showQRCode(topic);
+                    };
+                    lessonBox.appendChild(qrButton);
+                }
+                
+                path.appendChild(lessonBox);
+                
+                // Add connector (except for last lesson)
+                if (index < currentUnit.topics.length - 1) {
+                    const connector = document.createElement('div');
+                    connector.className = `lesson-connector ${!isLessonUnlocked(index + 1) ? 'locked' : ''}`;
+                    path.appendChild(connector);
+                }
+            });
+        }
+
+        // Check if a lesson should be unlocked
+        function isLessonUnlocked(lessonIndex) {
+            if (lessonIndex === 0) return true;
+            return currentUnit.topics[lessonIndex - 1].completed;
+        }
+
+        // Global variables for lesson experience
+        let currentLessonData = null;
+        let currentLessonProgress = {
+            videosWatched: [],
+            quizzesCompleted: [],
+            lessonCompleted: false
+        };
+
+        // Select a lesson
+        function selectLesson(lessonId) {
+            const topic = currentUnit.topics.find(t => t.id === lessonId);
+            if (!topic || (!topic.completed && !topic.isCurrent && !isLessonUnlocked(currentUnit.topics.indexOf(topic)))) {
+                return;
+            }
+            
+            // Open lesson experience
+            openLessonExperience(topic);
+        }
+
+        // Open the unified lesson experience
+        function openLessonExperience(topic) {
+            // Navigate to unified lesson experience
+            const baseUrl = window.location.origin + window.location.pathname.replace('index.html', 'unified-lesson.html');
+            const lessonUrl = baseUrl + `?lesson=${topic.id}&unit=${currentUnit.unitId}`;
+            window.location.href = lessonUrl;
+        }
+
+        // Populate the lesson interface with real data
+        function populateLessonInterface() {
+            if (!currentLessonData) return;
+
+            // Update header
+            document.getElementById('lessonMainTitle').textContent = currentLessonData.name;
+            document.getElementById('lessonMainDescription').textContent = currentLessonData.description;
+            
+            // Populate videos
+            populateVideoSection();
+            
+            // Populate quizzes
+            populateQuizSection();
+            
+            // Update completion section
+            updateCompletionSection();
+            
+            // Update progress badge
+            updateProgressBadge();
+        }
+
+        // Populate video section
+        function populateVideoSection() {
+            const videoContent = document.getElementById('videoContent');
+            const videoStatus = document.getElementById('videoStatus');
+            
+            if (!currentLessonData.videos || currentLessonData.videos.length === 0) {
+                videoContent.innerHTML = '<p style="color: #666; text-align: center; padding: 20px;">No videos available for this lesson.</p>';
+                videoStatus.textContent = 'No videos';
+                return;
+            }
+
+            let videoHTML = '';
+            currentLessonData.videos.forEach((video, index) => {
+                const isWatched = currentLessonProgress.videosWatched.includes(index);
+                
+                videoHTML += `
+                    <div class="video-item ${isWatched ? 'completed' : ''}">
+                        <div class="video-title">${video.title || `Video ${index + 1}`}</div>
+                        <div class="video-links">
+                            <a href="${video.url}" target="_blank" class="video-link" onclick="markVideoWatched(${index})">
+                                🎓 AP Classroom
+                            </a>
+                            ${video.altUrl ? `
+                                <a href="${video.altUrl}" target="_blank" class="video-link alt" onclick="markVideoWatched(${index})">
+                                    📁 Google Drive
+                                </a>
+                            ` : ''}
+                        </div>
+                        ${isWatched ? '<div style="color: #4CAF50; margin-top: 10px;">✅ Watched</div>' : ''}
+                    </div>
+                `;
+            });
+
+            videoContent.innerHTML = videoHTML;
+            videoStatus.textContent = `${currentLessonProgress.videosWatched.length}/${currentLessonData.videos.length} completed`;
+        }
+
+        // Populate quiz section
+        function populateQuizSection() {
+            const quizContent = document.getElementById('quizContent');
+            const quizStatus = document.getElementById('quizStatus');
+            
+            if (!currentLessonData.quizzes || currentLessonData.quizzes.length === 0) {
+                quizContent.innerHTML = '<p style="color: #666; text-align: center; padding: 20px;">No practice quizzes available for this lesson.</p>';
+                quizStatus.textContent = 'No quizzes';
+                return;
+            }
+
+            let quizHTML = '';
+            currentLessonData.quizzes.forEach((quiz, index) => {
+                const isCompleted = currentLessonProgress.quizzesCompleted.includes(index);
+                
+                quizHTML += `
+                    <div class="quiz-item ${isCompleted ? 'completed' : ''}">
+                        <div class="quiz-title">${quiz.title || `Practice Quiz ${index + 1}`}</div>
+                        <div class="quiz-actions">
+                            <a href="${quiz.questionPdf}" target="_blank" class="quiz-btn download">
+                                📄 Download Questions
+                            </a>
+                            ${quiz.answersPdf ? `
+                                <a href="${quiz.answersPdf}" target="_blank" class="quiz-btn download" style="background: #4CAF50;">
+                                    ✅ Download Answers
+                                </a>
+                            ` : ''}
+                            <button class="quiz-btn grok" onclick="openGrokIntegration('${quiz.questionPdf}', ${index})">
+                                🤖 Open in Grok
+                            </button>
+                        </div>
+                        ${isCompleted ? '<div style="color: #4CAF50; margin-top: 10px;">✅ Completed</div>' : ''}
+                    </div>
+                `;
+            });
+
+            quizContent.innerHTML = quizHTML;
+            quizStatus.textContent = `${currentLessonProgress.quizzesCompleted.length}/${currentLessonData.quizzes.length} completed`;
+        }
+
+        // Update completion section
+        function updateCompletionSection() {
+            const completionBtn = document.getElementById('completionBtn');
+            const completionStatus = document.getElementById('completionStatus');
+            
+            if (currentLessonProgress.lessonCompleted) {
+                completionBtn.textContent = '✅ Lesson Complete';
+                completionBtn.disabled = true;
+                completionStatus.textContent = 'Completed';
+                completionStatus.style.background = '#4CAF50';
+                completionStatus.style.color = 'white';
+            } else {
+                completionBtn.textContent = '🎯 Complete Lesson';
+                completionBtn.disabled = false;
+                completionStatus.textContent = 'Ready';
+                completionStatus.style.background = '#e3f2fd';
+                completionStatus.style.color = '#1976d2';
+            }
+        }
+
+        // Mark video as watched
+        function markVideoWatched(videoIndex) {
+            if (!currentLessonProgress.videosWatched.includes(videoIndex)) {
+                currentLessonProgress.videosWatched.push(videoIndex);
+                saveLessonProgress();
+                populateVideoSection();
+                updateProgressBadge();
+            }
+        }
+
+        // Open Grok integration
+        function openGrokIntegration(pdfUrl, quizIndex) {
+            // Mark quiz as completed
+            if (!currentLessonProgress.quizzesCompleted.includes(quizIndex)) {
+                currentLessonProgress.quizzesCompleted.push(quizIndex);
+                saveLessonProgress();
+                populateQuizSection();
+                updateProgressBadge();
+            }
+            
+            // Open Grok (same functionality as before)
+            window.open('https://grok.com', '_blank');
+            
+            // Show instructions
+            setTimeout(() => {
+                alert(`Grok Integration:\n\n1. Upload the PDF you just downloaded\n2. Ask Grok to help you solve the problems\n3. Come back when you're ready to complete the lesson!`);
+            }, 1000);
+        }
+
+        // Complete lesson from interface
+        function completeLessonFromInterface() {
+            if (!currentLessonData) return;
+            
+            // Mark lesson as completed
+            currentLessonProgress.lessonCompleted = true;
+            saveLessonProgress();
+            
+            // Update the lesson in the main data (same logic as before)
+            if (!currentLessonData.completed) {
+                studentProgress.completedLessons.add(currentLessonData.id);
+                
+                // Find next lesson
+                const nextIndex = currentUnit.topics.indexOf(currentLessonData) + 1;
+                if (nextIndex < currentUnit.topics.length) {
+                    studentProgress.currentLesson = currentUnit.topics[nextIndex].id;
+                } else {
+                    // Find first lesson of next unit
+                    const nextUnitIndex = currentUnitIndex + 1;
+                    if (nextUnitIndex < unitsData.length) {
+                        const nextUnit = ALL_UNITS_DATA[nextUnitIndex];
+                        studentProgress.currentLesson = nextUnit.topics[0].id;
+                    }
+                }
+                
+                saveProgress();
+                initializeUnitsData();
+                generateUnitsGrid();
+                calculateNextDeadline();
+            }
+            
+            // Update interface
+            updateCompletionSection();
+            updateProgressBadge();
+            
+            // Show success message
+            alert(`🎉 Congratulations!\n\nYou've completed: ${currentLessonData.name}\n\nGreat job! Keep up the momentum!`);
+        }
+
+        // Save lesson progress
+        function saveLessonProgress() {
+            if (!currentLessonData) return;
+            localStorage.setItem(`lesson_progress_${currentLessonData.id}`, JSON.stringify(currentLessonProgress));
+        }
+
+        // Update progress badge
+        function updateProgressBadge() {
+            const totalSections = 3;
+            let completedSections = 0;
+            
+            if (currentLessonProgress.videosWatched.length > 0) completedSections++;
+            if (currentLessonProgress.quizzesCompleted.length > 0) completedSections++;
+            if (currentLessonProgress.lessonCompleted) completedSections++;
+            
+            document.getElementById('lessonProgressBadge').textContent = `${completedSections}/${totalSections}`;
+        }
+
+        // Back to lesson path
+        function backToLessonPath() {
+            document.getElementById('lessonExperience').classList.remove('active');
+            document.getElementById('lessonSelector').classList.add('active');
+            currentLessonData = null;
+        }
+
+        // Focus management for keyboard navigation
+        let currentFocus = 'main'; // 'main' or 'bookmark'
+
+        // Keyboard navigation
+        document.addEventListener('keydown', function(e) {
+            const lessonSelector = document.getElementById('lessonSelector');
+            const unitSelector = document.getElementById('unitSelector');
+            const isOnLessonScreen = lessonSelector.classList.contains('active');
+            const isOnUnitScreen = unitSelector.style.display !== 'none';
+            
+            if (e.key === 'Escape' && isOnLessonScreen) {
+                e.preventDefault();
+                currentFocus = 'main'; // Reset focus when going back
+                backToUnits();
+            } else if (isOnLessonScreen) {
+                handleLessonNavigation(e);
+            } else if (isOnUnitScreen) {
+                handleUnitNavigation(e);
+            }
+        });
+
+        function handleUnitNavigation(e) {
+            const unlockedUnits = unitsData.filter(u => u.isUnlocked).length;
+            const bookmarkBtn = document.getElementById('bookmarkButton');
+            const hasBookmark = bookmarkBtn && bookmarkBtn.classList.contains('show');
+            
+            if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (hasBookmark && currentFocus === 'main') {
+                    currentFocus = 'bookmark';
+                    updateUnitFocus();
+                }
+            } else if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (currentFocus === 'bookmark') {
+                    currentFocus = 'main';
+                    updateUnitFocus();
+                }
+            } else if (e.key === 'ArrowRight') {
+                e.preventDefault();
+                if (currentFocus === 'main' && currentUnitIndex < unlockedUnits - 1) {
+                    currentUnitIndex++;
+                    updateSelectedUnit();
+                }
+            } else if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                if (currentFocus === 'main' && currentUnitIndex > 0) {
+                    currentUnitIndex--;
+                    updateSelectedUnit();
+                }
+            } else if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                if (currentFocus === 'bookmark' && hasBookmark) {
+                    goToBookmark();
+                } else if (currentFocus === 'main') {
+                    selectUnit(currentUnitIndex);
+                }
+            }
+        }
+
+        function handleLessonNavigation(e) {
+            const unlockedLessons = currentUnit.topics.filter((_, index) => isLessonUnlocked(index)).length;
+            const lessonBookmarkBtn = document.getElementById('lessonBookmarkButton');
+            const hasBookmark = lessonBookmarkBtn && lessonBookmarkBtn.classList.contains('show');
+            
+            if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (hasBookmark && currentFocus === 'main') {
+                    currentFocus = 'bookmark';
+                    updateLessonFocus();
+                }
+            } else if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (currentFocus === 'bookmark') {
+                    currentFocus = 'main';
+                    updateLessonFocus();
+                }
+            } else if (e.key === 'ArrowRight') {
+                e.preventDefault();
+                if (currentFocus === 'main' && currentLessonIndex < unlockedLessons - 1) {
+                    currentLessonIndex++;
+                    updateSelectedLesson();
+                }
+            } else if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                if (currentFocus === 'main' && currentLessonIndex > 0) {
+                    currentLessonIndex--;
+                    updateSelectedLesson();
+                }
+            } else if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                if (currentFocus === 'bookmark' && hasBookmark) {
+                    goToBookmark();
+                } else if (currentFocus === 'main') {
+                    const availableTopics = currentUnit.topics.filter((_, index) => isLessonUnlocked(index));
+                    if (availableTopics[currentLessonIndex]) {
+                        selectLesson(availableTopics[currentLessonIndex].id);
+                    }
+                }
+            }
+        }
+
+        function updateSelectedUnit() {
+            document.querySelectorAll('.unit-box').forEach(box => box.classList.remove('selected'));
+            const unitBoxes = document.querySelectorAll('.unit-box:not(.locked)');
+            if (unitBoxes[currentUnitIndex]) {
+                unitBoxes[currentUnitIndex].classList.add('selected');
+                unitBoxes[currentUnitIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+
+        function updateUnitFocus() {
+            const bookmarkBtn = document.getElementById('bookmarkButton');
+            const unitBoxes = document.querySelectorAll('.unit-box');
+            
+            // Remove all focus styles
+            unitBoxes.forEach(box => box.classList.remove('selected'));
+            if (bookmarkBtn) bookmarkBtn.classList.remove('keyboard-focused');
+            
+            if (currentFocus === 'bookmark' && bookmarkBtn && bookmarkBtn.classList.contains('show')) {
+                bookmarkBtn.classList.add('keyboard-focused');
+                bookmarkBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            } else {
+                currentFocus = 'main';
+                updateSelectedUnit();
+            }
+        }
+
+        function updateSelectedLesson() {
+            document.querySelectorAll('.lesson-box').forEach(box => box.classList.remove('selected'));
+            const lessonBoxes = document.querySelectorAll('.lesson-box:not(.locked)');
+            if (lessonBoxes[currentLessonIndex]) {
+                lessonBoxes[currentLessonIndex].classList.add('selected');
+                lessonBoxes[currentLessonIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+
+        function updateLessonFocus() {
+            const lessonBookmarkBtn = document.getElementById('lessonBookmarkButton');
+            const lessonBoxes = document.querySelectorAll('.lesson-box');
+            
+            // Remove all focus styles
+            lessonBoxes.forEach(box => box.classList.remove('selected'));
+            if (lessonBookmarkBtn) lessonBookmarkBtn.classList.remove('keyboard-focused');
+            
+            if (currentFocus === 'bookmark' && lessonBookmarkBtn && lessonBookmarkBtn.classList.contains('show')) {
+                lessonBookmarkBtn.classList.add('keyboard-focused');
+                lessonBookmarkBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            } else {
+                currentFocus = 'main';
+                updateSelectedLesson();
+            }
+        }
+
+        function backToUnits() {
+            // Reset focus to main content when returning to unit selector
+            currentFocus = 'main';
+            
+            // Show main header again
+            document.getElementById('gameHeader').style.display = 'block';
+            document.getElementById('lessonSelector').classList.remove('active');
+            document.getElementById('unitSelector').style.display = 'block';
+            setTimeout(updateSelectedUnit, 100);
+        }
+
+        // Keyboard navigation pattern:
+        // - Up: Focus bookmark button (if available)
+        // - Down: Focus back to main content  
+        // - Left/Right: Navigate within main content
+        // - Enter/Space: Execute current focus
+        // - Escape: Go back to previous screen
+
+        // QR Code Functions
+        function showQRCode(topic) {
+            console.log('showQRCode called with topic:', topic);
+            
+            const modal = document.getElementById('qrOverlay');
+            const title = document.getElementById('qrTitle');
+            const subtitle = document.getElementById('qrSubtitle');
+            const canvas = document.getElementById('qrCanvas');
+            
+            if (!modal || !title || !subtitle || !canvas) {
+                console.error('QR modal elements not found');
+                alert('QR code modal elements not found. Please refresh the page.');
+                return;
+            }
+            
+            title.textContent = 'Scan for Mobile Access';
+            subtitle.textContent = `${topic.name}: ${topic.description}`;
+            
+            // Create unified lesson URL
+            const baseUrl = window.location.origin + window.location.pathname.replace('index.html', 'unified-lesson.html');
+            const mobileUrl = baseUrl + `?mobile=true&lesson=${topic.id}&unit=${currentUnit.unitId}`;
+            
+            console.log('Generated mobile URL:', mobileUrl);
+            
+            // Set the test link
+            const testLink = document.getElementById('testMobileLink');
+            if (testLink) {
+                testLink.href = mobileUrl;
+            }
+            
+            // Show modal first
+            modal.style.display = 'flex';
+            
+            // Hide canvas and create QR image using API service
+            canvas.style.display = 'none';
+            
+            // Remove any previous QR content
+            const container = canvas.parentNode;
+            const existingQR = container.querySelector('.qr-image-container');
+            if (existingQR) {
+                existingQR.remove();
+            }
+            
+            // Create QR code container
+            const qrContainer = document.createElement('div');
+            qrContainer.className = 'qr-image-container';
+            qrContainer.style.cssText = `
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                margin: 20px 0;
+                min-height: 200px;
+                background: #f9f9f9;
+                border-radius: 10px;
+                border: 2px solid #e0e0e0;
+            `;
+            
+            // Show loading message
+            qrContainer.innerHTML = `
+                <div style="text-align: center; color: #666;">
+                    <div style="font-size: 2em; margin-bottom: 10px;">⏳</div>
+                    <div>Generating QR Code...</div>
+                </div>
+            `;
+            
+            container.insertBefore(qrContainer, canvas);
+            
+            // Generate QR code using API service
+            const encodedUrl = encodeURIComponent(mobileUrl);
+            const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodedUrl}&color=2d5a2d&bgcolor=ffffff`;
+            
+            // Create image element
+            const qrImage = new Image();
+            qrImage.style.cssText = `
+                max-width: 200px;
+                max-height: 200px;
+                border-radius: 8px;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            `;
+            
+            qrImage.onload = function() {
+                console.log('QR code image loaded successfully');
+                qrContainer.innerHTML = '';
+                qrContainer.appendChild(qrImage);
+            };
+            
+            qrImage.onerror = function() {
+                console.error('QR code API failed, showing URL fallback');
+                qrContainer.innerHTML = `
+                    <div style="
+                        background: #f5f5f5; 
+                        border: 2px dashed #2d5a2d; 
+                        padding: 15px; 
+                        border-radius: 10px; 
+                        word-break: break-all; 
+                        font-family: monospace; 
+                        font-size: 12px;
+                        line-height: 1.4;
+                        max-width: 300px;
+                    ">
+                        <strong style="color: #2d5a2d;">Mobile Lesson URL:</strong><br>
+                        <span style="color: #666;">${mobileUrl}</span><br><br>
+                        <small style="color: #888;">Copy this URL to your phone's browser or use the test link below.</small>
+                    </div>
+                `;
+            };
+            
+            // Set the image source to trigger loading
+            qrImage.src = qrApiUrl;
+        }
+
+        function closeQRModal() {
+            const modal = document.getElementById('qrOverlay');
+            const canvas = document.getElementById('qrCanvas');
+            const container = canvas.parentNode;
+            
+            // Clean up any QR image containers
+            const existingQR = container.querySelector('.qr-image-container');
+            if (existingQR) {
+                existingQR.remove();
+            }
+            
+            // Reset canvas (though we're not using it anymore)
+            canvas.style.display = 'block';
+            if (canvas.getContext) {
+                canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+            }
+            
+            modal.style.display = 'none';
+        }
+
+        // Close QR modal when clicking outside
+        document.getElementById('qrOverlay').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeQRModal();
+            }
+        });
+
+        // Escape key to close QR modal
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeQRModal();
+            }
+        });
+
+        // Initialize everything when page loads
+        window.addEventListener('load', function() {
+            loadProgress();
+            initializeUnitsData();
+            generateUnitsGrid();
+            calculateNextDeadline();
+            updateSelectedUnit();
+            updateBookmarkButton(); // Initialize bookmark button
+            
+            // Check URL parameters for direct navigation
+            const urlParams = new URLSearchParams(window.location.search);
+            const unitParam = urlParams.get('unit');
+            const showLessons = urlParams.get('showLessons');
+            
+            if (unitParam && showLessons === 'true') {
+                // Navigate directly to lesson selector for specified unit
+                const unitIndex = unitsData.findIndex(u => u.unitId === unitParam);
+                if (unitIndex >= 0) {
+                    currentUnitIndex = unitIndex;
+                    selectUnit(unitIndex);
+                }
+            }
+        });
+    </script>
+</body>
+</html> 
