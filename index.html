@@ -1253,12 +1253,37 @@
             align-items: center;
             justify-content: center;
             background: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        .unit-mobile-number:hover {
+            background: #FFD54F;
+            border-color: #F57F17;
+            color: #333;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.2);
+        }
+
+        .unit-mobile-number:active {
+            transform: translateY(0px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
 
         .unit-mobile-number.locked {
             color: #666;
             background: #9E9E9E;
             border-color: #616161;
+            cursor: not-allowed;
+        }
+
+        .unit-mobile-number.locked:hover {
+            transform: none;
+            background: #9E9E9E;
+            border-color: #616161;
+            color: #666;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
         }
 
         .unit-mobile-title {
@@ -1278,61 +1303,7 @@
             font-weight: bold;
         }
 
-        .unit-mobile-progress {
-            background: #4CAF50;
-            color: white;
-            padding: 10px 20px;
-            border-radius: 25px;
-            font-size: 1em;
-            font-weight: bold;
-            margin-bottom: 25px;
-            border: 3px solid #2E7D32;
-        }
 
-        .unit-mobile-progress.locked {
-            background: #9E9E9E;
-            border-color: #616161;
-        }
-
-        .unit-mobile-actions {
-            display: flex;
-            gap: 15px;
-            flex-wrap: wrap;
-            justify-content: center;
-        }
-
-        .unit-mobile-btn {
-            padding: 15px 25px;
-            border: 3px solid #4CAF50;
-            border-radius: 12px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-size: 1em;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            background: #4CAF50;
-            color: white;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-        }
-
-        .unit-mobile-btn:hover {
-            background: #FFD54F;
-            color: #333;
-            border-color: #F57F17;
-            transform: translateY(-2px);
-            box-shadow: 0 6px 12px rgba(0,0,0,0.2);
-        }
-
-        .unit-mobile-btn:disabled {
-            background: #9E9E9E;
-            color: #666;
-            border-color: #616161;
-            cursor: not-allowed;
-            transform: none;
-            opacity: 0.6;
-        }
 
         .unit-mobile-swipe-hint {
             color: #666;
@@ -1392,15 +1363,9 @@
             </div>
 
             <div class="unit-mobile-display" id="unitMobileDisplay">
-                <div class="unit-mobile-number" id="unitMobileNumber">1</div>
+                <div class="unit-mobile-number" id="unitMobileNumber" onclick="startMobileUnit()">1</div>
                 <div class="unit-mobile-title" id="unitMobileTitle">Unit Name</div>
                 <div class="unit-mobile-weight" id="unitMobileWeight">Exam Weight: 10-15%</div>
-                <div class="unit-mobile-progress" id="unitMobileProgress">0 / 10 completed</div>
-                <div class="unit-mobile-actions">
-                    <button class="unit-mobile-btn" id="unitMobileStartBtn" onclick="startMobileUnit()">
-                        📚 Select Unit
-                    </button>
-                </div>
             </div>
 
             <div class="unit-mobile-swipe-hint">
@@ -1816,36 +1781,28 @@
             const unit = unitsData[mobileUnitIndex];
             const unitNumber = parseInt(unit.unitId.replace('unit', ''));
             
+            // Simplify title - remove "Unit X:" prefix
+            let cleanTitle = unit.displayName || `Unit ${unitNumber}`;
+            if (cleanTitle.toLowerCase().startsWith(`unit ${unitNumber}:`)) {
+                cleanTitle = cleanTitle.substring(`unit ${unitNumber}:`.length).trim();
+            }
+            
             // Update display elements
             document.getElementById('unitMobileNumber').textContent = unitNumber;
-            document.getElementById('unitMobileTitle').textContent = unit.displayName || `Unit ${unitNumber}`;
+            document.getElementById('unitMobileTitle').textContent = cleanTitle;
             document.getElementById('unitMobileWeight').textContent = unit.examWeight || 'Exam Weight: Variable';
-            document.getElementById('unitMobileProgress').textContent = unit.progress || '0 / 0 completed';
             document.getElementById('unitCounter').textContent = `${mobileUnitIndex + 1} / ${unitsData.length}`;
             
             // Update number and display styling
             const numberEl = document.getElementById('unitMobileNumber');
             const displayEl = document.getElementById('unitMobileDisplay');
-            const progressEl = document.getElementById('unitMobileProgress');
             
             numberEl.className = 'unit-mobile-number';
             displayEl.className = 'unit-mobile-display';
-            progressEl.className = 'unit-mobile-progress';
             
             if (!unit.isUnlocked) {
                 numberEl.classList.add('locked');
                 displayEl.classList.add('locked');
-                progressEl.classList.add('locked');
-            }
-            
-            // Update button
-            const startBtn = document.getElementById('unitMobileStartBtn');
-            if (unit.isUnlocked) {
-                startBtn.disabled = false;
-                startBtn.textContent = '📚 Select Unit';
-            } else {
-                startBtn.disabled = true;
-                startBtn.textContent = '🔒 Complete Previous Units';
             }
             
             // Update navigation buttons
