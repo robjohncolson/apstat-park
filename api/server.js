@@ -1,14 +1,151 @@
 const express = require('express');
 const { Pool } = require('pg');
 const cors = require('cors');
+const { createServer } = require('http');
+const { Server } = require('socket.io');
 
 const app = express();
+const server = createServer(app);
+const io = new Server(server, {
+    cors: {
+        origin: "*",
+        methods: ["GET", "POST"]
+    }
+});
 const port = process.env.PORT || 3000;
 
-// Database connection
+// Database connections
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+});
+
+// Dedicated listener connection for PostgreSQL LISTEN/NOTIFY
+let notificationListener = null;
+
+// Track connected users for real-time updates
+const connectedUsers = new Map(); // username -> Set of socket.ids
+
+// Initialize PostgreSQL notification listener
+async function initializeNotificationListener() {
+    try {
+        notificationListener = new Pool({
+            connectionString: process.env.DATABASE_URL,
+            ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+            max: 1 // Single dedicated connection for notifications
+        });
+        
+        const client = await notificationListener.connect();
+        
+        // Listen for progress and bookmark updates
+        await client.query('LISTEN progress_updates');
+        await client.query('LISTEN bookmark_updates');
+        await client.query('LISTEN user_activity');
+        
+        client.on('notification', (msg) => {
+            try {
+                const data = JSON.parse(msg.payload);
+                console.log(`📡 Real-time notification: ${msg.channel}`, data);
+                
+                // Broadcast to user's connected devices
+                broadcastToUser(data.username, {
+                    type: msg.channel,
+                    data: data
+                });
+            } catch (error) {
+                console.error('Error processing notification:', error);
+            }
+        });
+        
+        console.log('🚀 PostgreSQL notification listener initialized');
+        
+    } catch (error) {
+        console.error('❌ Failed to initialize notification listener:', error);
+    }
+}
+
+// Broadcast message to all of a user's connected devices
+function broadcastToUser(username, message) {
+    const userSockets = connectedUsers.get(username);
+    if (userSockets && userSockets.size > 0) {
+        userSockets.forEach(socketId => {
+            io.to(socketId).emit('realtime_update', message);
+        });
+        console.log(`📤 Broadcasted to ${userSockets.size} devices for user: ${username}`);
+    }
+}
+
+// WebSocket connection handling
+io.on('connection', (socket) => {
+    console.log('🔌 Client connected:', socket.id);
+    
+    // User joins with their username
+    socket.on('join', ({ username }) => {
+        if (!username) return;
+        
+        // Track this socket for the user
+        if (!connectedUsers.has(username)) {
+            connectedUsers.set(username, new Set());
+        }
+        connectedUsers.get(username).add(socket.id);
+        
+        // Store username on socket for cleanup
+        socket.username = username;
+        
+        console.log(`👤 User ${username} connected (${connectedUsers.get(username).size} devices)`);
+        
+        // Notify other devices that a new device connected
+        broadcastToUser(username, {
+            type: 'device_connected',
+            data: { 
+                socketId: socket.id,
+                deviceCount: connectedUsers.get(username).size
+            }
+        });
+    });
+    
+    // Handle user activity (opening lessons, etc.)
+    socket.on('user_activity', async (activity) => {
+        if (!socket.username) return;
+        
+        try {
+            // Notify PostgreSQL about user activity
+            await pool.query(
+                'NOTIFY user_activity, $1',
+                [JSON.stringify({
+                    username: socket.username,
+                    activity: activity,
+                    timestamp: new Date().toISOString()
+                })]
+            );
+        } catch (error) {
+            console.error('Error notifying user activity:', error);
+        }
+    });
+    
+    // Handle disconnect
+    socket.on('disconnect', () => {
+        if (socket.username) {
+            const userSockets = connectedUsers.get(socket.username);
+            if (userSockets) {
+                userSockets.delete(socket.id);
+                
+                if (userSockets.size === 0) {
+                    connectedUsers.delete(socket.username);
+                } else {
+                    // Notify remaining devices
+                    broadcastToUser(socket.username, {
+                        type: 'device_disconnected',
+                        data: { 
+                            socketId: socket.id,
+                            deviceCount: userSockets.size
+                        }
+                    });
+                }
+            }
+            console.log(`👋 User ${socket.username} disconnected`);
+        }
+    });
 });
 
 // Middleware
@@ -144,11 +281,18 @@ app.get('/api/users/:userId/progress', async (req, res) => {
     }
 });
 
-// Sync progress
+// Sync progress - NOW WITH REAL-TIME NOTIFICATIONS!
 app.post('/api/users/:userId/progress/sync', async (req, res) => {
     try {
         const { userId } = req.params;
         const { progressData } = req.body;
+        
+        // Get username for notifications
+        const userResult = await pool.query('SELECT username FROM users WHERE id = $1', [userId]);
+        if (userResult.rows.length === 0) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        const username = userResult.rows[0].username;
         
         const client = await pool.connect();
         
@@ -198,6 +342,17 @@ app.post('/api/users/:userId/progress/sync', async (req, res) => {
             
             await client.query('COMMIT');
             
+            // 🚀 REAL-TIME MAGIC: Notify other devices about progress update
+            await pool.query(
+                'NOTIFY progress_updates, $1',
+                [JSON.stringify({
+                    username: username,
+                    userId: userId,
+                    progressData: progressData,
+                    timestamp: new Date().toISOString()
+                })]
+            );
+            
             // Return updated progress
             const finalResult = await client.query(
                 'SELECT * FROM progress WHERE user_id = $1',
@@ -236,11 +391,18 @@ app.get('/api/users/:userId/bookmarks', async (req, res) => {
     }
 });
 
-// Sync bookmarks
+// Sync bookmarks - NOW WITH REAL-TIME NOTIFICATIONS!
 app.post('/api/users/:userId/bookmarks/sync', async (req, res) => {
     try {
         const { userId } = req.params;
         const { bookmarks } = req.body;
+        
+        // Get username for notifications
+        const userResult = await pool.query('SELECT username FROM users WHERE id = $1', [userId]);
+        if (userResult.rows.length === 0) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        const username = userResult.rows[0].username;
         
         const client = await pool.connect();
         
@@ -262,8 +424,19 @@ app.post('/api/users/:userId/bookmarks/sync', async (req, res) => {
             
             await client.query('COMMIT');
             
+            // 🚀 REAL-TIME MAGIC: Notify other devices about bookmark update
+            await pool.query(
+                'NOTIFY bookmark_updates, $1',
+                [JSON.stringify({
+                    username: username,
+                    userId: userId,
+                    bookmarks: bookmarks,
+                    timestamp: new Date().toISOString()
+                })]
+            );
+            
             // Return updated bookmarks
-            const result = await client.query(
+            const result = await pool.query(
                 'SELECT * FROM bookmarks WHERE user_id = $1 ORDER BY created_at DESC',
                 [userId]
             );
@@ -285,7 +458,26 @@ app.post('/api/users/:userId/bookmarks/sync', async (req, res) => {
 
 // Health check
 app.get('/api/health', (req, res) => {
-    res.json({ status: 'OK', timestamp: new Date().toISOString() });
+    res.json({ 
+        status: 'OK', 
+        timestamp: new Date().toISOString(),
+        connectedUsers: connectedUsers.size,
+        totalConnections: Array.from(connectedUsers.values()).reduce((sum, sockets) => sum + sockets.size, 0)
+    });
+});
+
+// Real-time status endpoint
+app.get('/api/realtime/status', (req, res) => {
+    const userStats = {};
+    connectedUsers.forEach((sockets, username) => {
+        userStats[username] = sockets.size;
+    });
+    
+    res.json({
+        totalUsers: connectedUsers.size,
+        totalConnections: Array.from(connectedUsers.values()).reduce((sum, sockets) => sum + sockets.size, 0),
+        userConnections: userStats
+    });
 });
 
 // Initialize database tables on startup
@@ -354,14 +546,17 @@ pool.connect(async (err, client, done) => {
         // Initialize database tables
         try {
             await initializeDatabase();
+            // Initialize real-time notifications after database is ready
+            await initializeNotificationListener();
         } catch (initError) {
             console.error('Failed to initialize database:', initError);
         }
     }
 });
 
-app.listen(port, () => {
-    console.log(`APStat Park API running on port ${port}`);
+server.listen(port, () => {
+    console.log(`🚀 APStat Park API with real-time sync running on port ${port}`);
+    console.log(`📡 WebSocket server ready for real-time updates`);
     console.log(`Database URL: ${process.env.DATABASE_URL ? 'Set from environment' : 'Using fallback'}`);
 });
 
