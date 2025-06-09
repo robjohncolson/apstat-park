@@ -3,7 +3,7 @@
 
 class SyncManager {
     constructor() {
-        this.apiBaseUrl = 'http://localhost:3000/api'; // Update this to your deployed API URL
+        this.apiBaseUrl = 'https://your-api-url-here.railway.app/api'; // Replace with your actual API URL
         this.currentUser = null;
         this.syncInProgress = false;
         this.offlineMode = false;
