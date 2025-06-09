@@ -3,7 +3,7 @@
 
 class SyncManager {
     constructor() {
-        this.apiBaseUrl = 'https://apstat-park-api.up.railway.app'; // Replace with your actual API URL
+        this.apiBaseUrl = 'https://apstat-park-api.up.railway.app/api'; // Replace with your actual API URL
         this.currentUser = null;
         this.syncInProgress = false;
         this.offlineMode = false;
