@@ -1,4 +1,4 @@
-# AP Statistics - Summer Learning Platform
+# apstat-park - Summer Learning Platform
 
 A gamified learning platform for AP Statistics with PICO PARK-inspired design.
 
