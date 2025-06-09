@@ -541,6 +541,7 @@
 </head>
 <body>
     <script src="js/allUnitsData.js"></script>
+    <script src="js/syncManager.js"></script>
     
     <!-- Loading State -->
     <div class="loading" id="loadingState">
@@ -554,7 +555,10 @@
             <div class="lesson-info">
                 <h1 class="lesson-main-title" id="lessonMainTitle">
                     <span id="lessonTitleText">Topic 1.1</span>
-    
+                    <span id="userDisplay" style="font-size: 0.5em; background: rgba(255,255,255,0.2); padding: 4px 8px; border-radius: 10px; margin-left: 15px;">
+                        <span id="lessonUsernameDisplay">...</span>
+                        <span id="lessonSyncStatus" style="margin-left: 5px;">🟢</span>
+                    </span>
                 </h1>
                 <p class="lesson-main-description" id="lessonMainDescription">Loading...</p>
             </div>
@@ -635,7 +639,7 @@
         // Initialize lesson on page load
         window.addEventListener('load', initializeLesson);
 
-        function initializeLesson() {
+        async function initializeLesson() {
             // Detect mobile device
             isMobile = detectMobile();
             
@@ -667,10 +671,44 @@
             }
 
             currentLessonData = lessonData;
+            
+            // Initialize sync manager and load progress
+            if (window.syncManager) {
+                try {
+                    await window.syncManager.initializeUser();
+                    updateLessonUserDisplay();
+                } catch (error) {
+                    console.warn('Failed to initialize sync manager:', error);
+                }
+            }
+            
             loadProgress();
             populateInterface();
             setupEventListeners();
             showInterface();
+        }
+        
+        // Update user display in lesson
+        function updateLessonUserDisplay() {
+            if (window.syncManager && window.syncManager.getCurrentUser()) {
+                const user = window.syncManager.getCurrentUser();
+                const usernameEl = document.getElementById('lessonUsernameDisplay');
+                const syncStatusEl = document.getElementById('lessonSyncStatus');
+                
+                if (usernameEl) {
+                    usernameEl.textContent = user.username;
+                }
+                
+                if (syncStatusEl) {
+                    if (user.offline) {
+                        syncStatusEl.textContent = '🔴'; // Red for offline
+                        syncStatusEl.title = 'Offline mode';
+                    } else {
+                        syncStatusEl.textContent = '🟢'; // Green for online
+                        syncStatusEl.title = 'Online and synced';
+                    }
+                }
+            }
         }
 
         function getUrlParams() {
@@ -946,13 +984,26 @@
             updateInterface();
         }
 
-        function toggleLessonCompletion() {
+        async function toggleLessonCompletion() {
             currentLessonProgress.lessonCompleted = !currentLessonProgress.lessonCompleted;
-            saveProgress();
+            await saveProgress();
             updateInterface();
             
             if (currentLessonProgress.lessonCompleted) {
                 updateMainAppProgress();
+                
+                // Try persistent sync for lesson completion
+                if (window.syncManager) {
+                    try {
+                        const result = await window.syncManager.triggerSync('persistent');
+                        if (result && result.success) {
+                            console.log('Lesson completion synced successfully');
+                        }
+                    } catch (error) {
+                        console.warn('Lesson completion sync failed:', error);
+                    }
+                }
+                
                 alert(`■ Congratulations! You've completed: ${currentLessonData.name}\n\nGreat job! Keep up the momentum!`);
                 
                 // Automatically navigate back to lesson selector after a brief delay
@@ -982,8 +1033,20 @@
             setTimeout(() => alert('Grok Integration:\n\n1. Upload the PDF you just downloaded\n2. Ask Grok to help you solve the problems\n3. Come back when ready!'), 1000);
         }
 
-        function saveProgress() {
+        async function saveProgress() {
             localStorage.setItem(`lesson_progress_${currentLessonData.id}`, JSON.stringify(currentLessonProgress));
+            
+            // Try to sync progress
+            if (window.syncManager) {
+                try {
+                    const result = await window.syncManager.triggerSync('quick');
+                    if (result && result.success) {
+                        console.log('Lesson progress synced successfully');
+                    }
+                } catch (error) {
+                    console.warn('Lesson sync failed:', error);
+                }
+            }
         }
 
         function updateMainAppProgress() {

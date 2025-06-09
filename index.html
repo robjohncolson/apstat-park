@@ -1357,6 +1357,8 @@
 <body>
     <!-- Include the actual lesson data -->
     <script src="js/allUnitsData.js"></script>
+    <!-- Include the sync manager -->
+    <script src="js/syncManager.js"></script>
 
     <!-- Desktop Header -->
     <div class="game-header" id="gameHeader">
@@ -1365,6 +1367,10 @@
         </button>
                         <div class="game-title">apstat-park</div>
         <div class="daily-goal" id="dynamicGoal">Loading progress...</div>
+        <div class="user-info" id="userInfo" style="position: absolute; top: 10px; left: 20px; background: rgba(255,255,255,0.2); padding: 8px 12px; border-radius: 15px; font-size: 0.85em; opacity: 0.9;">
+            <span id="usernameDisplay">Loading...</span>
+            <span id="syncStatus" style="margin-left: 10px;">🟢</span>
+        </div>
     </div>
 
     <!-- Mobile Simplified Header -->
@@ -1477,12 +1483,45 @@
         let touchEndX = 0;
 
         // Load progress from localStorage
-        function loadProgress() {
+        async function loadProgress() {
             const saved = localStorage.getItem('apStatsProgress');
             if (saved) {
                 const data = JSON.parse(saved);
                 studentProgress.completedLessons = new Set(data.completedLessons || []);
                 studentProgress.currentLesson = data.currentLesson || '1-1';
+            }
+            
+            // Wait for sync manager to initialize and display user info
+            if (window.syncManager) {
+                try {
+                    await window.syncManager.initializeUser();
+                    updateUserDisplay();
+                } catch (error) {
+                    console.warn('Failed to initialize sync manager:', error);
+                }
+            }
+        }
+        
+        // Update user display
+        function updateUserDisplay() {
+            if (window.syncManager && window.syncManager.getCurrentUser()) {
+                const user = window.syncManager.getCurrentUser();
+                const usernameEl = document.getElementById('usernameDisplay');
+                const syncStatusEl = document.getElementById('syncStatus');
+                
+                if (usernameEl) {
+                    usernameEl.textContent = user.username;
+                }
+                
+                if (syncStatusEl) {
+                    if (user.offline) {
+                        syncStatusEl.textContent = '🔴'; // Red for offline
+                        syncStatusEl.title = 'Offline mode';
+                    } else {
+                        syncStatusEl.textContent = '🟢'; // Green for online
+                        syncStatusEl.title = 'Online and synced';
+                    }
+                }
             }
         }
 
@@ -1613,13 +1652,27 @@
             }
         }
 
-        // Save progress to localStorage
-        function saveProgress() {
+        // Save progress to localStorage and sync
+        async function saveProgress() {
             const data = {
                 completedLessons: Array.from(studentProgress.completedLessons),
                 currentLesson: studentProgress.currentLesson
             };
             localStorage.setItem('apStatsProgress', JSON.stringify(data));
+            
+            // Try to sync progress
+            if (window.syncManager) {
+                try {
+                    const result = await window.syncManager.triggerSync('quick');
+                    if (result && result.success) {
+                        console.log('Progress synced successfully');
+                    } else {
+                        console.log('Quick sync failed, will sync later');
+                    }
+                } catch (error) {
+                    console.warn('Sync failed:', error);
+                }
+            }
         }
 
         // Calculate dynamic deadline based on remaining lessons
@@ -2637,11 +2690,11 @@
         });
 
         // Initialize everything when page loads
-        window.addEventListener('load', function() {
+        window.addEventListener('load', async function() {
             // Detect mobile device
             isMobile = detectMobile();
             
-            loadProgress();
+            await loadProgress();
             initializeUnitsData();
             generateUnitsGrid();
             calculateNextDeadline();
