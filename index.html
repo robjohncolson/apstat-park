@@ -1214,9 +1214,16 @@
 
         // Open the unified lesson experience
         function openLessonExperience(topic) {
+            console.log('openLessonExperience called with topic:', topic);
+            console.log('currentUnit:', currentUnit);
+            
             // Navigate to unified lesson experience
             const baseUrl = window.location.origin + window.location.pathname.replace('index.html', 'unified-lesson.html');
             const lessonUrl = baseUrl + `?lesson=${topic.id}&unit=${currentUnit.unitId}`;
+            
+            console.log('Constructed URL:', lessonUrl);
+            console.log('About to navigate to:', lessonUrl);
+            
             window.location.href = lessonUrl;
         }
 

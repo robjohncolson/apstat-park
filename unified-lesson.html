@@ -618,16 +618,30 @@
 
         function initializeLesson() {
             const params = getUrlParams();
+            console.log('URL Params:', params);
+            console.log('ALL_UNITS_DATA:', typeof ALL_UNITS_DATA, ALL_UNITS_DATA);
+            
             if (!params.lesson || !params.unit) {
+                console.log('Missing lesson or unit parameter');
                 showError('Invalid lesson parameters. Please access this lesson through the main app.');
                 return;
             }
 
             const unitData = ALL_UNITS_DATA.find(unit => unit.unitId === params.unit);
-            if (!unitData) { showError('Unit not found.'); return; }
+            console.log('Found unit data:', unitData);
+            if (!unitData) { 
+                console.log('Unit not found for:', params.unit);
+                showError('Unit not found.'); 
+                return; 
+            }
 
             const lessonData = unitData.topics.find(topic => topic.id === params.lesson);
-            if (!lessonData) { showError('Lesson not found.'); return; }
+            console.log('Found lesson data:', lessonData);
+            if (!lessonData) { 
+                console.log('Lesson not found for:', params.lesson);
+                showError('Lesson not found.'); 
+                return; 
+            }
 
             currentLessonData = lessonData;
             loadProgress();
