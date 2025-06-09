@@ -46,34 +46,31 @@
             margin-top: 10px;
         }
 
-        /* Bookmark button - desktop style */
+        /* Bookmark button - small static star */
         .bookmark-button {
             position: absolute;
-            top: 20px;
-            right: 20px;
+            top: 25px;
+            right: 25px;
             background: none;
-            border: 2px solid #4CAF50;
-            color: #4CAF50;
-            padding: 10px 15px;
-            border-radius: 8px;
+            border: none;
+            color: #ccc;
+            padding: 5px;
             cursor: pointer;
             transition: all 0.3s ease;
-            font-size: 1em;
-            font-weight: bold;
-            font-family: monospace;
-            display: none; /* Always start hidden */
+            font-size: 1.5em;
+            line-height: 1;
+            display: block; /* Always visible */
         }
 
         .bookmark-button:hover, .bookmark-button:focus {
-            border-color: #FFD54F;
             color: #FFD54F;
-            background: rgba(255, 213, 79, 0.1);
-            transform: translateY(-2px);
+            transform: scale(1.2);
             outline: none;
         }
 
-        .bookmark-button.show {
-            display: block !important;
+        .bookmark-button.has-bookmark {
+            color: #FFD54F;
+            text-shadow: 0 0 8px rgba(255, 213, 79, 0.6);
         }
 
         .bookmark-button.keyboard-focused {
@@ -84,33 +81,30 @@
             box-shadow: 0 0 0 3px rgba(255, 213, 79, 0.6);
         }
 
-        /* Mobile bookmark buttons - PICO PARK style for both unit and lesson selectors */
-        .unit-selector.mobile .bookmark-button.show,
-        .lesson-selector.mobile .lesson-bookmark.show {
+        /* Mobile bookmark buttons - small static stars */
+        .unit-selector.mobile .bookmark-button,
+        .lesson-selector.mobile .lesson-bookmark {
             position: fixed !important;
-            top: 20px !important;
-            right: 20px !important;
+            top: 25px !important;
+            right: 25px !important;
             z-index: 100 !important;
-            background: #FFD54F !important;
-            color: #333 !important;
-            border: 3px solid #F57F17 !important;
-            padding: 12px 16px !important;
-            border-radius: 12px !important;
-            font-weight: bold !important;
-            box-shadow: 0 4px 8px rgba(255, 213, 79, 0.4) !important;
+            background: none !important;
+            border: none !important;
+            color: #ccc !important;
+            padding: 8px !important;
+            font-size: 1.8em !important;
+            line-height: 1 !important;
             transition: all 0.3s ease !important;
-            font-size: 0.9em !important;
-            font-family: inherit !important;
             display: block !important;
         }
 
-        .unit-selector.mobile .bookmark-button.show:hover,
-        .lesson-selector.mobile .lesson-bookmark.show:hover {
-            background: #4CAF50 !important;
-            color: white !important;
-            border-color: #2E7D32 !important;
-            transform: translateY(-2px) !important;
-            box-shadow: 0 6px 12px rgba(0,0,0,0.2) !important;
+        .unit-selector.mobile .bookmark-button:hover,
+        .lesson-selector.mobile .lesson-bookmark:hover,
+        .unit-selector.mobile .bookmark-button.has-bookmark,
+        .lesson-selector.mobile .lesson-bookmark.has-bookmark {
+            color: #FFD54F !important;
+            transform: scale(1.2) !important;
+            text-shadow: 0 0 8px rgba(255, 213, 79, 0.6) !important;
         }
 
         /* Lesson selector header */
@@ -121,13 +115,28 @@
 
         .lesson-bookmark {
             position: absolute;
-            top: 0;
-            right: 20px;
-            display: none; /* Always start hidden */
+            top: 5px;
+            right: 25px;
+            background: none;
+            border: none;
+            color: #ccc;
+            padding: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 1.5em;
+            line-height: 1;
+            display: block; /* Always visible */
         }
 
-        .lesson-bookmark.show {
-            display: block !important;
+        .lesson-bookmark:hover, .lesson-bookmark:focus {
+            color: #FFD54F;
+            transform: scale(1.2);
+            outline: none;
+        }
+
+        .lesson-bookmark.has-bookmark {
+            color: #FFD54F;
+            text-shadow: 0 0 8px rgba(255, 213, 79, 0.6);
         }
 
         /* Unit selector screen */
@@ -1362,8 +1371,8 @@
 
     <!-- Desktop Header -->
     <div class="game-header" id="gameHeader">
-        <button class="bookmark-button" id="bookmarkButton" onclick="goToBookmark()">
-            ★ GO TO BOOKMARK
+        <button class="bookmark-button" id="bookmarkButton" onclick="goToBookmark()" title="Bookmark">
+            ★
         </button>
                         <div class="game-title">apstat-park</div>
         <div class="daily-goal" id="dynamicGoal">Loading progress...</div>
@@ -1383,8 +1392,8 @@
 
     <!-- Unit Selector Screen -->
     <div class="unit-selector" id="unitSelector">
-        <button class="bookmark-button" id="bookmarkButton" onclick="goToBookmark()">
-            ★ GO TO BOOKMARK
+        <button class="bookmark-button" id="bookmarkButton" onclick="goToBookmark()" title="Bookmark">
+            ★
         </button>
         
         <h2 class="world-title">SELECT UNIT</h2>
@@ -1421,8 +1430,8 @@
     <div class="lesson-selector" id="lessonSelector">
         <div class="lesson-selector-header">
             <button class="back-button" onclick="backToUnits()">← UNITS</button>
-            <button class="bookmark-button lesson-bookmark" id="lessonBookmarkButton" onclick="goToBookmark()">
-                ★ GO TO BOOKMARK
+            <button class="bookmark-button lesson-bookmark" id="lessonBookmarkButton" onclick="goToBookmark()" title="Bookmark">
+                ★
             </button>
         </div>
         
@@ -1594,46 +1603,33 @@
             const bookmarkBtn = document.getElementById('bookmarkButton');
             const bookmark = checkBookmarkExists();
             
-            if (bookmark && bookmarkBtn) {
-                bookmarkBtn.classList.add('show');
-                // Make it visually distinct - golden when active
-                bookmarkBtn.style.background = '#FFD54F';
-                bookmarkBtn.style.color = '#333';
-                bookmarkBtn.style.borderColor = '#F57F17';
-                bookmarkBtn.style.boxShadow = '0 2px 8px rgba(255, 213, 79, 0.4)';
-                
-                if (bookmark.type === 'lesson') {
-                    // Extract lesson number from ID (e.g., "1-7" from lesson ID)
-                    const lessonNumber = bookmark.id.replace('unit', '').replace('-', '.');
-                    bookmarkBtn.innerHTML = `★ ${lessonNumber} LESSON`;
-                } else {
-                    // Create descriptive text for item bookmarks
-                    const itemData = bookmark.data;
-                    const lessonNumber = itemData.lessonId.replace('unit', '').replace('-', '.');
+            if (bookmarkBtn) {
+                if (bookmark) {
+                    // Golden star when bookmark exists
+                    bookmarkBtn.classList.add('has-bookmark');
                     
-                    let description = '';
-                    if (itemData.type === 'video') {
-                        // Check if it's alternate video or main video
-                        if (itemData.title && itemData.title.toLowerCase().includes('alt')) {
-                            description = 'ALT VIDEO';
-                        } else {
-                            description = 'VIDEO';
+                    // Update tooltip with bookmark info
+                    if (bookmark.type === 'lesson') {
+                        const lessonNumber = bookmark.id.replace('unit', '').replace('-', '.');
+                        bookmarkBtn.title = `Go to bookmarked lesson ${lessonNumber}`;
+                    } else {
+                        const itemData = bookmark.data;
+                        const lessonNumber = itemData.lessonId.replace('unit', '').replace('-', '.');
+                        
+                        let description = '';
+                        if (itemData.type === 'video') {
+                            description = itemData.title && itemData.title.toLowerCase().includes('alt') ? 'alt video' : 'video';
+                        } else if (itemData.type === 'quiz') {
+                            description = itemData.title && itemData.title.toLowerCase().includes('answer') ? 'quiz answers' : 'quiz';
                         }
-                    } else if (itemData.type === 'quiz') {
-                        // Check if it's answers or questions
-                        if (itemData.title && itemData.title.toLowerCase().includes('answer')) {
-                            description = 'ANSWERS';
-                        } else {
-                            description = 'QUIZ';
-                        }
+                        
+                        bookmarkBtn.title = `Go to bookmarked ${description} in lesson ${lessonNumber}`;
                     }
-                    
-                    bookmarkBtn.innerHTML = `★ ${lessonNumber} ${description}`;
+                } else {
+                    // Grey star when no bookmark
+                    bookmarkBtn.classList.remove('has-bookmark');
+                    bookmarkBtn.title = 'No bookmark set';
                 }
-            } else if (bookmarkBtn) {
-                // Hide button completely when no bookmark
-                bookmarkBtn.classList.remove('show');
-                bookmarkBtn.style.display = 'none';
             }
         }
 
@@ -1641,42 +1637,33 @@
             const lessonBookmarkBtn = document.getElementById('lessonBookmarkButton');
             const bookmark = checkBookmarkExists();
             
-            if (bookmark && lessonBookmarkBtn) {
-                lessonBookmarkBtn.classList.add('show');
-                // Make it visually distinct - golden when active  
-                lessonBookmarkBtn.style.background = '#FFD54F';
-                lessonBookmarkBtn.style.color = '#333';
-                lessonBookmarkBtn.style.borderColor = '#F57F17';
-                lessonBookmarkBtn.style.boxShadow = '0 2px 8px rgba(255, 213, 79, 0.4)';
-                
-                if (bookmark.type === 'lesson') {
-                    const lessonNumber = bookmark.id.replace('unit', '').replace('-', '.');
-                    lessonBookmarkBtn.innerHTML = `★ ${lessonNumber} LESSON`;
-                } else {
-                    const itemData = bookmark.data;
-                    const lessonNumber = itemData.lessonId.replace('unit', '').replace('-', '.');
+            if (lessonBookmarkBtn) {
+                if (bookmark) {
+                    // Golden star when bookmark exists
+                    lessonBookmarkBtn.classList.add('has-bookmark');
                     
-                    let description = '';
-                    if (itemData.type === 'video') {
-                        if (itemData.title && itemData.title.toLowerCase().includes('alt')) {
-                            description = 'ALT VIDEO';
-                        } else {
-                            description = 'VIDEO';
+                    // Update tooltip with bookmark info
+                    if (bookmark.type === 'lesson') {
+                        const lessonNumber = bookmark.id.replace('unit', '').replace('-', '.');
+                        lessonBookmarkBtn.title = `Go to bookmarked lesson ${lessonNumber}`;
+                    } else {
+                        const itemData = bookmark.data;
+                        const lessonNumber = itemData.lessonId.replace('unit', '').replace('-', '.');
+                        
+                        let description = '';
+                        if (itemData.type === 'video') {
+                            description = itemData.title && itemData.title.toLowerCase().includes('alt') ? 'alt video' : 'video';
+                        } else if (itemData.type === 'quiz') {
+                            description = itemData.title && itemData.title.toLowerCase().includes('answer') ? 'quiz answers' : 'quiz';
                         }
-                    } else if (itemData.type === 'quiz') {
-                        if (itemData.title && itemData.title.toLowerCase().includes('answer')) {
-                            description = 'ANSWERS';
-                        } else {
-                            description = 'QUIZ';
-                        }
+                        
+                        lessonBookmarkBtn.title = `Go to bookmarked ${description} in lesson ${lessonNumber}`;
                     }
-                    
-                    lessonBookmarkBtn.innerHTML = `★ ${lessonNumber} ${description}`;
+                } else {
+                    // Grey star when no bookmark
+                    lessonBookmarkBtn.classList.remove('has-bookmark');
+                    lessonBookmarkBtn.title = 'No bookmark set';
                 }
-            } else if (lessonBookmarkBtn) {
-                // Hide button completely when no bookmark
-                lessonBookmarkBtn.classList.remove('show');
-                lessonBookmarkBtn.style.display = 'none';
             }
         }
 
@@ -1692,7 +1679,10 @@
 
         function goToBookmark() {
             const bookmark = checkBookmarkExists();
-            if (!bookmark) return;
+            if (!bookmark) {
+                alert('No bookmark set. Create a bookmark by clicking the star button on any lesson or lesson item.');
+                return;
+            }
             
             if (bookmark.type === 'lesson') {
                 // Navigate directly to lesson
@@ -2456,11 +2446,10 @@
         function handleUnitNavigation(e) {
             const unlockedUnits = unitsData.filter(u => u.isUnlocked).length;
             const bookmarkBtn = document.getElementById('bookmarkButton');
-            const hasBookmark = bookmarkBtn && bookmarkBtn.classList.contains('show');
             
             if (e.key === 'ArrowUp') {
                 e.preventDefault();
-                if (hasBookmark && currentFocus === 'main') {
+                if (bookmarkBtn && currentFocus === 'main') {
                     currentFocus = 'bookmark';
                     updateUnitFocus();
                 }
@@ -2484,7 +2473,7 @@
                 }
             } else if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
-                if (currentFocus === 'bookmark' && hasBookmark) {
+                if (currentFocus === 'bookmark') {
                     goToBookmark();
                 } else if (currentFocus === 'main') {
                     selectUnit(currentUnitIndex);
@@ -2495,11 +2484,10 @@
         function handleLessonNavigation(e) {
             const unlockedLessons = currentUnit.topics.filter((_, index) => isLessonUnlocked(index)).length;
             const lessonBookmarkBtn = document.getElementById('lessonBookmarkButton');
-            const hasBookmark = lessonBookmarkBtn && lessonBookmarkBtn.classList.contains('show');
             
             if (e.key === 'ArrowUp') {
                 e.preventDefault();
-                if (hasBookmark && currentFocus === 'main') {
+                if (lessonBookmarkBtn && currentFocus === 'main') {
                     currentFocus = 'bookmark';
                     updateLessonFocus();
                 }
@@ -2523,7 +2511,7 @@
                 }
             } else if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
-                if (currentFocus === 'bookmark' && hasBookmark) {
+                if (currentFocus === 'bookmark') {
                     goToBookmark();
                 } else if (currentFocus === 'main') {
                     const availableTopics = currentUnit.topics.filter((_, index) => isLessonUnlocked(index));
@@ -2551,7 +2539,7 @@
             unitBoxes.forEach(box => box.classList.remove('selected'));
             if (bookmarkBtn) bookmarkBtn.classList.remove('keyboard-focused');
             
-            if (currentFocus === 'bookmark' && bookmarkBtn && bookmarkBtn.classList.contains('show')) {
+            if (currentFocus === 'bookmark' && bookmarkBtn) {
                 bookmarkBtn.classList.add('keyboard-focused');
                 bookmarkBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
             } else {
@@ -2577,7 +2565,7 @@
             lessonBoxes.forEach(box => box.classList.remove('selected'));
             if (lessonBookmarkBtn) lessonBookmarkBtn.classList.remove('keyboard-focused');
             
-            if (currentFocus === 'bookmark' && lessonBookmarkBtn && lessonBookmarkBtn.classList.contains('show')) {
+            if (currentFocus === 'bookmark' && lessonBookmarkBtn) {
                 lessonBookmarkBtn.classList.add('keyboard-focused');
                 lessonBookmarkBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
             } else {
