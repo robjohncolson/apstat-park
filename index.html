@@ -267,7 +267,7 @@
             background: #9E9E9E;
         }
 
-        /* Back button */
+        /* Back button - desktop style */
         .back-button {
             position: absolute;
             top: 20px;
@@ -290,6 +290,32 @@
             background: rgba(255, 213, 79, 0.1);
             transform: translateY(-2px);
             outline: none;
+        }
+
+        /* Mobile unit selector back button - PICO PARK style */
+        .unit-selector.mobile .back-button {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 100;
+            background: #4CAF50;
+            color: white;
+            border: 3px solid #2E7D32;
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-weight: bold;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+            font-size: 0.9em;
+            font-family: inherit;
+        }
+
+        .unit-selector.mobile .back-button:hover {
+            background: #FFD54F;
+            color: #333;
+            border-color: #F57F17;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.2);
         }
 
         /* Instructions */
@@ -1054,7 +1080,7 @@
         /* Mobile Unit Selector - PICO PARK themed */
         .unit-selector.mobile {
             padding: 20px;
-            padding-top: 80px; /* Space for bookmark button */
+            padding-top: 100px; /* Extra space for bookmark button */
         }
 
         .unit-mobile-container {
