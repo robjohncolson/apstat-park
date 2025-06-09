@@ -53,24 +53,56 @@ app.post('/api/users/get-or-create', async (req, res) => {
         
         if (username) {
             console.log('Checking for existing username:', username);
+            
+            // Validate custom username
+            if (!/^[a-zA-Z0-9]+$/.test(username)) {
+                return res.status(400).json({ error: 'Username can only contain letters and numbers' });
+            }
+            
+            if (username.length < 3 || username.length > 20) {
+                return res.status(400).json({ error: 'Username must be 3-20 characters long' });
+            }
+            
             // Try to get existing user
             const result = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
             if (result.rows.length > 0) {
                 console.log('Found existing user');
                 return res.json({ user: result.rows[0] });
             }
+            
+            // Create user with the custom username if it doesn't exist
+            console.log('Creating new user with custom username:', username);
+            try {
+                const insertResult = await pool.query(
+                    'INSERT INTO users (username) VALUES ($1) RETURNING *',
+                    [username]
+                );
+                console.log('User created successfully with custom username:', insertResult.rows[0]);
+                return res.json({ user: insertResult.rows[0] });
+            } catch (dbError) {
+                if (dbError.code === '23505') { // Unique constraint violation
+                    return res.status(409).json({ error: 'Username already taken' });
+                }
+                throw dbError;
+            }
         }
         
-        // Generate new username if none provided or not found
+        // Generate new random username if none provided
         let newUsername;
         let attempts = 0;
         
         do {
             newUsername = generateUsername();
             attempts++;
+            
+            // Check if this generated username already exists
+            const existingResult = await pool.query('SELECT * FROM users WHERE username = $1', [newUsername]);
+            if (existingResult.rows.length === 0) {
+                break; // Username is available
+            }
         } while (attempts < 10); // Prevent infinite loop
         
-        console.log('Creating new user with username:', newUsername);
+        console.log('Creating new user with generated username:', newUsername);
         
         // Create new user
         const insertResult = await pool.query(

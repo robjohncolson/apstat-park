@@ -359,6 +359,68 @@ class SyncManager {
     isOnline() {
         return !this.offlineMode && navigator.onLine;
     }
+
+    // Method to switch to a different username
+    async switchToUsername(newUsername) {
+        if (!newUsername || typeof newUsername !== 'string') {
+            throw new Error('Invalid username');
+        }
+        
+        // Clean up the username
+        newUsername = newUsername.trim().toLowerCase();
+        
+        if (!/^[a-zA-Z0-9]+$/.test(newUsername)) {
+            throw new Error('Username can only contain letters and numbers');
+        }
+        
+        if (newUsername.length < 3 || newUsername.length > 20) {
+            throw new Error('Username must be 3-20 characters long');
+        }
+        
+        // Check if it's the same username
+        if (this.currentUser && this.currentUser.username === newUsername) {
+            throw new Error('You are already using this username');
+        }
+        
+        try {
+            // Try to find existing user or create new one with specific username
+            const response = await this.fetchWithTimeout('/users/get-or-create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: newUsername })
+            }, 10000);
+            
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.error || `Server error: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            
+            // Store the new user info
+            this.currentUser = data.user;
+            this.offlineMode = false; // Reset offline mode if switching worked
+            localStorage.setItem('apstat_user', JSON.stringify(this.currentUser));
+            
+            // Sync to download progress from new account
+            try {
+                await this.fullSync();
+            } catch (syncError) {
+                console.warn('Initial sync after username switch failed:', syncError);
+                // Don't fail the switch if sync fails
+            }
+            
+            console.log(`Successfully switched to username: ${newUsername}`);
+            return this.currentUser;
+            
+        } catch (error) {
+            console.error('Failed to switch username:', error);
+            if (error.message.includes('fetch') || error.message.includes('network')) {
+                throw new Error('Network error - please check your internet connection');
+            }
+            throw error;
+        }
+    }
 }
 
 // Create global sync manager instance

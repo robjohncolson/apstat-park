@@ -1367,9 +1367,10 @@
         </button>
                         <div class="game-title">apstat-park</div>
         <div class="daily-goal" id="dynamicGoal">Loading progress...</div>
-        <div class="user-info" id="userInfo" style="position: absolute; top: 10px; left: 20px; background: rgba(255,255,255,0.2); padding: 8px 12px; border-radius: 15px; font-size: 0.85em; opacity: 0.9;">
+        <div class="user-info" id="userInfo" style="position: absolute; top: 10px; left: 20px; background: rgba(255,255,255,0.2); padding: 8px 12px; border-radius: 15px; font-size: 0.85em; opacity: 0.9; cursor: pointer;" onclick="showUsernameModal()">
             <span id="usernameDisplay">Loading...</span>
             <span id="syncStatus" style="margin-left: 10px;">🟢</span>
+            <span style="margin-left: 8px; opacity: 0.7;">👤</span>
         </div>
     </div>
 
@@ -1463,6 +1464,47 @@
                 </small>
             </div>
             <button class="qr-close" onclick="closeQRModal()">Close</button>
+        </div>
+    </div>
+
+    <!-- Username Modal -->
+    <div class="qr-overlay" id="usernameOverlay" style="display: none;">
+        <div class="qr-modal" style="max-width: 500px;">
+            <div class="qr-title">👤 Your Username</div>
+            <div class="qr-subtitle">Sync your progress across devices</div>
+            
+            <div style="margin: 20px 0; padding: 15px; background: #f5f5f5; border-radius: 10px; text-align: left;">
+                <div style="font-weight: bold; color: #2d5a2d; margin-bottom: 10px;">Current Username:</div>
+                <div style="font-family: monospace; font-size: 1.2em; color: #333; background: white; padding: 10px; border-radius: 5px; border: 2px solid #4CAF50;" id="currentUsernameDisplay">Loading...</div>
+            </div>
+            
+            <div style="margin: 20px 0; text-align: left;">
+                <div style="font-weight: bold; color: #2d5a2d; margin-bottom: 10px;">To sync with another device:</div>
+                <div style="font-size: 0.9em; color: #666; margin-bottom: 15px;">
+                    1. Write down your username above<br>
+                    2. On your other device, click your username and select "Use Different Username"<br>
+                    3. Type in the same username to sync your progress
+                </div>
+                
+                <div style="background: #fff3e0; padding: 15px; border-radius: 8px; border-left: 4px solid #FF7043;">
+                    <div style="font-weight: bold; color: #E65100; margin-bottom: 5px;">Want to use a different username?</div>
+                    <button style="background: #FF7043; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold;" onclick="showUsernameChange()">Use Different Username</button>
+                </div>
+            </div>
+            
+            <div id="usernameChangeSection" style="display: none; margin: 20px 0; text-align: left;">
+                <div style="font-weight: bold; color: #2d5a2d; margin-bottom: 10px;">Enter Username:</div>
+                <input type="text" id="newUsernameInput" placeholder="Enter existing username..." style="width: 100%; padding: 10px; border: 2px solid #4CAF50; border-radius: 5px; font-family: monospace; font-size: 1em; margin-bottom: 10px;">
+                <div style="display: flex; gap: 10px;">
+                    <button style="background: #4CAF50; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; flex: 1;" onclick="switchUsername()">Switch to This Username</button>
+                    <button style="background: #9E9E9E; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold;" onclick="hideUsernameChange()">Cancel</button>
+                </div>
+                <div style="font-size: 0.85em; color: #666; margin-top: 8px;">
+                    ⚠️ This will switch to the existing username's progress, or create a new account if the username doesn't exist.
+                </div>
+            </div>
+            
+            <button class="qr-close" onclick="closeUsernameModal()">Close</button>
         </div>
     </div>
 
@@ -2675,6 +2717,90 @@
             modal.style.display = 'none';
         }
 
+        // Username modal functions
+        function showUsernameModal() {
+            const modal = document.getElementById('usernameOverlay');
+            const currentUsernameEl = document.getElementById('currentUsernameDisplay');
+            
+            // Update current username display
+            if (window.syncManager && window.syncManager.getCurrentUser()) {
+                currentUsernameEl.textContent = window.syncManager.getCurrentUser().username;
+            } else {
+                currentUsernameEl.textContent = 'Loading...';
+            }
+            
+            // Reset the change section
+            hideUsernameChange();
+            
+            modal.style.display = 'flex';
+        }
+
+        function closeUsernameModal() {
+            document.getElementById('usernameOverlay').style.display = 'none';
+            hideUsernameChange();
+        }
+
+        function showUsernameChange() {
+            document.getElementById('usernameChangeSection').style.display = 'block';
+            document.getElementById('newUsernameInput').focus();
+        }
+
+        function hideUsernameChange() {
+            document.getElementById('usernameChangeSection').style.display = 'none';
+            document.getElementById('newUsernameInput').value = '';
+        }
+
+        async function switchUsername() {
+            const newUsername = document.getElementById('newUsernameInput').value.trim();
+            
+            if (!newUsername) {
+                alert('Please enter a username');
+                return;
+            }
+            
+            if (!/^[a-zA-Z0-9]+$/.test(newUsername)) {
+                alert('Username can only contain letters and numbers');
+                return;
+            }
+            
+            if (newUsername.length < 3 || newUsername.length > 20) {
+                alert('Username must be 3-20 characters long');
+                return;
+            }
+            
+            // Show loading state
+            const switchBtn = document.querySelector('#usernameChangeSection button');
+            const originalText = switchBtn.textContent;
+            switchBtn.textContent = 'Switching...';
+            switchBtn.disabled = true;
+            
+            try {
+                if (window.syncManager) {
+                    // Switch to the new username
+                    await window.syncManager.switchToUsername(newUsername);
+                    
+                    // Reload progress and update interface
+                    await loadProgress();
+                    initializeUnitsData();
+                    generateUnitsGrid();
+                    calculateNextDeadline();
+                    updateUserDisplay();
+                    
+                    alert(`✅ Successfully switched to username: ${newUsername}\n\nYour progress is now synced with this account.`);
+                    closeUsernameModal();
+                } else {
+                    throw new Error('Sync manager not available');
+                }
+            } catch (error) {
+                console.error('Username switch failed:', error);
+                alert(`❌ Failed to switch username: ${error.message}\n\nPlease try again or check your internet connection.`);
+            } finally {
+                // Reset button
+                switchBtn.textContent = originalText;
+                switchBtn.disabled = false;
+            }
+        }
+
         // Close QR modal when clicking outside
         document.getElementById('qrOverlay').addEventListener('click', function(e) {
             if (e.target === this) {
@@ -2682,10 +2808,18 @@
             }
         });
 
-        // Escape key to close QR modal
+        // Close username modal when clicking outside
+        document.getElementById('usernameOverlay').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeUsernameModal();
+            }
+        });
+
+        // Escape key to close modals
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') {
                 closeQRModal();
+                closeUsernameModal();
             }
         });
 
