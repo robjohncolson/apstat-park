@@ -347,7 +347,15 @@ class SyncManager {
     // Public method to trigger sync for external use
     async triggerSync(type = 'full', data = null) {
         if (type === 'quick') {
-            return await this.quickSync('progress', data);
+            // Quick sync includes both progress and bookmarks
+            try {
+                await this.syncProgress();
+                await this.syncBookmarks();
+                return { success: true };
+            } catch (error) {
+                console.warn('Quick sync failed:', error);
+                return { success: false, reason: 'sync_failed' };
+            }
         } else if (type === 'persistent') {
             return await this.persistentSync('progress', data);
         } else {

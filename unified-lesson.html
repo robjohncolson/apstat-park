@@ -541,7 +541,7 @@
 </head>
 <body>
     <script src="js/allUnitsData.js"></script>
-    <script src="js/syncManager.js?v=2"></script>
+    <script src="js/syncManager.js?v=3"></script>
     
     <!-- Loading State -->
     <div class="loading" id="loadingState">
@@ -940,7 +940,7 @@
             );
         }
 
-        function bookmarkVideo(videoIndex) {
+        async function bookmarkVideo(videoIndex) {
             const bookmarks = getItemBookmarks();
             const existingIndex = bookmarks.findIndex(b => 
                 b.lessonId === currentLessonData.id && 
@@ -966,12 +966,25 @@
                 localStorage.setItem('item_bookmarks', JSON.stringify(newBookmark));
                 localStorage.removeItem('bookmarked_lessons');
             }
+            
+            // Sync bookmark to database
+            if (window.syncManager) {
+                try {
+                    const result = await window.syncManager.triggerSync('quick');
+                    if (result && result.success) {
+                        console.log('Bookmark synced successfully');
+                    }
+                } catch (error) {
+                    console.warn('Bookmark sync failed:', error);
+                }
+            }
+            
             populateVideos(); // Refresh to update bookmark display
             populateQuizzes(); // Refresh to update bookmark display
             updateInterface(); // Update lesson bookmark display
         }
 
-        function bookmarkQuiz(quizIndex) {
+        async function bookmarkQuiz(quizIndex) {
             const bookmarks = getItemBookmarks();
             const existingIndex = bookmarks.findIndex(b => 
                 b.lessonId === currentLessonData.id && 
@@ -997,6 +1010,19 @@
                 localStorage.setItem('item_bookmarks', JSON.stringify(newBookmark));
                 localStorage.removeItem('bookmarked_lessons');
             }
+            
+            // Sync bookmark to database
+            if (window.syncManager) {
+                try {
+                    const result = await window.syncManager.triggerSync('quick');
+                    if (result && result.success) {
+                        console.log('Bookmark synced successfully');
+                    }
+                } catch (error) {
+                    console.warn('Bookmark sync failed:', error);
+                }
+            }
+            
             populateVideos(); // Refresh to update bookmark display
             populateQuizzes(); // Refresh to update bookmark display
             updateInterface(); // Update lesson bookmark display
