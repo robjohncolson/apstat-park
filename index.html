@@ -1433,7 +1433,8 @@
         <div class="daily-goal" id="dynamicGoal">Loading progress...</div>
         <div class="user-info" id="userInfo" style="position: absolute; top: 10px; left: 20px; background: rgba(255,255,255,0.2); padding: 8px 12px; border-radius: 15px; font-size: 0.85em; opacity: 0.9; cursor: pointer;" onclick="showUsernameModal()">
             <span id="usernameDisplay">Loading...</span>
-            <span id="syncStatus" style="margin-left: 10px;">🟢</span>
+            <span id="goldStarDisplay" style="margin-left: 8px; color: #FFD54F; font-weight: bold;">⭐0</span>
+            <span id="syncStatus" style="margin-left: 8px;">🟢</span>
             <span style="margin-left: 8px; opacity: 0.7;">👤</span>
         </div>
     </div>
@@ -1615,11 +1616,12 @@
         }
         
         // Update user display
-        function updateUserDisplay() {
+        async function updateUserDisplay() {
             if (window.syncManager && window.syncManager.getCurrentUser()) {
                 const user = window.syncManager.getCurrentUser();
                 const usernameEl = document.getElementById('usernameDisplay');
                 const syncStatusEl = document.getElementById('syncStatus');
+                const goldStarEl = document.getElementById('goldStarDisplay');
                 
                 if (usernameEl) {
                     usernameEl.textContent = user.username;
@@ -1632,6 +1634,28 @@
                     } else {
                         syncStatusEl.textContent = '🟢'; // Green for online
                         syncStatusEl.title = 'Online and synced';
+                    }
+                }
+                
+                // Update gold star display
+                if (goldStarEl) {
+                    try {
+                        const goldStarStats = await window.syncManager.getGoldStarStats();
+                        const streak = goldStarStats.currentStreak || 0;
+                        const total = goldStarStats.totalStars || 0;
+                        
+                        goldStarEl.innerHTML = `⭐${streak}`;
+                        goldStarEl.title = `Streak: ${streak} | Total Stars: ${total}`;
+                        
+                        if (streak > 0) {
+                            goldStarEl.style.animation = 'starGlow 2s ease-in-out infinite';
+                        } else {
+                            goldStarEl.style.animation = 'none';
+                        }
+                    } catch (error) {
+                        console.warn('Failed to get gold star stats:', error);
+                        goldStarEl.innerHTML = '⭐0';
+                        goldStarEl.title = 'Gold Star Streak';
                     }
                 }
             }

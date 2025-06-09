@@ -21,7 +21,8 @@ class SyncManager {
             bookmark_updates: [],
             user_activity: [],
             device_connected: [],
-            device_disconnected: []
+            device_disconnected: [],
+            leaderboard_updates: []
         };
         
         // Initialize user and real-time connection
@@ -135,6 +136,9 @@ class SyncManager {
                 case 'device_disconnected':
                     this.handleDeviceUpdate(update.type, update.data);
                     break;
+                case 'leaderboard_updates':
+                    this.handleLeaderboardUpdate(update.data);
+                    break;
                 default:
                     console.log('Unknown real-time update type:', update.type);
             }
@@ -208,6 +212,12 @@ class SyncManager {
     handleDeviceUpdate(type, data) {
         const action = type === 'device_connected' ? 'connected' : 'disconnected';
         console.log(`📱 Device ${action}, total devices: ${data.deviceCount}`);
+    }
+
+    // Handle leaderboard updates
+    handleLeaderboardUpdate(data) {
+        console.log('🏆 Leaderboard update:', data.username, data.action, data.data);
+        // Can be used to refresh leaderboard displays or show notifications
     }
 
     // Refresh page progress elements (called after real-time updates)
@@ -298,6 +308,74 @@ class SyncManager {
                 this.realtimeCallbacks[type].splice(index, 1);
             }
         }
+    }
+
+    // Calculate gold star when lesson is completed
+    async calculateGoldStar(lessonId) {
+        if (!this.currentUser || this.currentUser.offline) {
+            console.log('Cannot calculate gold star: offline or no user');
+            return null;
+        }
+
+        try {
+            const response = await this.fetchWithTimeout(
+                `${this.API_BASE}/users/${this.currentUser.id}/gold-star`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        lessonId: lessonId,
+                        completionTime: new Date().toISOString()
+                    })
+                }
+            );
+
+            if (response.ok) {
+                const result = await response.json();
+                console.log('🌟 Gold star calculation result:', result);
+                return result;
+            }
+        } catch (error) {
+            console.error('Failed to calculate gold star:', error);
+        }
+        return null;
+    }
+
+    // Get user's gold star stats
+    async getGoldStarStats() {
+        if (!this.currentUser || this.currentUser.offline) {
+            return { totalStars: 0, currentStreak: 0, nextTargetHours: null };
+        }
+
+        try {
+            const response = await this.fetchWithTimeout(
+                `${this.API_BASE}/users/${this.currentUser.id}/gold-stars`
+            );
+
+            if (response.ok) {
+                return await response.json();
+            }
+        } catch (error) {
+            console.error('Failed to get gold star stats:', error);
+        }
+        return { totalStars: 0, currentStreak: 0, nextTargetHours: null };
+    }
+
+    // Get leaderboard
+    async getLeaderboard() {
+        try {
+            const response = await this.fetchWithTimeout(
+                `${this.API_BASE}/leaderboard`
+            );
+
+            if (response.ok) {
+                const result = await response.json();
+                return result.leaderboard || [];
+            }
+        } catch (error) {
+            console.error('Failed to get leaderboard:', error);
+        }
+        return [];
     }
 
     // Initialize or get existing user

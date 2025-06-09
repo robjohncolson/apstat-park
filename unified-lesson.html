@@ -478,6 +478,18 @@
             opacity: 1;
         }
 
+        /* Gold star notification glow animation */
+        @keyframes goldStarGlow {
+            0%, 100% {
+                box-shadow: 0 4px 12px rgba(0,0,0,0.2), 0 0 20px rgba(255, 215, 0, 0.3);
+                transform: translateX(0) scale(1);
+            }
+            50% {
+                box-shadow: 0 6px 20px rgba(0,0,0,0.3), 0 0 30px rgba(255, 215, 0, 0.6);
+                transform: translateX(0) scale(1.02);
+            }
+        }
+
         /* Mobile Responsive */
         @media (max-width: 768px) {
             body {
@@ -778,23 +790,34 @@
             // Create notification element
             const notification = document.createElement('div');
             notification.className = 'lesson-realtime-notification';
-            notification.style.cssText = `
-                position: fixed;
-                top: 20px;
-                right: 20px;
-                z-index: 1000;
-                background: ${type === 'progress' ? '#4CAF50' : type === 'bookmark' ? '#FFD54F' : '#2196F3'};
-                color: ${type === 'bookmark' ? '#333' : 'white'};
-                padding: 10px 14px;
-                border-radius: 8px;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-                font-size: 0.85em;
-                font-weight: bold;
-                transform: translateX(100%);
-                transition: transform 0.3s ease;
-                max-width: 250px;
-                word-wrap: break-word;
-            `;
+                         notification.style.cssText = `
+                 position: fixed;
+                 top: 20px;
+                 right: 20px;
+                 z-index: 1000;
+                 background: ${getNotificationColor(type)};
+                 color: ${type === 'bookmark' || type === 'gold-star' ? '#333' : 'white'};
+                 padding: 10px 14px;
+                 border-radius: 8px;
+                 box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+                 font-size: 0.85em;
+                 font-weight: bold;
+                 transform: translateX(100%);
+                 transition: transform 0.3s ease;
+                 max-width: 250px;
+                 word-wrap: break-word;
+                 ${type === 'gold-star' ? 'border: 2px solid #FFD700; animation: goldStarGlow 2s ease-in-out infinite;' : ''}
+             `;
+             
+             function getNotificationColor(type) {
+                 switch(type) {
+                     case 'progress': return '#4CAF50';
+                     case 'bookmark': return '#FFD54F';
+                     case 'gold-star': return 'linear-gradient(135deg, #FFD700, #FFA500)';
+                     case 'device': return '#2196F3';
+                     default: return '#2196F3';
+                 }
+             }
             
             // Add icon based on type
             const icon = type === 'progress' ? '📊' : type === 'bookmark' ? '⭐' : '📱';
@@ -1209,7 +1232,42 @@
                     }
                 }
                 
-                alert(`🎉 Congratulations! You've completed: ${currentLessonData.name}\n\nGreat job! Keep up the momentum!`);
+                // 🌟 CALCULATE GOLD STAR! 🌟
+                let goldStarResult = null;
+                if (window.syncManager) {
+                    try {
+                        goldStarResult = await window.syncManager.calculateGoldStar(currentLessonData.id);
+                    } catch (error) {
+                        console.warn('Gold star calculation failed:', error);
+                    }
+                }
+                
+                // Show completion message with gold star info
+                let congratsMessage = `🎉 Congratulations! You've completed: ${currentLessonData.name}\n\n`;
+                
+                if (goldStarResult) {
+                    if (goldStarResult.earnedGoldStar) {
+                        congratsMessage += `🌟 GOLD STAR EARNED! 🌟\n`;
+                        congratsMessage += `Current Streak: ${goldStarResult.currentStreak} ⭐\n`;
+                        congratsMessage += `Total Stars: ${goldStarResult.totalStars} ⭐\n\n`;
+                        
+                        if (goldStarResult.nextTargetHours) {
+                            const nextDays = Math.round(goldStarResult.nextTargetHours / 24 * 10) / 10;
+                            congratsMessage += `Next target: Complete next lesson within ${nextDays} days\n\n`;
+                        }
+                        
+                        // Show gold star notification
+                        showLessonRealtimeNotification(`🌟 Gold Star #${goldStarResult.totalStars} - Streak: ${goldStarResult.currentStreak}`, 'gold-star');
+                    } else {
+                        congratsMessage += `⏰ No gold star this time (took ${Math.round(goldStarResult.timeSinceLastLesson * 10) / 10} hours)\n`;
+                        congratsMessage += `Target was: ${Math.round(goldStarResult.currentTargetHours * 10) / 10} hours\n`;
+                        congratsMessage += `Streak reset to 0. Try to complete the next lesson faster!\n\n`;
+                    }
+                }
+                
+                congratsMessage += `Great job! Keep up the momentum!`;
+                
+                alert(congratsMessage);
                 
                 // Automatically navigate back to lesson selector after a brief delay
                 setTimeout(() => {
