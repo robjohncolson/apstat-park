@@ -1,15 +1,303 @@
-// APStat Park Sync Manager
-// Handles synchronization between localStorage and database
+// APStat Park Sync Manager with Real-time Support
+// Handles synchronization between localStorage and database + WebSocket real-time updates
 
 class SyncManager {
     constructor() {
-        this.apiBaseUrl = 'https://apstat-park-api.up.railway.app/api'; // Replace with your actual API URL
+        this.apiBaseUrl = 'https://apstat-park-api.up.railway.app/api';
+        this.wsBaseUrl = 'https://apstat-park-api.up.railway.app'; // WebSocket connection
         this.currentUser = null;
         this.syncInProgress = false;
         this.offlineMode = false;
         
-        // Initialize user on creation
+        // Real-time WebSocket connection
+        this.socket = null;
+        this.connectionAttempts = 0;
+        this.maxReconnectAttempts = 5;
+        this.reconnectDelay = 2000; // Start with 2 seconds
+        
+        // Real-time event callbacks
+        this.realtimeCallbacks = {
+            progress_updates: [],
+            bookmark_updates: [],
+            user_activity: [],
+            device_connected: [],
+            device_disconnected: []
+        };
+        
+        // Initialize user and real-time connection
         this.initializeUser();
+        this.initializeRealtime();
+    }
+
+    // Initialize real-time WebSocket connection
+    async initializeRealtime() {
+        try {
+            // Load Socket.io from CDN if not already loaded
+            if (typeof io === 'undefined') {
+                await this.loadSocketIO();
+            }
+            
+            this.connectWebSocket();
+        } catch (error) {
+            console.warn('Failed to initialize real-time connection:', error);
+            // Continue without real-time features
+        }
+    }
+
+    // Load Socket.io from CDN
+    loadSocketIO() {
+        return new Promise((resolve, reject) => {
+            if (typeof io !== 'undefined') {
+                resolve();
+                return;
+            }
+
+            const script = document.createElement('script');
+            script.src = 'https://cdn.socket.io/4.7.5/socket.io.min.js';
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
+        });
+    }
+
+    // Connect to WebSocket server
+    connectWebSocket() {
+        if (this.socket && this.socket.connected) return;
+
+        try {
+            console.log('🔌 Connecting to real-time server...');
+            
+            this.socket = io(this.wsBaseUrl, {
+                transports: ['websocket', 'polling'],
+                timeout: 10000,
+                reconnection: true,
+                reconnectionAttempts: this.maxReconnectAttempts,
+                reconnectionDelay: this.reconnectDelay
+            });
+
+            this.setupSocketEventListeners();
+            
+        } catch (error) {
+            console.error('WebSocket connection failed:', error);
+            this.scheduleReconnect();
+        }
+    }
+
+    // Set up WebSocket event listeners
+    setupSocketEventListeners() {
+        this.socket.on('connect', () => {
+            console.log('🚀 Real-time connection established!');
+            this.connectionAttempts = 0;
+            this.reconnectDelay = 2000; // Reset delay
+            
+            // Join with username if we have one
+            if (this.currentUser && !this.currentUser.offline) {
+                this.socket.emit('join', { username: this.currentUser.username });
+                console.log(`👤 Joined real-time updates for: ${this.currentUser.username}`);
+            }
+        });
+
+        this.socket.on('disconnect', (reason) => {
+            console.log('📡 Real-time connection lost:', reason);
+            if (reason === 'io server disconnect') {
+                // Server initiated disconnect, don't reconnect automatically
+                return;
+            }
+            this.scheduleReconnect();
+        });
+
+        this.socket.on('connect_error', (error) => {
+            console.warn('WebSocket connection error:', error);
+            this.scheduleReconnect();
+        });
+
+        // Real-time update handler - THIS IS THE MAGIC! ✨
+        this.socket.on('realtime_update', (update) => {
+            console.log('📥 Real-time update received:', update.type, update.data);
+            this.handleRealtimeUpdate(update);
+        });
+    }
+
+    // Handle incoming real-time updates
+    async handleRealtimeUpdate(update) {
+        try {
+            switch (update.type) {
+                case 'progress_updates':
+                    await this.handleProgressUpdate(update.data);
+                    break;
+                case 'bookmark_updates':
+                    await this.handleBookmarkUpdate(update.data);
+                    break;
+                case 'user_activity':
+                    this.handleUserActivity(update.data);
+                    break;
+                case 'device_connected':
+                case 'device_disconnected':
+                    this.handleDeviceUpdate(update.type, update.data);
+                    break;
+                default:
+                    console.log('Unknown real-time update type:', update.type);
+            }
+            
+            // Trigger callbacks for this update type
+            const callbacks = this.realtimeCallbacks[update.type] || [];
+            callbacks.forEach(callback => {
+                try {
+                    callback(update.data);
+                } catch (error) {
+                    console.error('Real-time callback error:', error);
+                }
+            });
+            
+        } catch (error) {
+            console.error('Error handling real-time update:', error);
+        }
+    }
+
+    // Handle real-time progress updates
+    async handleProgressUpdate(data) {
+        // Only process if it's not from this user (avoid echo)
+        if (data.username === this.currentUser?.username) {
+            console.log('📤 Ignoring own progress update');
+            return;
+        }
+
+        console.log('📥 Processing real-time progress update from another device');
+        
+        // Refresh progress from server
+        try {
+            await this.syncProgress();
+            
+            // Trigger page refresh for main app elements
+            this.refreshPageProgress();
+            
+        } catch (error) {
+            console.error('Failed to sync progress after real-time update:', error);
+        }
+    }
+
+    // Handle real-time bookmark updates
+    async handleBookmarkUpdate(data) {
+        // Only process if it's not from this user (avoid echo)
+        if (data.username === this.currentUser?.username) {
+            console.log('📤 Ignoring own bookmark update');
+            return;
+        }
+
+        console.log('📥 Processing real-time bookmark update from another device');
+        
+        // Refresh bookmarks from server
+        try {
+            await this.syncBookmarks();
+            
+            // Trigger page refresh for bookmark elements
+            this.refreshPageBookmarks();
+            
+        } catch (error) {
+            console.error('Failed to sync bookmarks after real-time update:', error);
+        }
+    }
+
+    // Handle user activity updates
+    handleUserActivity(data) {
+        console.log('👀 User activity:', data.username, data.activity);
+        // Can be used for "user is active in lesson X" features
+    }
+
+    // Handle device connection updates
+    handleDeviceUpdate(type, data) {
+        const action = type === 'device_connected' ? 'connected' : 'disconnected';
+        console.log(`📱 Device ${action}, total devices: ${data.deviceCount}`);
+    }
+
+    // Refresh page progress elements (called after real-time updates)
+    refreshPageProgress() {
+        // Trigger refresh of progress displays
+        if (typeof updateBookmarkButton === 'function') {
+            updateBookmarkButton();
+        }
+        if (typeof updateLessonBookmarkButton === 'function') {
+            updateLessonBookmarkButton();
+        }
+        if (typeof calculateNextDeadline === 'function') {
+            calculateNextDeadline();
+        }
+        if (typeof initializeUnitsData === 'function') {
+            initializeUnitsData();
+        }
+        if (typeof generateUnitsGrid === 'function') {
+            generateUnitsGrid();
+        }
+        
+        // Trigger storage event to notify other tabs
+        window.dispatchEvent(new StorageEvent('storage', {
+            key: 'apStatsProgress',
+            newValue: localStorage.getItem('apStatsProgress')
+        }));
+    }
+
+    // Refresh page bookmark elements (called after real-time updates)
+    refreshPageBookmarks() {
+        // Trigger refresh of bookmark displays
+        if (typeof updateBookmarkButton === 'function') {
+            updateBookmarkButton();
+        }
+        if (typeof updateLessonBookmarkButton === 'function') {
+            updateLessonBookmarkButton();
+        }
+        
+        // Trigger storage event to notify other tabs
+        window.dispatchEvent(new StorageEvent('storage', {
+            key: 'item_bookmarks',
+            newValue: localStorage.getItem('item_bookmarks')
+        }));
+        window.dispatchEvent(new StorageEvent('storage', {
+            key: 'bookmarked_lessons',
+            newValue: localStorage.getItem('bookmarked_lessons')
+        }));
+    }
+
+    // Schedule reconnection with exponential backoff
+    scheduleReconnect() {
+        if (this.connectionAttempts >= this.maxReconnectAttempts) {
+            console.log('🚫 Max reconnection attempts reached, giving up');
+            return;
+        }
+
+        this.connectionAttempts++;
+        
+        console.log(`🔄 Scheduling reconnect attempt ${this.connectionAttempts} in ${this.reconnectDelay}ms`);
+        
+        setTimeout(() => {
+            this.connectWebSocket();
+        }, this.reconnectDelay);
+        
+        // Exponential backoff: 2s, 4s, 8s, 16s, 32s
+        this.reconnectDelay = Math.min(this.reconnectDelay * 2, 32000);
+    }
+
+    // Send user activity to real-time server
+    sendUserActivity(activity) {
+        if (this.socket && this.socket.connected && this.currentUser && !this.currentUser.offline) {
+            this.socket.emit('user_activity', activity);
+        }
+    }
+
+    // Register callback for real-time updates
+    onRealtimeUpdate(type, callback) {
+        if (this.realtimeCallbacks[type]) {
+            this.realtimeCallbacks[type].push(callback);
+        }
+    }
+
+    // Remove callback for real-time updates
+    offRealtimeUpdate(type, callback) {
+        if (this.realtimeCallbacks[type]) {
+            const index = this.realtimeCallbacks[type].indexOf(callback);
+            if (index > -1) {
+                this.realtimeCallbacks[type].splice(index, 1);
+            }
+        }
     }
 
     // Initialize or get existing user
@@ -20,6 +308,11 @@ class SyncManager {
             if (storedUser) {
                 this.currentUser = JSON.parse(storedUser);
                 console.log('Loaded existing user:', this.currentUser.username);
+                
+                // Join real-time room if connected
+                if (this.socket && this.socket.connected) {
+                    this.socket.emit('join', { username: this.currentUser.username });
+                }
                 
                 // Try to sync in background (non-blocking)
                 this.backgroundSync();
@@ -38,6 +331,11 @@ class SyncManager {
                 this.currentUser = data.user;
                 localStorage.setItem('apstat_user', JSON.stringify(this.currentUser));
                 console.log('Created new user:', this.currentUser.username);
+                
+                // Join real-time room
+                if (this.socket && this.socket.connected) {
+                    this.socket.emit('join', { username: this.currentUser.username });
+                }
                 
                 // Initial sync
                 this.backgroundSync();
@@ -368,6 +666,11 @@ class SyncManager {
         return !this.offlineMode && navigator.onLine;
     }
 
+    // Check if real-time connection is active
+    isRealtimeConnected() {
+        return this.socket && this.socket.connected;
+    }
+
     // Method to switch to a different username
     async switchToUsername(newUsername) {
         if (!newUsername || typeof newUsername !== 'string') {
@@ -409,6 +712,12 @@ class SyncManager {
             this.currentUser = data.user;
             this.offlineMode = false; // Reset offline mode if switching worked
             localStorage.setItem('apstat_user', JSON.stringify(this.currentUser));
+            
+            // Join new real-time room
+            if (this.socket && this.socket.connected) {
+                this.socket.emit('join', { username: this.currentUser.username });
+                console.log(`👤 Joined real-time updates for new username: ${this.currentUser.username}`);
+            }
             
             // Sync to download progress from new account
             try {
