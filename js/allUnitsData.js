@@ -1124,6 +1124,17 @@ const ALL_UNITS_DATA = [
             completionDate: null
         }
     ],
+    blooket: {
+        url: "", // To be provided
+        completed: false,
+        completionDate: null
+    },
+    origami: {
+        name: "Magic 8-Ball",
+        description: "Shake up your understanding of randomness",
+        videoUrl: "https://www.youtube.com/watch?v=ZnDo5xqR7f8",
+        reflection: "Your magic 8-ball reveals answers unpredictably, just like truly random patterns have no discernible order. As you fold this spherical puzzle, consider how our brains seek patterns even in pure randomness - but statistics helps us distinguish real patterns from illusion."
+    },
     quizzes: [],
     current: false
   },
@@ -1145,6 +1156,17 @@ const ALL_UNITS_DATA = [
             completionDate: null
         }
     ],
+    blooket: {
+        url: "", // To be provided
+        completed: false,
+        completionDate: null
+    },
+    origami: {
+        name: "Computer Terminal",
+        description: "Digital precision for probability simulation",
+        videoUrl: "https://www.youtube.com/watch?v=TZhupDR1vLk",
+        reflection: "Your computer terminal processes thousands of calculations, just like simulations run thousands of trials to estimate probabilities. Each fold represents a computational step that brings us closer to theoretical truth through empirical approximation."
+    },
     quizzes: [
         {
             questionPdf: "pdfs/unit4/unit4_section4.2_quiz.pdf",
@@ -1168,6 +1190,17 @@ const ALL_UNITS_DATA = [
             completionDate: null
         }
     ],
+    blooket: {
+        url: "", // To be provided
+        completed: false,
+        completionDate: null
+    },
+    origami: {
+        name: "Probability Wheel",
+        description: "Spin through the foundations of chance",
+        videoUrl: "https://www.youtube.com/watch?v=VzCW0Q2QJ7s",
+        reflection: "Your wheel spins with perfect balance, demonstrating how probability assigns numerical values to chance events. Each section represents a different outcome, and the smooth rotation shows how probability theory provides the mathematical foundation for understanding uncertainty."
+    },
     quizzes: [
         {
             questionPdf: "pdfs/unit4/unit4_section4.3_quiz.pdf",
@@ -1193,6 +1226,17 @@ const ALL_UNITS_DATA = [
             completionDate: null
         }
     ],
+    blooket: {
+        url: "", // To be provided
+        completed: false,
+        completionDate: null
+    },
+    origami: {
+        name: "Locked Treasure Chest",
+        description: "Events that cannot happen together",
+        videoUrl: "https://www.youtube.com/watch?v=YPdYj7X5z2o",
+        reflection: "Your treasure chest can only be either locked OR unlocked - never both simultaneously. This perfectly represents mutually exclusive events: when one happens, the other cannot. The rigid lock mechanism shows how some events have an absolute either/or relationship."
+    },
     quizzes: [
         {
             questionPdf: "pdfs/unit4/unit4_section4.4_quiz.pdf",
@@ -1218,6 +1262,17 @@ const ALL_UNITS_DATA = [
             completionDate: null
         }
     ],
+    blooket: {
+        url: "", // To be provided
+        completed: false,
+        completionDate: null
+    },
+    origami: {
+        name: "Branching Tree",
+        description: "Decisions that depend on previous outcomes",
+        videoUrl: "https://www.youtube.com/watch?v=H0kT-mLhvF8",
+        reflection: "Your tree branches in different directions based on earlier choices, just like conditional probability changes based on given information. Each branch point represents new knowledge that updates our understanding of what's likely to happen next."
+    },
     quizzes: [
         {
             questionPdf: "pdfs/unit4/unit4_section4.5_quiz.pdf",
@@ -1255,6 +1310,17 @@ const ALL_UNITS_DATA = [
             completionDate: null
         }
     ],
+    blooket: {
+        url: "", // To be provided
+        completed: false,
+        completionDate: null
+    },
+    origami: {
+        name: "Double Bridge",
+        description: "Two paths that cross but don't interfere",
+        videoUrl: "https://www.youtube.com/watch?v=UlOANi9k4fY",
+        reflection: "Your double bridge has two independent pathways that can operate simultaneously without affecting each other, perfectly representing independent events. The union of both bridges creates new possibilities while maintaining their separate identities."
+    },
     quizzes: [
         {
             questionPdf: "pdfs/unit4/unit4_section4.6_quiz.pdf",
@@ -1286,6 +1352,17 @@ const ALL_UNITS_DATA = [
             completionDate: null
         }
     ],
+    blooket: {
+        url: "", // To be provided
+        completed: false,
+        completionDate: null
+    },
+    origami: {
+        name: "Variable Box",
+        description: "Transform outcomes into numerical values",
+        videoUrl: "https://www.youtube.com/watch?v=zfGf8d8ujfQ",
+        reflection: "Your variable box takes in random outcomes and outputs numerical values, just like random variables assign numbers to chance events. The probability distribution shows how likely each possible value is - it's the mathematical portrait of uncertainty."
+    },
     quizzes: [
         {
             questionPdf: "pdfs/unit4/unit4_section4.7_quiz.pdf",
@@ -1311,6 +1388,17 @@ const ALL_UNITS_DATA = [
             completionDate: null
         }
     ],
+    blooket: {
+        url: "", // To be provided
+        completed: false,
+        completionDate: null
+    },
+    origami: {
+        name: "Balance Scale",
+        description: "Weighing expected values and spread",
+        videoUrl: "https://www.youtube.com/watch?v=bJ3u7C2NGAU",
+        reflection: "Your balance scale finds the perfect equilibrium point - the mean - while the range of motion shows variability. Just like expected value represents the 'balance point' of a probability distribution, and standard deviation measures how much the values spread around that center."
+    },
     quizzes: [
         {
             questionPdf: "pdfs/unit4/unit4_section4.8_quiz.pdf",
@@ -1342,6 +1430,17 @@ const ALL_UNITS_DATA = [
             completionDate: null
         }
     ],
+    blooket: {
+        url: "", // To be provided
+        completed: false,
+        completionDate: null
+    },
+    origami: {
+        name: "Modular Flower",
+        description: "Multiple petals unite in mathematical harmony",
+        videoUrl: "https://www.youtube.com/watch?v=d7hgkYDqA9Y",
+        reflection: "Your modular flower combines separate petals into one beautiful creation, just like combining random variables creates new distributions with predictable properties. Each petal maintains its identity while contributing to the whole - much like how variances add and means combine."
+    },
     quizzes: [
         {
             questionPdf: "pdfs/unit4/unit4_section4.9_quiz.pdf",
@@ -1367,6 +1466,17 @@ const ALL_UNITS_DATA = [
             completionDate: null
         }
     ],
+    blooket: {
+        url: "", // To be provided
+        completed: false,
+        completionDate: null
+    },
+    origami: {
+        name: "Binary Star System",
+        description: "Two outcomes orbiting in perfect mathematical dance",
+        videoUrl: "https://www.youtube.com/watch?v=YnfCMrCyzPQ",
+        reflection: "Your binary star system has exactly two stars - success and failure - just like binomial distributions count successes in fixed trials. The orbital pattern represents how probability of success (p) and number of trials (n) determine the entire distribution's behavior."
+    },
     quizzes: [
         {
             questionPdf: "pdfs/unit4/unit4_section4.10_quiz.pdf",
@@ -1392,6 +1502,17 @@ const ALL_UNITS_DATA = [
             completionDate: null
         }
     ],
+    blooket: {
+        url: "", // To be provided
+        completed: false,
+        completionDate: null
+    },
+    origami: {
+        name: "Parametric Equation Spiral",
+        description: "Mathematical curves defined by n and p",
+        videoUrl: "https://www.youtube.com/watch?v=wESmjQhJfKQ",
+        reflection: "Your spiral unfolds according to precise mathematical parameters, just like binomial distributions are completely determined by n (trials) and p (probability). Change either parameter and the entire shape transforms - the beauty of mathematical precision made tangible."
+    },
     quizzes: [
         {
             questionPdf: "pdfs/unit4/unit4_section4.11_quiz.pdf",
@@ -1423,6 +1544,17 @@ const ALL_UNITS_DATA = [
             completionDate: null
         }
     ],
+    blooket: {
+        url: "", // To be provided
+        completed: false,
+        completionDate: null
+    },
+    origami: {
+        name: "Geometric Pattern Tile",
+        description: "Waiting for the first success in beautiful repetition",
+        videoUrl: "https://www.youtube.com/watch?v=Q0cWHaMVsH8",
+        reflection: "Your geometric tile creates patterns through repetition until a specific condition is met, perfectly representing geometric distributions that count trials until the first success. The beautiful repeating pattern shows how each trial is independent but building toward an inevitable outcome."
+    },
     quizzes: [
         {
             questionPdf: "pdfs/unit4/unit4_section4.12_quiz.pdf",
@@ -1441,6 +1573,17 @@ const ALL_UNITS_DATA = [
     name: "Unit 4 Progress Check",
     description: "Capstone Assessment",
     videos: [],
+    blooket: {
+        url: "", // To be provided
+        completed: false,
+        completionDate: null
+    },
+    origami: {
+        name: "Probability Rose (Advanced)",
+        description: "🌟 Unit 4 Capstone Challenge - Mathematical beauty in full bloom!",
+        videoUrl: "https://www.youtube.com/watch?v=6Ow_l8C1O3I",
+        reflection: "Congratulations! Like this intricate rose that blooms with mathematical precision, you've mastered the elegant beauty of probability theory. Each petal represents a key concept: random variables, distributions, independence, and parameters. Together they form the most beautiful mathematical flower - where chance meets certainty in perfect harmony!"
+    },
     quizzes: [
         {
             questionPdf: "pdfs/unit4/unit4_pc_frq_quiz.pdf",
