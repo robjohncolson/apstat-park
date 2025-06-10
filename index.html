@@ -3510,16 +3510,26 @@
                     }, 300);
                 });
                 
-                // Device connection notifications
+                // Device connection notifications (with spam prevention)
+                let lastDeviceCount = 1; // Assume we start with 1 device (ourselves)
+                
                 window.syncManager.onRealtimeUpdate('device_connected', (data) => {
-                    if (data.deviceCount > 1) {
+                    // Only show notification if device count actually increased
+                    if (data.deviceCount > lastDeviceCount && data.deviceCount > 1) {
                         showRealtimeNotification(`Another device connected (${data.deviceCount} total)`, 'device');
+                        lastDeviceCount = data.deviceCount;
+                    } else {
+                        console.log('🔇 Suppressed duplicate device connection notification');
                     }
                 });
                 
                 window.syncManager.onRealtimeUpdate('device_disconnected', (data) => {
-                    if (data.deviceCount > 0) {
+                    // Only show notification if device count actually decreased
+                    if (data.deviceCount < lastDeviceCount) {
                         showRealtimeNotification(`Device disconnected (${data.deviceCount} remaining)`, 'device');
+                        lastDeviceCount = data.deviceCount;
+                    } else {
+                        console.log('🔇 Suppressed duplicate device disconnection notification');
                     }
                 });
                 
@@ -3559,6 +3569,7 @@
         // Notification spam prevention
         let lastNotificationTime = {};
         let notificationCooldown = 5000; // 5 seconds between similar notifications
+        let deviceNotificationCooldown = 30000; // 30 seconds for device notifications (less spammy)
 
         // Clear all notifications function
         function clearAllNotifications() {
@@ -3579,8 +3590,11 @@
             const notificationKey = `${type}_${message}`;
             const now = Date.now();
             
+            // Use longer cooldown for device notifications
+            const cooldown = type === 'device' ? deviceNotificationCooldown : notificationCooldown;
+            
             if (lastNotificationTime[notificationKey] && 
-                (now - lastNotificationTime[notificationKey]) < notificationCooldown) {
+                (now - lastNotificationTime[notificationKey]) < cooldown) {
                 console.log('🔇 Suppressed duplicate notification:', message);
                 return;
             }
