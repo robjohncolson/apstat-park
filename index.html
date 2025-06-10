@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>apstat-park - Summer Learning</title>
     <style>
-        /* PICO PARK Style CSS */
+        /* PICO PARK Style CSS - v2 Force Refresh */
         * {
             margin: 0;
             padding: 0;
@@ -63,12 +63,13 @@
         }
 
         .bookmark-button {
-            color: #ccc; /* Default grey */
+            color: #ccc !important; /* Force default grey */
+            text-shadow: none !important;
         }
 
         .bookmark-button.has-bookmark {
             color: #FFD54F !important;
-            text-shadow: 0 0 8px rgba(255, 213, 79, 0.6);
+            text-shadow: 0 0 8px rgba(255, 213, 79, 0.6) !important;
         }
 
         .bookmark-button:hover, .bookmark-button:focus {
@@ -143,12 +144,13 @@
         }
 
         .lesson-bookmark {
-            color: #ccc; /* Default grey */
+            color: #ccc !important; /* Force default grey */
+            text-shadow: none !important;
         }
 
         .lesson-bookmark.has-bookmark {
             color: #FFD54F !important;
-            text-shadow: 0 0 8px rgba(255, 213, 79, 0.6);
+            text-shadow: 0 0 8px rgba(255, 213, 79, 0.6) !important;
         }
 
         .lesson-bookmark:hover, .lesson-bookmark:focus {
@@ -1887,13 +1889,16 @@
                 const unitBookmarkBtn = document.getElementById('unitBookmarkButton');
                 const lessonBookmarkBtn = document.getElementById('lessonBookmarkButton');
                 
-                [bookmarkBtn, unitBookmarkBtn, lessonBookmarkBtn].forEach(btn => {
-                    if (btn) {
-                        btn.classList.remove('has-bookmark');
-                        btn.title = 'No bookmark set';
-                        console.log('🔥 IMMEDIATELY REMOVED has-bookmark from button:', btn.id);
-                    }
-                });
+                                 [bookmarkBtn, unitBookmarkBtn, lessonBookmarkBtn].forEach(btn => {
+                     if (btn) {
+                         btn.classList.remove('has-bookmark');
+                         btn.title = 'No bookmark set';
+                         // Force visual reset
+                         btn.style.color = '#ccc';
+                         btn.style.textShadow = 'none';
+                         console.log('🔥 IMMEDIATELY REMOVED has-bookmark from button:', btn.id);
+                     }
+                 });
                 
                 alert('No bookmark set. Create a bookmark by clicking the star button on any lesson or lesson item.');
                 
@@ -3243,20 +3248,24 @@
                     btn.addEventListener('mouseleave', () => {
                         const bookmark = checkBookmarkExists();
                         console.log('🖱️ Mouse left', btn.id, '- bookmark exists:', !!bookmark);
-                        if (!bookmark) {
-                            btn.classList.remove('has-bookmark');
-                            console.log('🔄 Reset bookmark state on mouseleave for', btn.id);
-                        }
+                                                 if (!bookmark) {
+                             btn.classList.remove('has-bookmark');
+                             btn.style.color = '#ccc';
+                             btn.style.textShadow = 'none';
+                             console.log('🔄 Reset bookmark state on mouseleave for', btn.id);
+                         }
                     });
                     
                     // Reset on blur
                     btn.addEventListener('blur', () => {
                         const bookmark = checkBookmarkExists();
                         console.log('🔍 Blur on', btn.id, '- bookmark exists:', !!bookmark);
-                        if (!bookmark) {
-                            btn.classList.remove('has-bookmark');
-                            console.log('🔄 Reset bookmark state on blur for', btn.id);
-                        }
+                                                 if (!bookmark) {
+                             btn.classList.remove('has-bookmark');
+                             btn.style.color = '#ccc';
+                             btn.style.textShadow = 'none';
+                             console.log('🔄 Reset bookmark state on blur for', btn.id);
+                         }
                     });
                     
                                          // Debug click events and force correct state
@@ -3271,6 +3280,8 @@
                              if (!bookmark && btn.classList.contains('has-bookmark')) {
                                  console.log('🚨 FIXING INCORRECT STATE - removing has-bookmark class');
                                  btn.classList.remove('has-bookmark');
+                                 btn.style.color = '#ccc';
+                                 btn.style.textShadow = 'none';
                                  btn.title = 'No bookmark set';
                              }
                          }, 100);
