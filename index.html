@@ -3521,24 +3521,35 @@
                 window.syncManager.onRealtimeUpdate('bookmark_updates', (data) => {
                     console.log('📥 Real-time bookmark update received from:', data.username);
                     
-                    // Only show notification if it's from a different user/device
+                    // Check if this is from our own recent sync (timing-based approach)
+                    const timeSinceLastSync = Date.now() - (window.syncManager.lastBookmarkSyncTime || 0);
+                    const isFromOwnSync = timeSinceLastSync < 2000; // 2 seconds tolerance
                     const currentUser = window.syncManager.getCurrentUser();
-                    if (!currentUser || data.username !== currentUser.username) {
-                        showRealtimeNotification(`${data.username} updated their bookmark`, 'bookmark');
-                        
-                        // Only sync and update UI for OTHER users' changes
-                        setTimeout(async () => {
-                            try {
-                                await window.syncManager.syncBookmarks(); // Pull latest bookmarks from server
-                                updateBookmarkButton();
-                                updateLessonBookmarkButton();
-                            } catch (error) {
-                                console.error('Failed to sync bookmarks after real-time update:', error);
-                            }
-                        }, 300);
-                    } else {
-                        console.log('🔇 Suppressed own bookmark update notification and sync');
+                    
+                    if (isFromOwnSync && currentUser && data.username === currentUser.username) {
+                        console.log('🔇 Suppressed own recent bookmark update');
+                        return;
                     }
+                    
+                    // Show notification for updates from other devices
+                    const isSameUser = currentUser && data.username === currentUser.username;
+                    
+                    if (isSameUser) {
+                        showRealtimeNotification(`Bookmark synced from your other device`, 'bookmark');
+                    } else {
+                        showRealtimeNotification(`${data.username} updated their bookmark`, 'bookmark');
+                    }
+                    
+                    // Sync and update UI for all other-device changes
+                    setTimeout(async () => {
+                        try {
+                            await window.syncManager.syncBookmarks(); // Pull latest bookmarks from server
+                            updateBookmarkButton();
+                            updateLessonBookmarkButton();
+                        } catch (error) {
+                            console.error('Failed to sync bookmarks after real-time update:', error);
+                        }
+                    }, 300);
                 });
                 
                 // Device connection notifications (with spam prevention)

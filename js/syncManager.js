@@ -193,9 +193,12 @@ class SyncManager {
 
     // Handle real-time bookmark updates
     async handleBookmarkUpdate(data) {
-        // Only process if it's not from this user (avoid echo)
-        if (data.username === this.currentUser?.username) {
-            console.log('📤 Ignoring own bookmark update');
+        // Check if this is from our own recent sync (timing-based approach)
+        const timeSinceLastSync = Date.now() - (this.lastBookmarkSyncTime || 0);
+        const isFromOwnSync = timeSinceLastSync < 2000; // 2 seconds tolerance
+        
+        if (isFromOwnSync && data.username === this.currentUser?.username) {
+            console.log('📤 Ignoring own recent bookmark update');
             return;
         }
 
@@ -566,6 +569,9 @@ class SyncManager {
     // Sync bookmarks
     async syncBookmarks() {
         if (!this.currentUser || this.currentUser.offline) return;
+        
+        // Track sync time to avoid processing our own real-time updates
+        this.lastBookmarkSyncTime = Date.now();
         
         // Get local bookmarks
         const localBookmarks = this.getLocalBookmarksForSync();
