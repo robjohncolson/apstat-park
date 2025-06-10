@@ -85,14 +85,14 @@
         .unit-selector.mobile .bookmark-button,
         .lesson-selector.mobile .lesson-bookmark {
             position: fixed !important;
-            top: 25px !important;
-            right: 25px !important;
+            top: 8px !important;
+            right: 8px !important;
             z-index: 100 !important;
             background: none !important;
             border: none !important;
             color: #ccc !important;
-            padding: 8px !important;
-            font-size: 1.8em !important;
+            padding: 6px !important;
+            font-size: 1.4em !important;
             line-height: 1 !important;
             transition: all 0.3s ease !important;
             display: block !important;
@@ -335,30 +335,30 @@
             outline: none;
         }
 
-        /* Mobile unit selector back button - PICO PARK style */
+        /* Mobile unit selector back button - smaller and static */
         .unit-selector.mobile .back-button {
-            position: fixed;
-            top: 20px;
-            left: 20px;
-            z-index: 100;
+            position: static;
+            margin: 8px 8px 15px 8px;
             background: #4CAF50;
             color: white;
-            border: 3px solid #2E7D32;
-            padding: 12px 16px;
-            border-radius: 12px;
+            border: 2px solid #2E7D32;
+            padding: 8px 12px;
+            border-radius: 8px;
             font-weight: bold;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             transition: all 0.3s ease;
-            font-size: 0.9em;
+            font-size: 0.8em;
             font-family: inherit;
+            display: inline-block;
+            width: auto;
         }
 
         .unit-selector.mobile .back-button:hover {
             background: #FFD54F;
             color: #333;
             border-color: #F57F17;
-            transform: translateY(-2px);
-            box-shadow: 0 6px 12px rgba(0,0,0,0.2);
+            transform: translateY(-1px);
+            box-shadow: 0 3px 6px rgba(0,0,0,0.2);
         }
 
         /* Instructions */
@@ -832,8 +832,8 @@
 
         /* Mobile-specific lesson selector - PICO PARK themed */
         .lesson-selector.mobile {
-            padding: 20px;
-            padding-top: 80px; /* Extra space for back button */
+            padding: 8px;
+            padding-top: 40px; /* Reduced padding for static back button */
         }
 
         .lesson-mobile-container {
@@ -869,29 +869,29 @@
             display: none;
         }
 
-        /* Mobile back button - PICO PARK style */
+        /* Mobile back button - smaller and static */
         .lesson-selector.mobile .back-button {
-            position: fixed;
-            top: 20px;
-            left: 20px;
-            z-index: 100;
+            position: static;
+            margin: 8px 8px 15px 8px;
             background: #4CAF50;
             color: white;
-            border: 3px solid #2E7D32;
-            padding: 12px 16px;
-            border-radius: 12px;
+            border: 2px solid #2E7D32;
+            padding: 8px 12px;
+            border-radius: 8px;
             font-weight: bold;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             transition: all 0.3s ease;
-            font-size: 0.9em;
+            font-size: 0.8em;
+            display: inline-block;
+            width: auto;
         }
 
         .lesson-selector.mobile .back-button:hover {
             background: #FFD54F;
             color: #333;
             border-color: #F57F17;
-            transform: translateY(-2px);
-            box-shadow: 0 6px 12px rgba(0,0,0,0.2);
+            transform: translateY(-1px);
+            box-shadow: 0 3px 6px rgba(0,0,0,0.2);
         }
 
 
@@ -1126,8 +1126,8 @@
 
         /* Mobile Unit Selector - PICO PARK themed */
         .unit-selector.mobile {
-            padding: 20px;
-            padding-top: 100px; /* Extra space for bookmark button */
+            padding: 8px;
+            padding-top: 40px; /* Reduced padding for static back button */
         }
 
         /* Hide overwhelming header content on mobile */
@@ -1441,6 +1441,10 @@
 
     <!-- Mobile Simplified Header -->
     <div class="mobile-simple-header" id="mobileHeader">
+        <div class="mobile-user-info" style="position: absolute; top: 8px; left: 8px; background: rgba(255,255,255,0.3); padding: 4px 8px; border-radius: 10px; font-size: 0.75em; font-weight: bold;">
+            <span id="mobileUsernameDisplay">...</span>
+            <span id="mobileGoldStarDisplay" style="margin-left: 5px; color: #FFD54F;">⭐0</span>
+        </div>
         <div class="mobile-daily-goal" id="mobileDynamicGoal">
             Loading progress...
         </div>
@@ -1637,7 +1641,7 @@
                     }
                 }
                 
-                // Update gold star display
+                // Update gold star display (desktop and mobile)
                 if (goldStarEl) {
                     try {
                         const goldStarStats = await window.syncManager.getGoldStarStats();
@@ -1652,10 +1656,37 @@
                         } else {
                             goldStarEl.style.animation = 'none';
                         }
+                        
+                        // Update mobile gold star display too
+                        const mobileGoldStarEl = document.getElementById('mobileGoldStarDisplay');
+                        const mobileUsernameEl = document.getElementById('mobileUsernameDisplay');
+                        
+                        if (mobileGoldStarEl) {
+                            mobileGoldStarEl.innerHTML = `⭐${streak}`;
+                            mobileGoldStarEl.title = `Streak: ${streak} | Total Stars: ${total}`;
+                            
+                            if (streak > 0) {
+                                mobileGoldStarEl.style.animation = 'starGlow 2s ease-in-out infinite';
+                            } else {
+                                mobileGoldStarEl.style.animation = 'none';
+                            }
+                        }
+                        
+                        if (mobileUsernameEl) {
+                            mobileUsernameEl.textContent = user.username;
+                        }
+                        
                     } catch (error) {
                         console.warn('Failed to get gold star stats:', error);
                         goldStarEl.innerHTML = '⭐0';
                         goldStarEl.title = 'Gold Star Streak';
+                        
+                        // Update mobile fallback too
+                        const mobileGoldStarEl = document.getElementById('mobileGoldStarDisplay');
+                        if (mobileGoldStarEl) {
+                            mobileGoldStarEl.innerHTML = '⭐0';
+                            mobileGoldStarEl.title = 'Gold Star Streak';
+                        }
                     }
                 }
             }
