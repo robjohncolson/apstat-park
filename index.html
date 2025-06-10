@@ -4083,6 +4083,16 @@
                 }
             }
         };
+
+        // Check real-time connection status
+        if (window.syncManager) {
+            console.log('🔍 Real-time status:');
+            console.log('Connected:', window.syncManager.isRealtimeConnected());
+            console.log('Socket:', window.syncManager.socket?.connected);
+            console.log('User:', window.syncManager.getCurrentUser());
+        } else {
+            console.log('❌ No sync manager');
+        }
     </script>
 </body>
 </html> 
