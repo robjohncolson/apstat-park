@@ -448,6 +448,83 @@
             transform: translateY(-2px);
         }
 
+        /* Origami Items */
+        .origami-item {
+            background: #fff8e1;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 15px;
+            border-left: 4px solid #FF9800;
+            transition: all 0.3s ease;
+        }
+
+        .origami-item:hover {
+            background: #fff3c4;
+            transform: translateX(5px);
+        }
+
+        .origami-title {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 1.2em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .origami-description {
+            color: #666;
+            margin-bottom: 15px;
+            font-style: italic;
+        }
+
+        .origami-reflection {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 3px solid #FF9800;
+            margin: 15px 0;
+            font-size: 0.95em;
+            line-height: 1.4;
+        }
+
+        .origami-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 15px;
+        }
+
+        .origami-btn {
+            background: #FF9800;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9em;
+        }
+
+        .origami-btn:hover {
+            background: #F57C00;
+            transform: translateY(-2px);
+        }
+
+        .origami-btn.photo {
+            background: #4CAF50;
+        }
+
+        .origami-btn.photo:hover {
+            background: #45a049;
+        }
+
         /* Completion Card */
         .completion-card {
             background: linear-gradient(135deg, #4CAF50, #45a049);
@@ -679,6 +756,16 @@
                     </div>
                     <div id="quizContent"></div>
                 </div>
+            </div>
+
+            <!-- Origami Section -->
+            <div class="lesson-section" id="origamiSection" tabindex="0">
+                <div class="section-header">
+                    <div class="section-icon">🎨</div>
+                    <h2 class="section-title">Fold & Reflect</h2>
+                    <div class="section-status" id="origamiStatus">Optional</div>
+                </div>
+                <div class="section-content" id="origamiContent"></div>
             </div>
 
             <!-- Completion Section -->
@@ -1041,6 +1128,7 @@
             populateVideos();
             populateBlooket();
             populateQuizzes();
+            populateOrigami();
             setupAIHelp();
             updateInterface();
         }
@@ -1126,6 +1214,43 @@
                     </div>
                 </div>
             `;
+        }
+
+        function populateOrigami() {
+            const content = document.getElementById('origamiContent');
+            if (!currentLessonData.origami) {
+                content.innerHTML = '<p style="color: #666; text-align: center; padding: 20px;">No origami activity for this lesson.</p>';
+                return;
+            }
+
+            const origami = currentLessonData.origami;
+            content.innerHTML = `
+                <div class="origami-item">
+                    <div class="origami-title">
+                        📜 ${origami.name}
+                    </div>
+                    <div class="origami-description">
+                        ${origami.description}
+                    </div>
+                    <div class="origami-reflection">
+                        <strong>💭 Fold & Reflect:</strong><br>
+                        ${origami.reflection}
+                    </div>
+                    <div class="origami-actions">
+                        <a href="${origami.videoUrl}" target="_blank" class="origami-btn">
+                            🎥 Tutorial Video
+                        </a>
+                        <button class="origami-btn photo" onclick="showPhotoGallery()">
+                            📸 Share Your Creation
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function showPhotoGallery() {
+            // Phase 2 feature - for now just show an alert
+            alert('📸 Photo Gallery Feature\n\nComing soon! You\'ll be able to:\n• Upload photos of your origami\n• View creations from other students\n• Get inspiration for your folds\n\nFor now, take a photo and keep it with your notes!');
         }
 
         // Grok prompt from the old version

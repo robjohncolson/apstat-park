@@ -26,6 +26,12 @@ const ALL_UNITS_DATA = [
             completed: false,
             completionDate: null
         },
+        origami: {
+            name: "Paper Airplane (Classic Dart)",
+            description: "Perfect starter - turn your notes into flight!",
+            videoUrl: "https://www.youtube.com/watch?v=veyZNyurlwU",
+            reflection: "As your paper airplane soars, think about how data can help us explore and understand our world, just like this lesson introduced you to statistics."
+        },
         quizzes: [],
         current: false
     },
@@ -45,6 +51,12 @@ const ALL_UNITS_DATA = [
             url: "https://dashboard.blooket.com/set/6847beef46fe0cb8b31e937f",
             completed: false,
             completionDate: null
+        },
+        origami: {
+            name: "Simple Boat",
+            description: "Navigate the waters of variables with your paper boat",
+            videoUrl: "https://www.youtube.com/watch?v=veyZNyurlwU",
+            reflection: "Like variables that take different values, your boat can sail different paths. Reflect on how data varies and what that tells us."
         },
         quizzes: [
             {
@@ -73,6 +85,12 @@ const ALL_UNITS_DATA = [
             url: "https://dashboard.blooket.com/set/6847c1aa46fe0cb8b31e93b4",
             completed: false,
             completionDate: null
+        },
+        origami: {
+            name: "Paper Hat",
+            description: "Crown yourself with categorical thinking",
+            videoUrl: "https://www.youtube.com/watch?v=veyZNyurlwU",
+            reflection: "Just as your hat sits in the category 'headwear,' think about how we organize data into meaningful categories and tables."
         },
         quizzes: [
             {
@@ -107,6 +125,12 @@ const ALL_UNITS_DATA = [
             url: "", // To be provided
             completed: false,
             completionDate: null
+        },
+        origami: {
+            name: "Fortune Teller",
+            description: "Interactive origami for graphical exploration",
+            videoUrl: "https://www.youtube.com/watch?v=veyZNyurlwU",
+            reflection: "As you play with your fortune teller, think about how graphs help us visualize and interact with categorical data patterns."
         },
         quizzes: [
             {
