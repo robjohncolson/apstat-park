@@ -399,6 +399,55 @@
             transform: scale(1.1);
         }
 
+        /* Blooket Items */
+        .blooket-item {
+            background: #f3e5f5;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 15px;
+            border-left: 4px solid #9C27B0;
+            transition: all 0.3s ease;
+        }
+
+        .blooket-item:hover {
+            background: #f8e8fa;
+            transform: translateX(5px);
+        }
+
+        .blooket-title {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.1em;
+        }
+
+        .blooket-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .blooket-btn {
+            background: #9C27B0;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 1em;
+        }
+
+        .blooket-btn:hover {
+            background: #7B1FA2;
+            transform: translateY(-2px);
+        }
+
         /* Completion Card */
         .completion-card {
             background: linear-gradient(135deg, #4CAF50, #45a049);
@@ -589,6 +638,16 @@
                 <div class="section-content" id="videoContent"></div>
             </div>
 
+            <!-- Blooket Section -->
+            <div class="lesson-section" id="blooketSection" tabindex="0">
+                <div class="section-header">
+                    <div class="section-icon">🃏</div>
+                    <h2 class="section-title">Review Flashcards</h2>
+                    <div class="section-status" id="blooketStatus">Available</div>
+                </div>
+                <div class="section-content" id="blooketContent"></div>
+            </div>
+
             <!-- Quiz Section -->
             <div class="lesson-section" id="quizSection" tabindex="0">
                 <div class="section-header">
@@ -596,7 +655,29 @@
                     <h2 class="section-title">Practice Quizzes</h2>
                     <div class="section-status" id="quizStatus">0/0 completed</div>
                 </div>
-                <div class="section-content" id="quizContent"></div>
+                <div class="section-content" id="quizContent">
+                    <!-- Enhanced AI Help Area -->
+                    <div class="ai-help-section" style="background: #e3f2fd; border-radius: 10px; padding: 20px; margin-bottom: 20px; border-left: 4px solid #2196F3;">
+                        <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
+                            <div style="font-size: 1.5em;">🤖</div>
+                            <div>
+                                <h3 style="margin: 0; color: #1976D2; font-size: 1.2em;">AI Tutoring with Grok</h3>
+                                <p style="margin: 5px 0 0 0; color: #666; font-size: 0.9em;">Get personalized help with practice problems</p>
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                            <button id="copyPromptBtn" class="quiz-btn" style="background: #4CAF50; color: white;">
+                                📋 Copy AI Prompt
+                            </button>
+                            <button onclick="window.open('https://grok.com', '_blank')" class="quiz-btn" style="background: #2196F3; color: white;">
+                                🚀 Open Grok
+                            </button>
+                            <button id="helpBtn" class="quiz-btn" style="background: #FF7043; color: white;">
+                                ❓ Need Help?
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- Completion Section -->
@@ -669,6 +750,70 @@
             </div>
             
             <button style="background: #FF7043; color: white; border: none; padding: 10px 20px; border-radius: 20px; cursor: pointer; font-weight: bold; margin-top: 15px;" onclick="closeUsernameModal()">Close</button>
+        </div>
+    </div>
+
+    <!-- Grok Prompt Modal -->
+    <div class="qr-overlay" id="promptModal" style="display: none;">
+        <div class="qr-modal" style="max-width: 800px;">
+            <div class="qr-title">🤖 AI Tutoring Prompt for Grok</div>
+            <div class="qr-subtitle">Copy this prompt to get expert AP Statistics help</div>
+            
+            <div style="margin: 20px 0; padding: 15px; background: #f5f5f5; border-radius: 10px; text-align: left;">
+                <pre id="grokPromptText" style="white-space: pre-wrap; font-family: 'Segoe UI', sans-serif; font-size: 0.9em; line-height: 1.4; margin: 0; max-height: 300px; overflow-y: auto;"></pre>
+            </div>
+            
+            <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                <button id="copyPromptModalBtn" style="background: #4CAF50; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-weight: bold;">
+                    📋 Copy to Clipboard
+                </button>
+                <button onclick="window.open('https://grok.com', '_blank')" style="background: #2196F3; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-weight: bold;">
+                    🚀 Open Grok
+                </button>
+                <button onclick="closePromptModal()" style="background: #9E9E9E; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-weight: bold;">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Help Modal -->
+    <div class="qr-overlay" id="helpModal" style="display: none;">
+        <div class="qr-modal" style="max-width: 700px;">
+            <div class="qr-title">❓ How to Use AI Tutoring</div>
+            <div class="qr-subtitle">Step-by-step guide to get personalized help</div>
+            
+            <div style="margin: 20px 0; text-align: left;">
+                <h3 style="color: #2d5a2d; margin-bottom: 15px;">🎯 Learning Workflow</h3>
+                <div style="background: #e8f5e8; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                    <p style="margin: 0; color: #2d5a2d; font-weight: bold;">Study Method:</p>
+                    <p style="margin: 5px 0 0 0; color: #555;">Watch each video with pencil and paper, working through all problems with the instructor. After completing videos, use the quiz PDFs with Grok for personalized tutoring.</p>
+                </div>
+                
+                <h3 style="color: #1976D2; margin-bottom: 15px;">🤖 6-Step AI Tutoring Process</h3>
+                <ol style="padding-left: 20px; line-height: 1.6;">
+                    <li><strong>Copy the prompt</strong> using the "Copy AI Prompt" button</li>
+                    <li><strong>Open Grok</strong> by clicking "Open Grok" or visiting grok.com</li>
+                    <li><strong>Start a new conversation</strong> and paste the prompt</li>
+                    <li><strong>Download the PDFs</strong> for the quiz questions and answers</li>
+                    <li><strong>Attach both PDFs</strong> to your Grok conversation using the paperclip icon</li>
+                    <li><strong>Send your message</strong> and start learning with Grok!</li>
+                </ol>
+                
+                <div style="background: #fff3e0; padding: 15px; border-radius: 8px; margin-top: 20px; border-left: 4px solid #FF7043;">
+                    <h4 style="margin: 0 0 10px 0; color: #E65100;">💡 Pro Tips</h4>
+                    <ul style="margin: 0; padding-left: 20px; color: #555;">
+                        <li>Grok will guide you through each problem step-by-step</li>
+                        <li>For incorrect answers, it provides hints without giving away solutions</li>
+                        <li>The AI adapts to your learning style and tracks your progress</li>
+                        <li>Don't hesitate to ask follow-up questions!</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <button onclick="closeHelpModal()" style="background: #FF7043; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-weight: bold; margin-top: 15px;">
+                Got It!
+            </button>
         </div>
     </div>
 
@@ -893,7 +1038,9 @@
             document.getElementById('lessonMainDescription').textContent = currentLessonData.description;
             
             populateVideos();
+            populateBlooket();
             populateQuizzes();
+            setupAIHelp();
             updateInterface();
         }
 
@@ -954,6 +1101,119 @@
                     </div>
                 `;
             }).join('');
+        }
+
+        function populateBlooket() {
+            const content = document.getElementById('blooketContent');
+            if (!currentLessonData.blooket || !currentLessonData.blooket.url) {
+                content.innerHTML = '<p style="color: #666; text-align: center; padding: 20px;">No Blooket flashcards available for this lesson.</p>';
+                return;
+            }
+
+            const isCompleted = currentLessonData.blooket.completed;
+            content.innerHTML = `
+                <div class="blooket-item">
+                    <div class="blooket-title">Interactive Flashcard Review</div>
+                    <p style="color: #666; margin-bottom: 15px;">Review key concepts through engaging flashcards to reinforce your understanding.</p>
+                    <div class="blooket-actions">
+                        <a href="${currentLessonData.blooket.url}" target="_blank" class="blooket-btn" onclick="markBlooketCompleted()">
+                            🃏 Play Blooket
+                        </a>
+                        <button class="blooket-btn" style="background: ${isCompleted ? '#4CAF50' : '#9E9E9E'};" onclick="toggleBlooketCompletion()">
+                            ${isCompleted ? '✓ Completed' : '□ Mark Complete'}
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Grok prompt from the old version
+        const grokPrompt = `You are an expert AP Statistics tutor. I will provide you with AP Statistics questions, which could be either multiple choice (MCQ) or free response (FRQ). For each question, I will indicate the type (MCQ or FRQ). Your task is to guide me through the questions as follows:
+
+For MCQs:
+- Present the Question: Display the multiple choice question with all answer options (A, B, C, D, E).
+- Analyze My Answer: After I submit my answer:
+  - If Correct: Confirm that my answer is correct and proceed to the next question.
+  - If Incorrect: Identify my misconception and provide scaffolded guidance without revealing the answer.
+- Provide Context (If Needed): For incorrect answers, once I arrive at the correct answer, provide relevant context.
+- Summarize the Concept: Summarize the key concept being tested (only if I answered incorrectly).
+- Check for Questions: Ask if I have additional questions before moving on (only if I needed guidance).
+
+For FRQs:
+- Present the Question: Display the free response question.
+- Break It Down: Break down the question into smaller, scaffolded steps.
+- Request Responses: For each scaffolded question, ask me to provide a response.
+- Grade My Response: Evaluate my response based on the AP grading rubric.
+- Guide Me: If my response is lacking, offer hints to help me improve.
+- Ensure Perfection: Continue until I can provide a response that meets the rubric's requirements.
+- Summarize the Concepts: Once completed correctly, summarize the key concepts.
+- Check for Questions: Ask if I have additional questions before moving on.
+
+Throughout the Session:
+- Track Performance: Monitor my performance to provide personalized guidance.
+- Session Summary: At the end, summarize key concepts and suggest areas for additional practice.
+
+Thank you for helping me prepare for my AP Statistics exam!`;
+
+        function setupAIHelp() {
+            // Set up the prompt text in the modal
+            document.getElementById('grokPromptText').textContent = grokPrompt;
+            
+            // Set up event listeners for AI help buttons
+            document.getElementById('copyPromptBtn').onclick = showPromptModal;
+            document.getElementById('copyPromptModalBtn').onclick = copyPromptToClipboard;
+            document.getElementById('helpBtn').onclick = showHelpModal;
+        }
+
+        function showPromptModal() {
+            document.getElementById('promptModal').style.display = 'flex';
+        }
+
+        function closePromptModal() {
+            document.getElementById('promptModal').style.display = 'none';
+        }
+
+        function showHelpModal() {
+            document.getElementById('helpModal').style.display = 'flex';
+        }
+
+        function closeHelpModal() {
+            document.getElementById('helpModal').style.display = 'none';
+        }
+
+        async function copyPromptToClipboard() {
+            try {
+                await navigator.clipboard.writeText(grokPrompt);
+                const btn = document.getElementById('copyPromptModalBtn');
+                const originalText = btn.textContent;
+                btn.textContent = '✅ Copied!';
+                btn.style.background = '#4CAF50';
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                    btn.style.background = '#4CAF50';
+                }, 2000);
+            } catch (err) {
+                console.error('Failed to copy prompt:', err);
+                alert('Failed to copy prompt. Please select and copy manually.');
+            }
+        }
+
+        function markBlooketCompleted() {
+            if (currentLessonData.blooket) {
+                currentLessonData.blooket.completed = true;
+                currentLessonData.blooket.completionDate = new Date().toISOString();
+                saveProgress();
+                populateBlooket();
+            }
+        }
+
+        function toggleBlooketCompletion() {
+            if (currentLessonData.blooket) {
+                currentLessonData.blooket.completed = !currentLessonData.blooket.completed;
+                currentLessonData.blooket.completionDate = currentLessonData.blooket.completed ? new Date().toISOString() : null;
+                saveProgress();
+                populateBlooket();
+            }
         }
 
         function updateInterface() {

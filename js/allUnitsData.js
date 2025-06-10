@@ -21,6 +21,11 @@ const ALL_UNITS_DATA = [
                 completionDate: null
             }
         ],
+        blooket: {
+            url: "https://dashboard.blooket.com/set/6847bb74fe947147cb3c05de",
+            completed: false,
+            completionDate: null
+        },
         quizzes: [],
         current: false
     },
@@ -36,6 +41,11 @@ const ALL_UNITS_DATA = [
                 completionDate: null
             }
         ],
+        blooket: {
+            url: "", // To be provided
+            completed: false,
+            completionDate: null
+        },
         quizzes: [
             {
                 questionPdf: "pdfs/unit1/unit1_section1.2_quiz.pdf",
@@ -59,6 +69,11 @@ const ALL_UNITS_DATA = [
                 completionDate: null
             }
         ],
+        blooket: {
+            url: "", // To be provided
+            completed: false,
+            completionDate: null
+        },
         quizzes: [
             {
                 questionPdf: "pdfs/unit1/unit1_section1.3_quiz.pdf",
@@ -88,6 +103,11 @@ const ALL_UNITS_DATA = [
                 completionDate: null
             }
         ],
+        blooket: {
+            url: "", // To be provided
+            completed: false,
+            completionDate: null
+        },
         quizzes: [
             {
                 questionPdf: "pdfs/unit1/unit1_section1.4_quiz.pdf",
@@ -111,6 +131,11 @@ const ALL_UNITS_DATA = [
                 completionDate: null
             }
         ],
+        blooket: {
+            url: "", // To be provided
+            completed: false,
+            completionDate: null
+        },
         quizzes: [
             {
                 questionPdf: "pdfs/unit1/unit1_section1.5_quiz.pdf",
@@ -134,6 +159,11 @@ const ALL_UNITS_DATA = [
                 completionDate: null
             }
         ],
+        blooket: {
+            url: "", // To be provided
+            completed: false,
+            completionDate: null
+        },
         quizzes: [
             {
                 questionPdf: "pdfs/unit1/unit1_section1.6_quiz.pdf",
@@ -163,6 +193,11 @@ const ALL_UNITS_DATA = [
                 completionDate: null
             }
         ],
+        blooket: {
+            url: "", // To be provided
+            completed: false,
+            completionDate: null
+        },
         quizzes: [
             {
                 questionPdf: "pdfs/unit1/unit1_section1.7_quiz.pdf",
@@ -186,6 +221,11 @@ const ALL_UNITS_DATA = [
                 completionDate: null
             }
         ],
+        blooket: {
+            url: "", // To be provided
+            completed: false,
+            completionDate: null
+        },
         quizzes: [
             {
                 questionPdf: "pdfs/unit1/unit1_section1.8_quiz.pdf",
@@ -209,6 +249,11 @@ const ALL_UNITS_DATA = [
                 completionDate: null
             }
         ],
+        blooket: {
+            url: "", // To be provided
+            completed: false,
+            completionDate: null
+        },
         quizzes: [
             {
                 questionPdf: "pdfs/unit1/unit1_section1.9_quiz.pdf",
@@ -244,6 +289,11 @@ const ALL_UNITS_DATA = [
                 completionDate: null
             }
         ],
+        blooket: {
+            url: "", // To be provided
+            completed: false,
+            completionDate: null
+        },
         quizzes: [
             {
                 questionPdf: "pdfs/unit1/unit1_section1.10_quiz.pdf",
@@ -260,6 +310,11 @@ const ALL_UNITS_DATA = [
         name: "Unit 1 Progress Check",
         description: "Capstone Assessment",
         videos: [],
+        blooket: {
+            url: "https://dashboard.blooket.com/set/66ddb0550ddd499572b5e429", // Unit 1 capstone as provided
+            completed: false,
+            completionDate: null
+        },
         quizzes: [
             {
                 questionPdf: "pdfs/unit1/unit1_pc_frq_quiz.pdf",
