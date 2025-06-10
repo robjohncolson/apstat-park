@@ -3277,6 +3277,17 @@ const ALL_UNITS_DATA = [
                 completionDate: null
             }
         ],
+        blooket: {
+            url: "", // To be provided
+            completed: false,
+            completionDate: null
+        },
+        origami: {
+            name: "Conductor's Precision Baton",
+            description: "The maestro's tool for orchestrating perfect linear harmony",
+            videoUrl: "https://www.youtube.com/watch?v=lqMeEgF8cxs",
+            reflection: "Your conductor's baton represents the virtuoso skill of detecting linear alignment in data points. Like a master conductor who can hear when musicians are perfectly in sync, you now possess the refined ear to determine when data points truly align in meaningful regression relationships."
+        },
         quizzes: [],
         current: false
       },
@@ -3304,6 +3315,17 @@ const ALL_UNITS_DATA = [
                 completionDate: null
             }
         ],
+        blooket: {
+            url: "", // To be provided
+            completed: false,
+            completionDate: null
+        },
+        origami: {
+            name: "Virtuoso's Golden Violin",
+            description: "Strings of confidence resonating with slope precision",
+            videoUrl: "https://www.youtube.com/watch?v=9V1Q2qBXbhc",
+            reflection: "Your golden violin sings with the virtuosic mastery of slope confidence intervals. Each string represents a different aspect of regression inference - when played together with expert technique, they create the beautiful harmony of precise statistical estimation for linear relationships."
+        },
         quizzes: [
             {
                 questionPdf: "pdfs/unit9/unit9_section9.2_quiz.pdf",
@@ -3333,6 +3355,17 @@ const ALL_UNITS_DATA = [
                 completionDate: null
             }
         ],
+        blooket: {
+            url: "", // To be provided
+            completed: false,
+            completionDate: null
+        },
+        origami: {
+            name: "Opera Singer's Crystal Microphone",
+            description: "Amplifying the truth of slope claims with perfect pitch",
+            videoUrl: "https://www.youtube.com/watch?v=8CRJF1q_e1k",
+            reflection: "Your crystal microphone amplifies statistical truth with the clarity of a virtuoso opera singer. Like a prima donna who can hit the perfect note to justify any musical claim, you now wield the power to justify slope claims through confidence interval analysis with flawless statistical pitch."
+        },
         quizzes: [
             {
                 questionPdf: "pdfs/unit9/unit9_section9.3_quiz.pdf",
@@ -3362,6 +3395,17 @@ const ALL_UNITS_DATA = [
                 completionDate: null
             }
         ],
+        blooket: {
+            url: "", // To be provided
+            completed: false,
+            completionDate: null
+        },
+        origami: {
+            name: "Ballet Master's Performance Stage",
+            description: "The elegant platform where slope hypotheses dance",
+            videoUrl: "https://www.youtube.com/watch?v=DnNwwFhQDhE",
+            reflection: "Your performance stage sets the scene for the elegant ballet of slope hypothesis testing. Like a ballet master who choreographs each movement with precision, you now design the perfect statistical stage where null and alternative hypotheses about slopes perform their graceful dance of inference."
+        },
         quizzes: [
             {
                 questionPdf: "pdfs/unit9/unit9_section9.4_quiz.pdf",
@@ -3397,6 +3441,17 @@ const ALL_UNITS_DATA = [
                 completionDate: null
             }
         ],
+        blooket: {
+            url: "", // To be provided
+            completed: false,
+            completionDate: null
+        },
+        origami: {
+            name: "Virtuoso Pianist's Grand Piano",
+            description: "88 keys of statistical mastery in perfect harmony",
+            videoUrl: "https://www.youtube.com/watch?v=kj9fM_5H2kU",
+            reflection: "Your grand piano represents the virtuoso execution of slope hypothesis testing. Each of the 88 keys corresponds to a different statistical skill - when played by a true virtuoso, they create the magnificent symphony of t-statistics, p-values, and conclusions that determine the fate of slope hypotheses."
+        },
         quizzes: [
             {
                 questionPdf: "pdfs/unit9/unit9_section9.5_quiz.pdf",
@@ -3420,6 +3475,17 @@ const ALL_UNITS_DATA = [
                 completionDate: null
             }
         ],
+        blooket: {
+            url: "", // To be provided
+            completed: false,
+            completionDate: null
+        },
+        origami: {
+            name: "Symphony Conductor's Score",
+            description: "The master composition for orchestrating all inference procedures",
+            videoUrl: "https://www.youtube.com/watch?v=rlYvfkPTOhI",
+            reflection: "Your conductor's score contains the complete symphony of statistical inference selection. Like Beethoven's Ninth Symphony that masterfully combines all musical elements, you now possess the virtuoso ability to select and orchestrate the perfect inference procedure for any statistical performance."
+        },
         quizzes: [],
         current: false
       },
@@ -3449,6 +3515,17 @@ const ALL_UNITS_DATA = [
                 completionDate: null
             }
         ],
+        blooket: {
+            url: "", // To be provided
+            completed: false,
+            completionDate: null
+        },
+        origami: {
+            name: "Carnegie Hall of Statistical Virtuosity",
+            description: "🌟 Unit 9 Capstone Challenge - The world's most prestigious performance venue!",
+            videoUrl: "https://www.youtube.com/watch?v=LrKCW_qRhHg",
+            reflection: "Congratulations! You've built Carnegie Hall, where only the greatest statistical virtuosos perform. Your concert hall showcases the complete mastery of slope inference: detecting relationships, confidence intervals, justifying claims, hypothesis testing, and procedure selection. Standing ovations echo through the hall as audiences worldwide recognize your virtuoso statistical performance!"
+        },
         isCapstone: true,
         current: false
       }
