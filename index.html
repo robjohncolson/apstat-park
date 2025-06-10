@@ -3930,7 +3930,91 @@
             getCompletedLessons: () => Array.from(studentProgress.completedLessons),
             getCurrentDeadline: () => calculatePreciseDeadline(),
             getLeaderboard: () => window.syncManager ? window.syncManager.getLeaderboard() : null,
-            clearNotifications: clearAllNotifications
+            clearNotifications: clearAllNotifications,
+            
+            // 🚨 DANGER ZONE: Reset functions for testing
+            resetAllData: async () => {
+                if (!confirm('🚨 WARNING: This will DELETE ALL progress and gold star data for ALL users!\n\nAre you absolutely sure? This cannot be undone!')) {
+                    return;
+                }
+                
+                try {
+                    const response = await fetch('https://apstat-park-api.up.railway.app/api/reset-all-data', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ resetKey: 'RESET_TESTING_2024' })
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        console.log('🗑️ All data reset successfully:', result);
+                        alert(`✅ Reset complete!\n\nDeleted ${result.deletedProgress} progress records\nDeleted ${result.deletedGoldStars} gold star records\n\nRefresh the page to see changes.`);
+                        
+                        // Clear local storage
+                        localStorage.removeItem('apStatsProgress');
+                        for (let i = localStorage.length - 1; i >= 0; i--) {
+                            const key = localStorage.key(i);
+                            if (key.startsWith('lesson_progress_')) {
+                                localStorage.removeItem(key);
+                            }
+                        }
+                        
+                        // Reload page to reflect changes
+                        setTimeout(() => window.location.reload(), 1000);
+                    } else {
+                        throw new Error(result.error || 'Reset failed');
+                    }
+                } catch (error) {
+                    console.error('❌ Reset failed:', error);
+                    alert(`❌ Reset failed: ${error.message}`);
+                }
+            },
+            
+            resetMyData: async () => {
+                if (!window.syncManager || !window.syncManager.getCurrentUser()) {
+                    alert('❌ No user found or sync manager not available');
+                    return;
+                }
+                
+                const user = window.syncManager.getCurrentUser();
+                
+                if (!confirm(`🚨 WARNING: This will DELETE ALL your progress and gold star data!\n\nUser: ${user.username}\n\nAre you sure? This cannot be undone!`)) {
+                    return;
+                }
+                
+                try {
+                    const response = await fetch(`https://apstat-park-api.up.railway.app/api/users/${user.id}/reset`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ resetKey: 'RESET_TESTING_2024' })
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        console.log('🗑️ User data reset successfully:', result);
+                        alert(`✅ Your data has been reset!\n\nDeleted ${result.deletedProgress} progress records\nDeleted ${result.deletedGoldStars} gold star records\n\nRefresh the page to see changes.`);
+                        
+                        // Clear local storage
+                        localStorage.removeItem('apStatsProgress');
+                        for (let i = localStorage.length - 1; i >= 0; i--) {
+                            const key = localStorage.key(i);
+                            if (key.startsWith('lesson_progress_')) {
+                                localStorage.removeItem(key);
+                            }
+                        }
+                        
+                        // Reload page to reflect changes
+                        setTimeout(() => window.location.reload(), 1000);
+                    } else {
+                        throw new Error(result.error || 'Reset failed');
+                    }
+                } catch (error) {
+                    console.error('❌ Reset failed:', error);
+                    alert(`❌ Reset failed: ${error.message}`);
+                }
+            }
         };
     </script>
 </body>

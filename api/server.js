@@ -678,6 +678,102 @@ app.get('/api/users/:userId/gold-stars', async (req, res) => {
     }
 });
 
+// 🚨 DANGER ZONE: Reset endpoints for testing
+// TODO: Remove in production or add proper authentication
+
+// Reset all progress and gold stars (for testing only)
+app.post('/api/reset-all-data', async (req, res) => {
+    try {
+        // Only allow in development or with specific key
+        const { resetKey } = req.body;
+        if (resetKey !== 'RESET_TESTING_2024') {
+            return res.status(403).json({ error: 'Invalid reset key' });
+        }
+        
+        const client = await pool.connect();
+        
+        try {
+            await client.query('BEGIN');
+            
+            // Delete all progress data
+            const progressResult = await client.query('DELETE FROM progress');
+            console.log(`🗑️ Deleted ${progressResult.rowCount} progress records`);
+            
+            // Delete all gold star data
+            const goldStarResult = await client.query('DELETE FROM gold_stars');
+            console.log(`🗑️ Deleted ${goldStarResult.rowCount} gold star records`);
+            
+            // Reset user sync times
+            await client.query('UPDATE users SET last_sync = NOW()');
+            
+            await client.query('COMMIT');
+            
+            res.json({ 
+                success: true, 
+                message: 'All progress and gold star data has been reset',
+                deletedProgress: progressResult.rowCount,
+                deletedGoldStars: goldStarResult.rowCount
+            });
+            
+        } catch (error) {
+            await client.query('ROLLBACK');
+            throw error;
+        } finally {
+            client.release();
+        }
+        
+    } catch (error) {
+        console.error('Reset error:', error);
+        res.status(500).json({ error: 'Reset failed: ' + error.message });
+    }
+});
+
+// Reset specific user's data
+app.post('/api/users/:userId/reset', async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const { resetKey } = req.body;
+        
+        if (resetKey !== 'RESET_TESTING_2024') {
+            return res.status(403).json({ error: 'Invalid reset key' });
+        }
+        
+        const client = await pool.connect();
+        
+        try {
+            await client.query('BEGIN');
+            
+            // Delete user's progress
+            const progressResult = await client.query('DELETE FROM progress WHERE user_id = $1', [userId]);
+            
+            // Delete user's gold stars
+            const goldStarResult = await client.query('DELETE FROM gold_stars WHERE user_id = $1', [userId]);
+            
+            // Reset user sync time
+            await client.query('UPDATE users SET last_sync = NOW() WHERE id = $1', [userId]);
+            
+            await client.query('COMMIT');
+            
+            res.json({ 
+                success: true, 
+                message: 'User data has been reset',
+                deletedProgress: progressResult.rowCount,
+                deletedGoldStars: goldStarResult.rowCount
+            });
+            
+        } catch (error) {
+            await client.query('ROLLBACK');
+            throw error;
+        } finally {
+            client.release();
+        }
+        
+    } catch (error) {
+        console.error('User reset error:', error);
+        res.status(500).json({ error: 'User reset failed: ' + error.message });
+    }
+});
+
 // Initialize database tables on startup
 async function initializeDatabase() {
     try {
