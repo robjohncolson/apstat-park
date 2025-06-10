@@ -160,6 +160,12 @@ const ALL_UNITS_DATA = [
             completed: false,
             completionDate: null
         },
+        origami: {
+            name: "Paper Cup",
+            description: "A practical fold for holding quantitative insights",
+            videoUrl: "https://www.youtube.com/watch?v=T5PsKGNWxJw",
+            reflection: "Your paper cup can hold water just as graphs hold data points. Consider how different graph types can contain and display quantitative information in meaningful ways."
+        },
         quizzes: [
             {
                 questionPdf: "pdfs/unit1/unit1_section1.5_quiz.pdf",
@@ -187,6 +193,12 @@ const ALL_UNITS_DATA = [
             url: "", // To be provided
             completed: false,
             completionDate: null
+        },
+        origami: {
+            name: "Simple Flower (Tulip)",
+            description: "Beauty blooms in data distributions",
+            videoUrl: "https://www.youtube.com/watch?v=QPKBF-D1wNk",
+            reflection: "Like petals around a flower's center, data points distribute around a central tendency. As you fold, think about the shape, center, and spread of distributions."
         },
         quizzes: [
             {
@@ -222,6 +234,12 @@ const ALL_UNITS_DATA = [
             completed: false,
             completionDate: null
         },
+        origami: {
+            name: "Jumping Frog",
+            description: "Action origami for dynamic statistics",
+            videoUrl: "https://www.youtube.com/watch?v=GfNueI-sNWo",
+            reflection: "Watch your frog jump different distances - just like data, each jump varies! Think about mean, median, and how we summarize the 'typical' jump distance."
+        },
         quizzes: [
             {
                 questionPdf: "pdfs/unit1/unit1_section1.7_quiz.pdf",
@@ -250,6 +268,12 @@ const ALL_UNITS_DATA = [
             completed: false,
             completionDate: null
         },
+        origami: {
+            name: "Paper Crane (Simplified)",
+            description: "Graceful visualization of statistical summaries",
+            videoUrl: "https://www.youtube.com/watch?v=Tx6MHgLBiHs",
+            reflection: "The crane's elegant form represents how box plots and summary statistics create beautiful, meaningful representations of complex data. Each fold builds toward the complete picture."
+        },
         quizzes: [
             {
                 questionPdf: "pdfs/unit1/unit1_section1.8_quiz.pdf",
@@ -277,6 +301,12 @@ const ALL_UNITS_DATA = [
             url: "", // To be provided
             completed: false,
             completionDate: null
+        },
+        origami: {
+            name: "Butterfly",
+            description: "Symmetrical beauty in comparative distributions",
+            videoUrl: "https://www.youtube.com/watch?v=HTBGBPOdpj4",
+            reflection: "Your butterfly's symmetrical wings mirror how we compare distributions - looking at similarities and differences. Consider how two datasets can be as different yet beautiful as butterfly wing patterns."
         },
         quizzes: [
             {
@@ -318,6 +348,12 @@ const ALL_UNITS_DATA = [
             completed: false,
             completionDate: null
         },
+        origami: {
+            name: "Simple Box",
+            description: "Container for normal distribution insights",
+            videoUrl: "https://www.youtube.com/watch?v=svLIkxUQI9w",
+            reflection: "Your box has defined boundaries, just like the normal distribution has predictable ranges. As you fold, think about how 68%, 95%, and 99.7% of data fits within standard deviations - like items fitting perfectly in your box."
+        },
         quizzes: [
             {
                 questionPdf: "pdfs/unit1/unit1_section1.10_quiz.pdf",
@@ -338,6 +374,12 @@ const ALL_UNITS_DATA = [
             url: "https://dashboard.blooket.com/set/66ddb0550ddd499572b5e429", // Unit 1 capstone as provided
             completed: false,
             completionDate: null
+        },
+        origami: {
+            name: "Star Box",
+            description: "🌟 Unit 1 Capstone Challenge - A stellar achievement!",
+            videoUrl: "https://www.youtube.com/watch?v=lDWL6aOJD4Q",
+            reflection: "Congratulations! Like this beautiful star box that brings together all your folding skills, you've now mastered exploring one-variable data. Each point of your star represents a key concept: distributions, summaries, graphs, comparisons, and the normal model. You're ready to shine in Unit 2!"
         },
         quizzes: [
             {
