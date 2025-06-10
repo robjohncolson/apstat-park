@@ -429,6 +429,17 @@ const ALL_UNITS_DATA = [
                 completionDate: null
             }
         ],
+        blooket: {
+            url: "", // To be provided
+            completed: false,
+            completionDate: null
+        },
+        origami: {
+            name: "Paper Airplane (Glider)",
+            description: "Advanced flight for exploring relationships",
+            videoUrl: "https://www.youtube.com/watch?v=Qo4vT8ZIq0Y",
+            reflection: "Like your glider that needs balanced wings to fly straight, variables often work together in relationships. Think about how changing one thing (like wing angle) affects another (like flight distance)."
+        },
         quizzes: [],
         current: false
       },
@@ -444,6 +455,17 @@ const ALL_UNITS_DATA = [
                 completionDate: null
             }
         ],
+        blooket: {
+            url: "", // To be provided
+            completed: false,
+            completionDate: null
+        },
+        origami: {
+            name: "Sailboat",
+            description: "Navigate the winds of two-way tables",
+            videoUrl: "https://www.youtube.com/watch?v=JJNMf40MzGE",
+            reflection: "Your sailboat has two parts working together - the hull and sail - just like two categorical variables interact in tables. As you fold, consider how we organize data when we have two categories working together."
+        },
         quizzes: [
             {
                 questionPdf: "pdfs/unit2/unit2_section2.2_quiz.pdf",
@@ -467,6 +489,17 @@ const ALL_UNITS_DATA = [
                 completionDate: null
             }
         ],
+        blooket: {
+            url: "", // To be provided
+            completed: false,
+            completionDate: null
+        },
+        origami: {
+            name: "Envelope",
+            description: "Contains the secrets of conditional probability",
+            videoUrl: "https://www.youtube.com/watch?v=WGU_4-5TaxY",
+            reflection: "Your envelope holds something inside, just like conditional probabilities hold relationships within categories. Think about how the probability of one outcome changes when we know information about another category."
+        },
         quizzes: [
             {
                 questionPdf: "pdfs/unit2/unit2_section2.3_quiz.pdf",
@@ -496,6 +529,17 @@ const ALL_UNITS_DATA = [
                 completionDate: null
             }
         ],
+        blooket: {
+            url: "", // To be provided
+            completed: false,
+            completionDate: null
+        },
+        origami: {
+            name: "Simple Rose",
+            description: "Elegant curves of scatterplot relationships",
+            videoUrl: "https://www.youtube.com/watch?v=VcgCH3xFKS4",
+            reflection: "Your rose's petals spiral gracefully, much like data points can show curved relationships on scatterplots. As you create the curves, think about how two numerical variables can dance together in patterns."
+        },
         quizzes: [
             {
                 questionPdf: "pdfs/unit2/unit2_section2.4_quiz.pdf",
@@ -525,6 +569,17 @@ const ALL_UNITS_DATA = [
                 completionDate: null
             }
         ],
+        blooket: {
+            url: "", // To be provided
+            completed: false,
+            completionDate: null
+        },
+        origami: {
+            name: "Penguin",
+            description: "Waddle through the strength of relationships",
+            videoUrl: "https://www.youtube.com/watch?v=fJPb0LLzGcU",
+            reflection: "Your penguin stands firmly when well-balanced, just like strong correlations show clear, stable relationships between variables. Consider how correlation values near +1 or -1 create 'stable penguins' while values near 0 make wobbly ones."
+        },
         quizzes: [
             {
                 questionPdf: "pdfs/unit2/unit2_section2.5_quiz.pdf",
@@ -554,6 +609,17 @@ const ALL_UNITS_DATA = [
                 completionDate: null
             }
         ],
+        blooket: {
+            url: "", // To be provided
+            completed: false,
+            completionDate: null
+        },
+        origami: {
+            name: "Heart",
+            description: "Love the beauty of linear relationships",
+            videoUrl: "https://www.youtube.com/watch?v=J6SLBF_D6VQ",
+            reflection: "Your heart has a beautiful, predictable shape - just like linear regression creates predictable lines through data. As you fold, think about how regression models help us understand and predict relationships with mathematical love!"
+        },
         quizzes: [
             {
                 questionPdf: "pdfs/unit2/unit2_section2.6_quiz.pdf",
@@ -583,6 +649,17 @@ const ALL_UNITS_DATA = [
                 completionDate: null
             }
         ],
+        blooket: {
+            url: "", // To be provided
+            completed: false,
+            completionDate: null
+        },
+        origami: {
+            name: "Candy Box",
+            description: "Sweet container for leftover differences",
+            videoUrl: "https://www.youtube.com/watch?v=VpnLvb2t9sg",
+            reflection: "Your candy box holds treats, just like residuals 'hold' the differences between actual data and predicted values. Think about how residuals show us what our model misses - the sweet surprises left behind!"
+        },
         quizzes: [
             {
                 questionPdf: "pdfs/unit2/unit2_section2.7_quiz.pdf",
@@ -618,6 +695,17 @@ const ALL_UNITS_DATA = [
                 completionDate: null
             }
         ],
+        blooket: {
+            url: "", // To be provided
+            completed: false,
+            completionDate: null
+        },
+        origami: {
+            name: "Lotus Flower",
+            description: "Unfold the beauty of optimization",
+            videoUrl: "https://www.youtube.com/watch?v=3MqoQVJLCMQ",
+            reflection: "The lotus opens perfectly to reveal its center, just like least squares finds the perfect line by minimizing squared errors. Each petal unfolds with purpose, like each calculation brings us closer to the optimal solution."
+        },
         quizzes: [
             {
                 questionPdf: "pdfs/unit2/unit2_section2.8_quiz.pdf",
@@ -647,6 +735,17 @@ const ALL_UNITS_DATA = [
                 completionDate: null
             }
         ],
+        blooket: {
+            url: "", // To be provided
+            completed: false,
+            completionDate: null
+        },
+        origami: {
+            name: "Peace Crane",
+            description: "Traditional grace for non-linear patterns",
+            videoUrl: "https://www.youtube.com/watch?v=F1LVhm4dx1Q",
+            reflection: "The classic crane has elegant curves that don't follow straight lines - just like real data often departs from perfect linearity. As you fold this time-honored model, appreciate how statistics embraces both linear and non-linear beauty."
+        },
         quizzes: [
             {
                 questionPdf: "pdfs/unit2/unit2_section2.9_quiz.pdf",
@@ -663,6 +762,17 @@ const ALL_UNITS_DATA = [
         name: "Unit 2 Progress Check",
         description: "Capstone Assessment",
         videos: [],
+        blooket: {
+            url: "", // To be provided
+            completed: false,
+            completionDate: null
+        },
+        origami: {
+            name: "Modular Cube (6 pieces)",
+            description: "🌟 Unit 2 Capstone Challenge - Teamwork makes the dream work!",
+            videoUrl: "https://www.youtube.com/watch?v=CfJdQqy3waE",
+            reflection: "Congratulations! Like this cube that requires 6 separate pieces working together, you've mastered how two variables interact and support each other. Each module represents a key concept: scatterplots, correlation, regression, residuals, and model checking. Together they form something beautiful and complete!"
+        },
         quizzes: [
             {
                 questionPdf: "pdfs/unit2/unit2_pc_frq_quiz.pdf",
