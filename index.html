@@ -62,15 +62,25 @@
             display: block; /* Always visible */
         }
 
+        .bookmark-button {
+            color: #ccc; /* Default grey */
+        }
+
+        .bookmark-button.has-bookmark {
+            color: #FFD54F !important;
+            text-shadow: 0 0 8px rgba(255, 213, 79, 0.6);
+        }
+
         .bookmark-button:hover, .bookmark-button:focus {
             color: #FFD54F;
             transform: scale(1.2);
             outline: none;
         }
 
-        .bookmark-button.has-bookmark {
-            color: #FFD54F;
-            text-shadow: 0 0 8px rgba(255, 213, 79, 0.6);
+        .bookmark-button.has-bookmark:hover, .bookmark-button.has-bookmark:focus {
+            color: #FFD54F !important;
+            transform: scale(1.2);
+            text-shadow: 0 0 12px rgba(255, 213, 79, 0.8);
         }
 
         .bookmark-button.keyboard-focused {
@@ -128,15 +138,25 @@
             display: block; /* Always visible */
         }
 
+        .lesson-bookmark {
+            color: #ccc; /* Default grey */
+        }
+
+        .lesson-bookmark.has-bookmark {
+            color: #FFD54F !important;
+            text-shadow: 0 0 8px rgba(255, 213, 79, 0.6);
+        }
+
         .lesson-bookmark:hover, .lesson-bookmark:focus {
             color: #FFD54F;
             transform: scale(1.2);
             outline: none;
         }
 
-        .lesson-bookmark.has-bookmark {
-            color: #FFD54F;
-            text-shadow: 0 0 8px rgba(255, 213, 79, 0.6);
+        .lesson-bookmark.has-bookmark:hover, .lesson-bookmark.has-bookmark:focus {
+            color: #FFD54F !important;
+            transform: scale(1.2);
+            text-shadow: 0 0 12px rgba(255, 213, 79, 0.8);
         }
 
         /* Unit selector screen */
@@ -1452,7 +1472,7 @@
 
     <!-- Unit Selector Screen -->
     <div class="unit-selector" id="unitSelector">
-        <button class="bookmark-button" id="bookmarkButton" onclick="goToBookmark()" title="Bookmark">
+        <button class="bookmark-button" id="unitBookmarkButton" onclick="goToBookmark()" title="Bookmark">
             ★
         </button>
         
@@ -1710,14 +1730,18 @@
         }
 
         function updateBookmarkButton() {
-            // Update desktop bookmark button
+            // Update desktop bookmark buttons (both header and unit selector)
             const bookmarkBtn = document.getElementById('bookmarkButton');
+            const unitBookmarkBtn = document.getElementById('unitBookmarkButton');
             const bookmark = checkBookmarkExists();
             
+            console.log('🔍 Updating bookmark buttons - bookmark exists:', !!bookmark, 'header button found:', !!bookmarkBtn, 'unit button found:', !!unitBookmarkBtn);
+            
+            // Update main header bookmark button
             if (bookmarkBtn) {
                 if (bookmark) {
-                    // Golden star when bookmark exists
                     bookmarkBtn.classList.add('has-bookmark');
+                    console.log('✨ Added has-bookmark class to header button');
                     
                     // Update tooltip with bookmark info
                     if (bookmark.type === 'lesson') {
@@ -1740,6 +1764,37 @@
                     // Grey star when no bookmark
                     bookmarkBtn.classList.remove('has-bookmark');
                     bookmarkBtn.title = 'No bookmark set';
+                    console.log('💫 Removed has-bookmark class from header button');
+                }
+            }
+            
+            // Update unit selector bookmark button
+            if (unitBookmarkBtn) {
+                if (bookmark) {
+                    unitBookmarkBtn.classList.add('has-bookmark');
+                    console.log('✨ Added has-bookmark class to unit button');
+                    
+                    // Update tooltip with bookmark info (same as header)
+                    if (bookmark.type === 'lesson') {
+                        const lessonNumber = bookmark.id.replace('unit', '').replace('-', '.');
+                        unitBookmarkBtn.title = `Go to bookmarked lesson ${lessonNumber}`;
+                    } else {
+                        const itemData = bookmark.data;
+                        const lessonNumber = itemData.lessonId.replace('unit', '').replace('-', '.');
+                        
+                        let description = '';
+                        if (itemData.type === 'video') {
+                            description = itemData.title && itemData.title.toLowerCase().includes('alt') ? 'alt video' : 'video';
+                        } else if (itemData.type === 'quiz') {
+                            description = itemData.title && itemData.title.toLowerCase().includes('answer') ? 'quiz answers' : 'quiz';
+                        }
+                        
+                        unitBookmarkBtn.title = `Go to bookmarked ${description} in lesson ${lessonNumber}`;
+                    }
+                } else {
+                    unitBookmarkBtn.classList.remove('has-bookmark');
+                    unitBookmarkBtn.title = 'No bookmark set';
+                    console.log('💫 Removed has-bookmark class from unit button');
                 }
             }
             
@@ -1765,6 +1820,8 @@
         function updateLessonBookmarkButton() {
             const lessonBookmarkBtn = document.getElementById('lessonBookmarkButton');
             const bookmark = checkBookmarkExists();
+            
+            console.log('🔍 Updating lesson bookmark button - bookmark exists:', !!bookmark, 'button found:', !!lessonBookmarkBtn);
             
             if (lessonBookmarkBtn) {
                 if (bookmark) {
@@ -2131,10 +2188,12 @@
             document.getElementById('lessonSelector').classList.add('active');
             document.getElementById('unitTitle').textContent = currentUnit.displayName;
             
-            // Update lesson bookmark button
-            updateLessonBookmarkButton();
-            
             generateLessonPath();
+            
+            // Update lesson bookmark button after DOM is ready
+            setTimeout(() => {
+                updateLessonBookmarkButton();
+            }, 50);
             
             // Find current lesson in this unit
             currentLessonIndex = Math.max(0, currentUnit.topics.findIndex(t => !t.completed));
@@ -2580,7 +2639,7 @@
 
         function handleUnitNavigation(e) {
             const unlockedUnits = unitsData.filter(u => u.isUnlocked).length;
-            const bookmarkBtn = document.getElementById('bookmarkButton');
+            const bookmarkBtn = document.getElementById('unitBookmarkButton');
             
             if (e.key === 'ArrowUp') {
                 e.preventDefault();
@@ -2667,7 +2726,7 @@
         }
 
         function updateUnitFocus() {
-            const bookmarkBtn = document.getElementById('bookmarkButton');
+            const bookmarkBtn = document.getElementById('unitBookmarkButton');
             const unitBoxes = document.querySelectorAll('.unit-box');
             
             // Remove all focus styles
@@ -2741,8 +2800,10 @@
                 setTimeout(updateSelectedUnit, 100);
             }
             
-            // Update bookmark button for unit selector
-            updateBookmarkButton();
+            // Update bookmark button for unit selector after DOM updates
+            setTimeout(() => {
+                updateBookmarkButton();
+            }, 50);
         }
 
         // Keyboard navigation pattern:
@@ -3134,7 +3195,12 @@
             generateUnitsGrid();
             calculateNextDeadline();
             updateSelectedUnit();
-            updateBookmarkButton(); // Initialize bookmark button
+            
+            // Initialize bookmark button after a brief delay to ensure DOM is ready
+            setTimeout(() => {
+                updateBookmarkButton();
+                updateLessonBookmarkButton();
+            }, 100);
             
             // Setup real-time handlers
             setupRealtimeHandlers();
