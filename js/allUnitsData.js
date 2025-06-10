@@ -122,7 +122,7 @@ const ALL_UNITS_DATA = [
             }
         ],
         blooket: {
-            url: "", // To be provided
+            url: "https://dashboard.blooket.com/set/6847c3b146fe0cb8b31e93d9",
             completed: false,
             completionDate: null
         },
@@ -156,7 +156,7 @@ const ALL_UNITS_DATA = [
             }
         ],
         blooket: {
-            url: "", // To be provided
+            url: "https://dashboard.blooket.com/set/6847c89646fe0cb8b31e9430",
             completed: false,
             completionDate: null
         },
@@ -190,7 +190,7 @@ const ALL_UNITS_DATA = [
             }
         ],
         blooket: {
-            url: "", // To be provided
+            url: "https://dashboard.blooket.com/set/6847c9c646fe0cb8b31e9442",
             completed: false,
             completionDate: null
         },
@@ -230,7 +230,7 @@ const ALL_UNITS_DATA = [
             }
         ],
         blooket: {
-            url: "", // To be provided
+            url: "https://dashboard.blooket.com/set/6847cab346fe0cb8b31e9462",
             completed: false,
             completionDate: null
         },
@@ -264,7 +264,7 @@ const ALL_UNITS_DATA = [
             }
         ],
         blooket: {
-            url: "", // To be provided
+            url: "https://dashboard.blooket.com/set/6847ccbf60ba227d20bc8435",
             completed: false,
             completionDate: null
         },
@@ -298,7 +298,7 @@ const ALL_UNITS_DATA = [
             }
         ],
         blooket: {
-            url: "", // To be provided
+            url: "https://dashboard.blooket.com/set/6847cd3f7d07d828b1a0384b",
             completed: false,
             completionDate: null
         },
@@ -344,7 +344,7 @@ const ALL_UNITS_DATA = [
             }
         ],
         blooket: {
-            url: "", // To be provided
+            url: "https://dashboard.blooket.com/set/6847cdf560ba227d20bc8456",
             completed: false,
             completionDate: null
         },
