@@ -2506,6 +2506,17 @@ const ALL_UNITS_DATA = [
               completionDate: null
           }
       ],
+      blooket: {
+          url: "", // To be provided
+          completed: false,
+          completionDate: null
+      },
+      origami: {
+          name: "Dragon's First Awakening",
+          description: "The legendary guardian stirs, sensing statistical uncertainty",
+          videoUrl: "https://www.youtube.com/watch?v=8UZGN2FuLpI",
+          reflection: "Like this awakening dragon who begins to sense disturbances in the realm, you've awakened to the reality of measurement error in means. The dragon's first breath represents your understanding that all measurements contain uncertainty, and true statistical mastery requires acknowledging this eternal truth."
+      },
       quizzes: [],
       current: false
     },
@@ -2533,6 +2544,17 @@ const ALL_UNITS_DATA = [
               completionDate: null
           }
       ],
+      blooket: {
+          url: "", // To be provided
+          completed: false,
+          completionDate: null
+      },
+      origami: {
+          name: "Phoenix of Confidence",
+          description: "Rising from ashes of uncertainty with golden interval wings",
+          videoUrl: "https://www.youtube.com/watch?v=vR7rrOj02rY",
+          reflection: "Your phoenix soars majestically with wings of confidence, reborn from the ashes of sampling uncertainty. The golden feathers represent your mastery of confidence intervals for means - each plume a degree of confidence that captures the true population parameter within its majestic wingspan."
+      },
       quizzes: [
           {
               questionPdf: "pdfs/unit7/unit7_section7.2_quiz.pdf",
@@ -2568,6 +2590,17 @@ const ALL_UNITS_DATA = [
               completionDate: null
           }
       ],
+      blooket: {
+          url: "", // To be provided
+          completed: false,
+          completionDate: null
+      },
+      origami: {
+          name: "Oracle's Sacred Scroll",
+          description: "Ancient wisdom revealing truth through confidence intervals",
+          videoUrl: "https://www.youtube.com/watch?v=F1i7CKPUZrQ",
+          reflection: "The Oracle's scroll unfurls to reveal divine truths about population means. Its sacred runes represent your power to justify claims using confidence intervals - a legendary skill that allows you to read the statistical future and declare whether hypothesized values deserve belief or banishment."
+      },
       quizzes: [
           {
               questionPdf: "pdfs/unit7/unit7_section7.3_quiz.pdf",
@@ -2597,6 +2630,17 @@ const ALL_UNITS_DATA = [
               completionDate: null
           }
       ],
+      blooket: {
+          url: "", // To be provided
+          completed: false,
+          completionDate: null
+      },
+      origami: {
+          name: "Titan's Battle Arena",
+          description: "Where statistical hypotheses clash in epic combat",
+          videoUrl: "https://www.youtube.com/watch?v=y8V4h6d5F6M",
+          reflection: "In this colosseum of the gods, you've learned to construct the arena where statistical battles unfold. The null and alternative hypotheses stand as mighty titans, each representing a different truth about population means. You now wield the power to set up these legendary confrontations between competing claims."
+      },
       quizzes: [
           {
               questionPdf: "pdfs/unit7/unit7_section7.4_quiz.pdf",
@@ -2632,6 +2676,17 @@ const ALL_UNITS_DATA = [
               completionDate: null
           }
       ],
+      blooket: {
+          url: "", // To be provided
+          completed: false,
+          completionDate: null
+      },
+      origami: {
+          name: "Thor's Mighty Hammer",
+          description: "Wielding the legendary power of statistical testing",
+          videoUrl: "https://www.youtube.com/watch?v=dWcmgmJYNR4",
+          reflection: "Like Thor wielding Mjolnir, you now command the legendary power to execute hypothesis tests for population means. Your hammer strikes with the force of t-statistics and p-values, capable of shattering false claims and upholding statistical truth. Only those worthy of statistical mastery can lift this mythical weapon."
+      },
       quizzes: [
           {
               questionPdf: "pdfs/unit7/unit7_section7.5_quiz.pdf",
@@ -2661,6 +2716,17 @@ const ALL_UNITS_DATA = [
               completionDate: null
           }
       ],
+      blooket: {
+          url: "", // To be provided
+          completed: false,
+          completionDate: null
+      },
+      origami: {
+          name: "Twin Dragons of Comparison",
+          description: "Legendary beasts whose differences reveal cosmic truths",
+          videoUrl: "https://www.youtube.com/watch?v=FTGg7XwB5Sw",
+          reflection: "These twin dragons, each representing a different population, dance around each other in eternal comparison. Their synchronized flight pattern reveals the confidence interval for the difference of means - a legendary technique that captures the true gap between populations within the cosmic dance of statistical uncertainty."
+      },
       quizzes: [
           {
               questionPdf: "pdfs/unit7/unit7_section7.6_quiz.pdf",
@@ -2690,6 +2756,17 @@ const ALL_UNITS_DATA = [
               completionDate: null
           }
       ],
+      blooket: {
+          url: "", // To be provided
+          completed: false,
+          completionDate: null
+      },
+      origami: {
+          name: "Sage's Crystal Ball",
+          description: "Peering through intervals to glimpse truth between populations",
+          videoUrl: "https://www.youtube.com/watch?v=EJMBRpjYQx4",
+          reflection: "Through the mystical crystal sphere, the ancient sage perceives whether population differences deserve belief. The swirling mists within represent confidence intervals - when zero disappears from view, the difference becomes clear. You've gained the legendary sight to justify claims about mean differences through interval wisdom."
+      },
       quizzes: [
           {
               questionPdf: "pdfs/unit7/unit7_section7.7_quiz.pdf",
@@ -2719,6 +2796,17 @@ const ALL_UNITS_DATA = [
               completionDate: null
           }
       ],
+      blooket: {
+          url: "", // To be provided
+          completed: false,
+          completionDate: null
+      },
+      origami: {
+          name: "Kraken's Battle Throne",
+          description: "Where legendary sea beasts clash in hypothesis warfare",
+          videoUrl: "https://www.youtube.com/watch?v=8DPKJ6jCsYc",
+          reflection: "From the depths of statistical uncertainty rises the Kraken's throne, where epic battles between population means unfold. The tentacles represent competing hypotheses about mean differences - you've learned to orchestrate these legendary confrontations, setting the stage for epic statistical warfare between populations."
+      },
       quizzes: [
           {
               questionPdf: "pdfs/unit7/unit7_section7.8_quiz.pdf",
@@ -2754,6 +2842,17 @@ const ALL_UNITS_DATA = [
               completionDate: null
           }
       ],
+      blooket: {
+          url: "", // To be provided
+          completed: false,
+          completionDate: null
+      },
+      origami: {
+          name: "Poseidon's Trident",
+          description: "Three-pronged legendary weapon of statistical execution",
+          videoUrl: "https://www.youtube.com/watch?v=_5Ck-4kNPJo",
+          reflection: "Poseidon's trident strikes with the fury of the seven seas, each prong representing mastery of two-sample testing: conditions, calculations, and conclusions. Your legendary trident commands the tides of p-values and t-statistics, capable of devastating false null hypotheses with the raw power of statistical thunder."
+      },
       quizzes: [
           {
               questionPdf: "pdfs/unit7/unit7_section7.9_quiz.pdf",
@@ -2783,6 +2882,17 @@ const ALL_UNITS_DATA = [
               completionDate: null
           }
       ],
+      blooket: {
+          url: "", // To be provided
+          completed: false,
+          completionDate: null
+      },
+      origami: {
+          name: "Merlin's Spellbook of Mastery",
+          description: "The arcane tome containing all legendary inference techniques",
+          videoUrl: "https://www.youtube.com/watch?v=7QCtBVRubrQ",
+          reflection: "Merlin's ancient spellbook contains the complete mastery of statistical inference - from selection to implementation to communication. Each page represents a different skill: choosing procedures, checking conditions, executing techniques, and communicating results. You've earned the right to wield this legendary tome of statistical wizardry."
+      },
       quizzes: [],
       current: false
     },
@@ -2821,6 +2931,17 @@ const ALL_UNITS_DATA = [
               completionDate: null
           }
       ],
+      blooket: {
+          url: "", // To be provided
+          completed: false,
+          completionDate: null
+      },
+      origami: {
+          name: "Legendary Hall of Means",
+          description: "🌟 Unit 7 Capstone Challenge - The pantheon of quantitative mastery!",
+          videoUrl: "https://www.youtube.com/watch?v=cCeeTfsm8cI",
+          reflection: "Congratulations! You've built the Legendary Hall of Means, where the greatest statistical heroes gather. Each pillar represents a legendary mastery: confidence intervals, hypothesis tests, t-distributions, two-sample comparisons, and communication skills. You now stand among the legendary masters of quantitative inference!"
+      },
       isCapstone: true,
       current: false
       }
