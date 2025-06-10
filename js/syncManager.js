@@ -547,6 +547,9 @@ class SyncManager {
     async syncProgress() {
         if (!this.currentUser || this.currentUser.offline) return;
         
+        // Track sync time to avoid processing our own real-time updates
+        this.lastProgressSyncTime = Date.now();
+        
         // Get local progress
         const localProgress = this.getLocalProgressForSync();
         

@@ -3496,12 +3496,21 @@
                 window.syncManager.onRealtimeUpdate('progress_updates', (data) => {
                     console.log('📥 Real-time progress update received from:', data.username);
                     
-                    // Only show notification if it's from a different user/device
+                    // Use timing-based filtering instead of username filtering
+                    const timeSinceLastSync = Date.now() - (window.syncManager.lastProgressSyncTime || 0);
                     const currentUser = window.syncManager.getCurrentUser();
-                    if (!currentUser || data.username !== currentUser.username) {
-                        showRealtimeNotification(`${data.username} updated their progress`, 'progress');
+                    
+                    if (currentUser && data.username === currentUser.username && timeSinceLastSync < 2000) {
+                        // Same user + recent sync = suppress (own action)
+                        console.log('🔇 Suppressed own recent progress update');
+                        return;
+                    }
+                    
+                    // Show notification for all other cases (different users OR same user + older sync = other device)
+                    if (currentUser && data.username === currentUser.username) {
+                        showRealtimeNotification('Progress synced from your other device', 'progress');
                     } else {
-                        console.log('🔇 Suppressed own progress update notification');
+                        showRealtimeNotification(`${data.username} updated their progress`, 'progress');
                     }
                     
                     // Immediate UI refresh
@@ -3523,19 +3532,17 @@
                     
                     // Check if this is from our own recent sync (timing-based approach)
                     const timeSinceLastSync = Date.now() - (window.syncManager.lastBookmarkSyncTime || 0);
-                    const isFromOwnSync = timeSinceLastSync < 2000; // 2 seconds tolerance
                     const currentUser = window.syncManager.getCurrentUser();
                     
-                    if (isFromOwnSync && currentUser && data.username === currentUser.username) {
+                    if (currentUser && data.username === currentUser.username && timeSinceLastSync < 2000) {
+                        // Same user + recent sync = suppress (own action)
                         console.log('🔇 Suppressed own recent bookmark update');
                         return;
                     }
                     
-                    // Show notification for updates from other devices
-                    const isSameUser = currentUser && data.username === currentUser.username;
-                    
-                    if (isSameUser) {
-                        showRealtimeNotification(`Bookmark synced from your other device`, 'bookmark');
+                    // Show notification for cross-device updates or other users
+                    if (currentUser && data.username === currentUser.username) {
+                        showRealtimeNotification('Bookmark synced from your other device', 'bookmark');
                     } else {
                         showRealtimeNotification(`${data.username} updated their bookmark`, 'bookmark');
                     }
