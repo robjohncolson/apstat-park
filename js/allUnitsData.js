@@ -820,6 +820,17 @@ const ALL_UNITS_DATA = [
                 completionDate: null
             }
         ],
+        blooket: {
+            url: "", // To be provided
+            completed: false,
+            completionDate: null
+        },
+        origami: {
+            name: "Detective Hat",
+            description: "Investigate the truth behind our data",
+            videoUrl: "https://www.youtube.com/watch?v=yOQa_n5qk5k",
+            reflection: "Like a detective searching for clues, statisticians must question whether their data tells the true story. As you fold your detective hat, consider what biases and errors might hide the truth in data collection."
+        },
         quizzes: [],
         current: false
       },
@@ -835,6 +846,17 @@ const ALL_UNITS_DATA = [
             completionDate: null
           }
         ],
+        blooket: {
+            url: "", // To be provided
+            completed: false,
+            completionDate: null
+        },
+        origami: {
+            name: "Blueprint Box",
+            description: "Architect of statistical studies",
+            videoUrl: "https://www.youtube.com/watch?v=K1Z6dPfK79E",
+            reflection: "Your blueprint box holds the plans, just like careful study design holds the key to valid conclusions. As you create precise folds, think about how proper planning prevents poor performance in statistical studies."
+        },
         quizzes: [
           {
             questionPdf: "pdfs/unit3/unit3_section3.2_quiz.pdf",
@@ -864,6 +886,17 @@ const ALL_UNITS_DATA = [
             completionDate: null
           }
         ],
+        blooket: {
+            url: "", // To be provided
+            completed: false,
+            completionDate: null
+        },
+        origami: {
+            name: "Spinning Top",
+            description: "Random motion captures unpredictable sampling",
+            videoUrl: "https://www.youtube.com/watch?v=uQj5o-wWzYw",
+            reflection: "Your spinning top moves unpredictably, just like random sampling ensures every member of a population has an equal chance of selection. The beauty of randomness is that it eliminates bias and creates fair representation."
+        },
         quizzes: [
           {
             questionPdf: "pdfs/unit3/unit3_section3.3_quiz.pdf",
@@ -887,6 +920,17 @@ const ALL_UNITS_DATA = [
             completionDate: null
           }
         ],
+        blooket: {
+            url: "", // To be provided
+            completed: false,
+            completionDate: null
+        },
+        origami: {
+            name: "Broken Chain",
+            description: "Links that fail reveal sampling weakness",
+            videoUrl: "https://www.youtube.com/watch?v=kMJRjkgM-60",
+            reflection: "A chain is only as strong as its weakest link, just like a study is only as good as its sampling method. As you create each link, think about how bias, non-response, and undercoverage can break the chain of statistical validity."
+        },
         quizzes: [
           {
             questionPdf: "pdfs/unit3/unit3_section3.4_quiz.pdf",
@@ -922,6 +966,17 @@ const ALL_UNITS_DATA = [
             completionDate: null
           }
         ],
+        blooket: {
+            url: "", // To be provided
+            completed: false,
+            completionDate: null
+        },
+        origami: {
+            name: "Lab Coat",
+            description: "Scientist's uniform for controlled experiments",
+            videoUrl: "https://www.youtube.com/watch?v=RKOOy7BmKGM",
+            reflection: "Like putting on a lab coat transforms you into a scientist, good experimental design transforms a simple question into rigorous research. Consider how randomization, control groups, and replication create the foundation of scientific discovery."
+        },
         quizzes: [
           {
             questionPdf: "pdfs/unit3/unit3_section3.5_quiz.pdf",
@@ -951,6 +1006,17 @@ const ALL_UNITS_DATA = [
             completionDate: null
           }
         ],
+        blooket: {
+            url: "", // To be provided
+            completed: false,
+            completionDate: null
+        },
+        origami: {
+            name: "Multi-Compartment Box",
+            description: "Organized sections for different treatments",
+            videoUrl: "https://www.youtube.com/watch?v=J9wR-UuV1GU",
+            reflection: "Your box has separate compartments, just like experimental designs organize subjects into different treatment groups. Each section serves a purpose - blocking, randomization, and control. Consider how proper organization leads to clear conclusions."
+        },
         quizzes: [
           {
             questionPdf: "pdfs/unit3/unit3_section3.6_quiz.pdf",
@@ -974,6 +1040,17 @@ const ALL_UNITS_DATA = [
             completionDate: null
           }
         ],
+        blooket: {
+            url: "", // To be provided
+            completed: false,
+            completionDate: null
+        },
+        origami: {
+            name: "Crystal Ball",
+            description: "Peer into the future with statistical inference",
+            videoUrl: "https://www.youtube.com/watch?v=NDujHIGrw9M",
+            reflection: "Your crystal ball seems to predict the future, just like statistical inference lets us make conclusions beyond our sample data. Through careful experimentation, we can see patterns that extend to larger populations - it's like statistical magic!"
+        },
         quizzes: [
           {
             questionPdf: "pdfs/unit3/unit3_section3.7_quiz.pdf",
@@ -990,6 +1067,17 @@ const ALL_UNITS_DATA = [
         name: "Unit 3 Progress Check",
         description: "Capstone Assessment",
         videos: [],
+        blooket: {
+            url: "", // To be provided
+            completed: false,
+            completionDate: null
+        },
+        origami: {
+            name: "Tessellation Pattern",
+            description: "🌟 Unit 3 Capstone Challenge - Perfect fit for data collection mastery!",
+            videoUrl: "https://www.youtube.com/watch?v=Yr9_JQGpzqY",
+            reflection: "Congratulations! Like tessellation pieces that fit together perfectly with no gaps or overlaps, you've mastered how to collect data that fits together to reveal truth. Each piece represents a key concept: sampling, bias, experiments, and inference. Together they create a beautiful pattern of statistical understanding!"
+        },
         quizzes: [
           {
             questionPdf: "pdfs/unit3/unit3_pc_frq_quiz.pdf",
