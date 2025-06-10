@@ -3468,8 +3468,15 @@
             if (window.syncManager) {
                 // Progress updates from other devices
                 window.syncManager.onRealtimeUpdate('progress_updates', (data) => {
-                    console.log('📥 Real-time progress update received');
-                    showRealtimeNotification('Progress synced from another device', 'progress');
+                    console.log('📥 Real-time progress update received from:', data.username);
+                    
+                    // Only show notification if it's from a different user/device
+                    const currentUser = window.syncManager.getCurrentUser();
+                    if (!currentUser || data.username !== currentUser.username) {
+                        showRealtimeNotification(`${data.username} updated their progress`, 'progress');
+                    } else {
+                        console.log('🔇 Suppressed own progress update notification');
+                    }
                     
                     // Immediate UI refresh
                     setTimeout(() => {
@@ -3537,7 +3544,13 @@
                     }
                     
                     if (data.action === 'gold_star_update') {
-                        showRealtimeNotification(`${data.username} earned a gold star! 🌟`, 'leaderboard');
+                        // Only show notification if it's from a different user
+                        const currentUser = window.syncManager.getCurrentUser();
+                        if (!currentUser || data.username !== currentUser.username) {
+                            showRealtimeNotification(`${data.username} earned a gold star! 🌟`, 'leaderboard');
+                        } else {
+                            console.log('🔇 Suppressed own gold star notification');
+                        }
                     }
                 });
             }
