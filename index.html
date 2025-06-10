@@ -76,6 +76,10 @@
             transform: scale(1.2);
             outline: none;
         }
+        
+        .bookmark-button:active {
+            transform: scale(1.1);
+        }
 
         .bookmark-button.has-bookmark:hover, .bookmark-button.has-bookmark:focus {
             color: #FFD54F !important;
@@ -151,6 +155,10 @@
             color: #FFD54F;
             transform: scale(1.2);
             outline: none;
+        }
+        
+        .lesson-bookmark:active {
+            transform: scale(1.1);
         }
 
         .lesson-bookmark.has-bookmark:hover, .lesson-bookmark.has-bookmark:focus {
@@ -1867,9 +1875,18 @@
         }
 
         function goToBookmark() {
+            console.log('🔗 goToBookmark called');
             const bookmark = checkBookmarkExists();
+            console.log('🔍 Bookmark check result:', bookmark);
+            
             if (!bookmark) {
                 alert('No bookmark set. Create a bookmark by clicking the star button on any lesson or lesson item.');
+                
+                // Ensure bookmark buttons show correct state after alert
+                setTimeout(() => {
+                    updateBookmarkButton();
+                    updateLessonBookmarkButton();
+                }, 100);
                 return;
             }
             
@@ -2193,6 +2210,7 @@
             // Update lesson bookmark button after DOM is ready
             setTimeout(() => {
                 updateLessonBookmarkButton();
+                setupBookmarkEventHandlers(); // Re-setup event handlers for new context
             }, 50);
             
             // Find current lesson in this unit
@@ -2803,6 +2821,7 @@
             // Update bookmark button for unit selector after DOM updates
             setTimeout(() => {
                 updateBookmarkButton();
+                setupBookmarkEventHandlers(); // Re-setup event handlers for unit context
             }, 50);
         }
 
@@ -3185,6 +3204,36 @@
             }
         }
 
+        // Add mouse event handlers to ensure bookmark state consistency
+        function setupBookmarkEventHandlers() {
+            // Handle main bookmark button
+            const bookmarkBtn = document.getElementById('bookmarkButton');
+            const unitBookmarkBtn = document.getElementById('unitBookmarkButton');
+            const lessonBookmarkBtn = document.getElementById('lessonBookmarkButton');
+            
+            [bookmarkBtn, unitBookmarkBtn, lessonBookmarkBtn].forEach(btn => {
+                if (btn) {
+                    // Reset state on mouse leave to ensure consistency
+                    btn.addEventListener('mouseleave', () => {
+                        const bookmark = checkBookmarkExists();
+                        if (!bookmark) {
+                            btn.classList.remove('has-bookmark');
+                            console.log('🔄 Reset bookmark state on mouseleave');
+                        }
+                    });
+                    
+                    // Also reset on blur
+                    btn.addEventListener('blur', () => {
+                        const bookmark = checkBookmarkExists();
+                        if (!bookmark) {
+                            btn.classList.remove('has-bookmark');
+                            console.log('🔄 Reset bookmark state on blur');
+                        }
+                    });
+                }
+            });
+        }
+
         // Initialize everything when page loads
         window.addEventListener('load', async function() {
             // Detect mobile device
@@ -3204,6 +3253,9 @@
             
             // Setup real-time handlers
             setupRealtimeHandlers();
+            
+            // Setup bookmark event handlers for state consistency
+            setupBookmarkEventHandlers();
             
             // Check URL parameters for direct navigation
             const urlParams = new URLSearchParams(window.location.search);
