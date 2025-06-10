@@ -3525,15 +3525,20 @@
                     const currentUser = window.syncManager.getCurrentUser();
                     if (!currentUser || data.username !== currentUser.username) {
                         showRealtimeNotification(`${data.username} updated their bookmark`, 'bookmark');
+                        
+                        // Only sync and update UI for OTHER users' changes
+                        setTimeout(async () => {
+                            try {
+                                await window.syncManager.syncBookmarks(); // Pull latest bookmarks from server
+                                updateBookmarkButton();
+                                updateLessonBookmarkButton();
+                            } catch (error) {
+                                console.error('Failed to sync bookmarks after real-time update:', error);
+                            }
+                        }, 300);
                     } else {
-                        console.log('🔇 Suppressed own bookmark update notification');
+                        console.log('🔇 Suppressed own bookmark update notification and sync');
                     }
-                    
-                    // Immediate bookmark refresh
-                    setTimeout(() => {
-                        updateBookmarkButton();
-                        updateLessonBookmarkButton();
-                    }, 300);
                 });
                 
                 // Device connection notifications (with spam prevention)
@@ -3976,6 +3981,23 @@
             getCurrentDeadline: () => calculatePreciseDeadline(),
             getLeaderboard: () => window.syncManager ? window.syncManager.getLeaderboard() : null,
             clearNotifications: clearAllNotifications,
+            
+            // 🔧 DEBUG: Manual bookmark sync
+            syncBookmarks: async () => {
+                if (window.syncManager) {
+                    try {
+                        console.log('🔄 Manually syncing bookmarks...');
+                        await window.syncManager.syncBookmarks();
+                        updateBookmarkButton();
+                        updateLessonBookmarkButton();
+                        console.log('✅ Bookmark sync completed');
+                    } catch (error) {
+                        console.error('❌ Bookmark sync failed:', error);
+                    }
+                } else {
+                    console.log('❌ Sync manager not available');
+                }
+            },
             
             // 🚨 DANGER ZONE: Reset functions for testing
             resetAllData: async () => {
