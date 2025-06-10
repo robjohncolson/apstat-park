@@ -1636,6 +1636,17 @@ const ALL_UNITS_DATA = [
               completionDate: null
           }
       ],
+      blooket: {
+          url: "", // To be provided
+          completed: false,
+          completionDate: null
+      },
+      origami: {
+          name: "Kaleidoscope Mandala",
+          description: "Infinite variations from sampling diversity",
+          videoUrl: "https://www.youtube.com/watch?v=EHQuOC_LckA",
+          reflection: "Your kaleidoscope creates endless unique patterns, just like every sample produces slightly different results from the same population. Each turn reveals new beauty while maintaining underlying mathematical structure - the essence of sampling variation captured in artistic form."
+      },
       quizzes: [],
       current: false
     },
@@ -1663,6 +1674,17 @@ const ALL_UNITS_DATA = [
           completionDate: null
         }
       ],
+      blooket: {
+          url: "", // To be provided
+          completed: false,
+          completionDate: null
+      },
+      origami: {
+          name: "Golden Ratio Nautilus",
+          description: "Perfect spiral of mathematical beauty",
+          videoUrl: "https://www.youtube.com/watch?v=iKhKiXp7MKY",
+          reflection: "Your nautilus shell follows the golden ratio in its spiral growth, just like the normal distribution follows precise mathematical laws. This ancient form represents how nature and statistics both create beauty through mathematical perfection - the normal curve's timeless elegance made manifest."
+      },
       quizzes: [
         {
               questionPdf: "pdfs/unit5/unit5_section5.2_quiz.pdf",
@@ -1692,6 +1714,17 @@ const ALL_UNITS_DATA = [
               completionDate: null
           }
       ],
+      blooket: {
+          url: "", // To be provided
+          completed: false,
+          completionDate: null
+      },
+      origami: {
+          name: "Converging Galaxy",
+          description: "Chaos transforms into order through the cosmic dance",
+          videoUrl: "https://www.youtube.com/watch?v=fJOiXiflSEU",
+          reflection: "Your galaxy spirals from chaos into perfect symmetry, just like the Central Limit Theorem transforms any distribution into normality through the magic of averaging. No matter where you start, increasing sample size leads to the same beautiful destination - statistical universality made visible."
+      },
       quizzes: [
           {
               questionPdf: "pdfs/unit5/unit5_section5.3_quiz.pdf",
@@ -1715,6 +1748,17 @@ const ALL_UNITS_DATA = [
               completionDate: null
           }
       ],
+      blooket: {
+          url: "", // To be provided
+          completed: false,
+          completionDate: null
+      },
+      origami: {
+          name: "Truth vs. Illusion Mirror",
+          description: "Reflections that reveal or distort reality",
+          videoUrl: "https://www.youtube.com/watch?v=WNbsz5zqt6E",
+          reflection: "Your mirror can show true reflections or create optical illusions, perfectly representing how estimators can be unbiased (showing truth) or biased (creating systematic distortions). The art lies in crafting statistical mirrors that always reflect reality accurately."
+      },
       quizzes: [
           {
               questionPdf: "pdfs/unit5/unit5_section5.4_quiz.pdf",
@@ -1744,6 +1788,17 @@ const ALL_UNITS_DATA = [
               completionDate: null
           }
       ],
+      blooket: {
+          url: "", // To be provided
+          completed: false,
+          completionDate: null
+      },
+      origami: {
+          name: "Proportion Phoenix",
+          description: "Rising from samples to reveal population truth",
+          videoUrl: "https://www.youtube.com/watch?v=vJkbSWOT3oo",
+          reflection: "Your phoenix rises magnificently, transforming individual sample proportions into the majestic flight pattern of a sampling distribution. Like the mythical bird reborn from ashes, p-hat distributions emerge from scattered samples to reveal the hidden beauty of population proportions."
+      },
       quizzes: [
           {
               questionPdf: "pdfs/unit5/unit5_section5.5_quiz.pdf",
@@ -1773,6 +1828,17 @@ const ALL_UNITS_DATA = [
               completionDate: null
           }
       ],
+      blooket: {
+          url: "", // To be provided
+          completed: false,
+          completionDate: null
+      },
+      origami: {
+          name: "Dueling Dragons",
+          description: "Two mythical forces measuring their eternal difference",
+          videoUrl: "https://www.youtube.com/watch?v=bpbF7zy6s7I",
+          reflection: "Your twin dragons dance in eternal opposition, measuring the space between their powers, just like difference distributions capture the space between two sample proportions. Their elegant choreography shows how statistical differences create their own beautiful, predictable patterns."
+      },
       quizzes: [
           {
               questionPdf: "pdfs/unit5/unit5_section5.6_quiz.pdf",
@@ -1802,6 +1868,17 @@ const ALL_UNITS_DATA = [
               completionDate: null
           }
       ],
+      blooket: {
+          url: "", // To be provided
+          completed: false,
+          completionDate: null
+      },
+      origami: {
+          name: "Zen Garden Lotus",
+          description: "Peaceful center emerging from chaotic waters",
+          videoUrl: "https://www.youtube.com/watch?v=Dx7iV0Aj6jY",
+          reflection: "Your lotus emerges serenely from muddy waters, finding perfect balance and beauty, just like sample means create tranquil normal distributions even when individual data points are wildly scattered. The x-bar distribution is statistics' zen garden - peaceful order from apparent chaos."
+      },
       quizzes: [
           {
               questionPdf: "pdfs/unit5/unit5_section5.7_quiz.pdf",
@@ -1831,6 +1908,17 @@ const ALL_UNITS_DATA = [
               completionDate: null
           }
       ],
+      blooket: {
+          url: "", // To be provided
+          completed: false,
+          completionDate: null
+      },
+      origami: {
+          name: "Infinity Mobius Strip",
+          description: "Endless dance of comparing mean differences",
+          videoUrl: "https://www.youtube.com/watch?v=nSNBWEq6F8k",
+          reflection: "Your Mobius strip has no beginning or end, flowing infinitely like the endless comparisons we can make between sample means. This topological marvel represents how difference distributions continue the beautiful dance started by individual sampling distributions - mathematical infinity made touchable."
+      },
       quizzes: [
           {
               questionPdf: "pdfs/unit5/unit5_section5.8_quiz.pdf",
@@ -1847,6 +1935,17 @@ const ALL_UNITS_DATA = [
       name: "Unit 5 Progress Check",
       description: "Capstone Assessment",
       videos: [],
+      blooket: {
+          url: "", // To be provided
+          completed: false,
+          completionDate: null
+      },
+      origami: {
+          name: "Cosmic Mandala of Distributions",
+          description: "🌟 Unit 5 Capstone Challenge - The universe of sampling revealed!",
+          videoUrl: "https://www.youtube.com/watch?v=M8pT8WzfFIs",
+          reflection: "Congratulations! Like this cosmic mandala that reveals the hidden patterns of the universe, you've mastered how sampling distributions reveal the hidden patterns in statistics. Each geometric section represents a key concept: CLT, normality, means, proportions, and differences. Together they form the cosmic blueprint of statistical inference - where samples become windows to population truth!"
+      },
       quizzes: [
           {
               questionPdf: "pdfs/unit5/unit5_pc_frq_quiz.pdf",
