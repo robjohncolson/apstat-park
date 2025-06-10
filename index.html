@@ -3486,8 +3486,15 @@
                 
                 // Bookmark updates from other devices
                 window.syncManager.onRealtimeUpdate('bookmark_updates', (data) => {
-                    console.log('📥 Real-time bookmark update received');
-                    showRealtimeNotification('Bookmark synced from another device', 'bookmark');
+                    console.log('📥 Real-time bookmark update received from:', data.username);
+                    
+                    // Only show notification if it's from a different user/device
+                    const currentUser = window.syncManager.getCurrentUser();
+                    if (!currentUser || data.username !== currentUser.username) {
+                        showRealtimeNotification(`${data.username} updated their bookmark`, 'bookmark');
+                    } else {
+                        console.log('🔇 Suppressed own bookmark update notification');
+                    }
                     
                     // Immediate bookmark refresh
                     setTimeout(() => {
@@ -3536,17 +3543,53 @@
             }
         }
 
-        // Show real-time notification
+        // Notification spam prevention
+        let lastNotificationTime = {};
+        let notificationCooldown = 5000; // 5 seconds between similar notifications
+
+        // Clear all notifications function
+        function clearAllNotifications() {
+            const notifications = document.querySelectorAll('.realtime-notification');
+            notifications.forEach(notification => {
+                notification.style.transform = 'translateX(100%)';
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.parentNode.removeChild(notification);
+                    }
+                }, 300);
+            });
+        }
+
+        // Show real-time notification with spam prevention
         function showRealtimeNotification(message, type) {
+            // Prevent spam of similar notifications
+            const notificationKey = `${type}_${message}`;
+            const now = Date.now();
+            
+            if (lastNotificationTime[notificationKey] && 
+                (now - lastNotificationTime[notificationKey]) < notificationCooldown) {
+                console.log('🔇 Suppressed duplicate notification:', message);
+                return;
+            }
+            
+            lastNotificationTime[notificationKey] = now;
+            
+            // Limit total notifications on screen
+            const existingNotifications = document.querySelectorAll('.realtime-notification');
+            if (existingNotifications.length >= 3) {
+                // Remove oldest notification
+                existingNotifications[0].remove();
+            }
+            
             // Create notification element
             const notification = document.createElement('div');
             notification.className = 'realtime-notification';
             notification.style.cssText = `
                 position: fixed;
-                top: 20px;
+                top: ${80 + (existingNotifications.length * 70)}px;
                 right: 20px;
                 z-index: 1000;
-                background: ${type === 'progress' ? '#4CAF50' : type === 'bookmark' ? '#FFD54F' : '#2196F3'};
+                background: ${type === 'progress' ? '#4CAF50' : type === 'bookmark' ? '#FFD54F' : type === 'leaderboard' ? '#FF7043' : '#2196F3'};
                 color: ${type === 'bookmark' ? '#333' : 'white'};
                 padding: 12px 16px;
                 border-radius: 8px;
@@ -3555,13 +3598,24 @@
                 font-weight: bold;
                 transform: translateX(100%);
                 transition: transform 0.3s ease;
-                max-width: 300px;
+                max-width: 280px;
                 word-wrap: break-word;
             `;
             
             // Add icon based on type
-            const icon = type === 'progress' ? '📊' : type === 'bookmark' ? '⭐' : '📱';
+            const icon = type === 'progress' ? '📊' : type === 'bookmark' ? '⭐' : type === 'leaderboard' ? '🏆' : '📱';
             notification.innerHTML = `${icon} ${message}`;
+            
+            // Add click to dismiss
+            notification.style.cursor = 'pointer';
+            notification.onclick = () => {
+                notification.style.transform = 'translateX(100%)';
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.parentNode.removeChild(notification);
+                    }
+                }, 300);
+            };
             
             document.body.appendChild(notification);
             
@@ -3578,7 +3632,7 @@
                         notification.parentNode.removeChild(notification);
                     }
                 }, 300);
-            }, 3000);
+            }, 2500); // Shorter display time
         }
 
         // Send user activity when opening lessons
@@ -3875,7 +3929,8 @@
             getSyncManager: () => window.syncManager,
             getCompletedLessons: () => Array.from(studentProgress.completedLessons),
             getCurrentDeadline: () => calculatePreciseDeadline(),
-            getLeaderboard: () => window.syncManager ? window.syncManager.getLeaderboard() : null
+            getLeaderboard: () => window.syncManager ? window.syncManager.getLeaderboard() : null,
+            clearNotifications: clearAllNotifications
         };
     </script>
 </body>
