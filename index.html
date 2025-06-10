@@ -1772,7 +1772,7 @@
                     // Grey star when no bookmark
                     bookmarkBtn.classList.remove('has-bookmark');
                     bookmarkBtn.title = 'No bookmark set';
-                    console.log('💫 Removed has-bookmark class from header button');
+                    console.log('💫 FORCE REMOVED has-bookmark class from header button - classes now:', bookmarkBtn.className);
                 }
             }
             
@@ -1802,7 +1802,7 @@
                 } else {
                     unitBookmarkBtn.classList.remove('has-bookmark');
                     unitBookmarkBtn.title = 'No bookmark set';
-                    console.log('💫 Removed has-bookmark class from unit button');
+                    console.log('💫 FORCE REMOVED has-bookmark class from unit button - classes now:', unitBookmarkBtn.className);
                 }
             }
             
@@ -1880,13 +1880,29 @@
             console.log('🔍 Bookmark check result:', bookmark);
             
             if (!bookmark) {
+                console.log('⚠️ No bookmark exists, showing alert and resetting state');
+                
+                // IMMEDIATELY reset all bookmark button states
+                const bookmarkBtn = document.getElementById('bookmarkButton');
+                const unitBookmarkBtn = document.getElementById('unitBookmarkButton');
+                const lessonBookmarkBtn = document.getElementById('lessonBookmarkButton');
+                
+                [bookmarkBtn, unitBookmarkBtn, lessonBookmarkBtn].forEach(btn => {
+                    if (btn) {
+                        btn.classList.remove('has-bookmark');
+                        btn.title = 'No bookmark set';
+                        console.log('🔥 IMMEDIATELY REMOVED has-bookmark from button:', btn.id);
+                    }
+                });
+                
                 alert('No bookmark set. Create a bookmark by clicking the star button on any lesson or lesson item.');
                 
-                // Ensure bookmark buttons show correct state after alert
+                // Double-check state after alert
                 setTimeout(() => {
+                    console.log('🔄 Double-checking bookmark state after alert...');
                     updateBookmarkButton();
                     updateLessonBookmarkButton();
-                }, 100);
+                }, 50);
                 return;
             }
             
@@ -3213,23 +3229,52 @@
             
             [bookmarkBtn, unitBookmarkBtn, lessonBookmarkBtn].forEach(btn => {
                 if (btn) {
+                    // Debug: Log all class changes
+                    const observer = new MutationObserver((mutations) => {
+                        mutations.forEach((mutation) => {
+                            if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                                console.log('🎭 Class changed on', btn.id, '- New classes:', btn.className);
+                            }
+                        });
+                    });
+                    observer.observe(btn, { attributes: true, attributeFilter: ['class'] });
+                    
                     // Reset state on mouse leave to ensure consistency
                     btn.addEventListener('mouseleave', () => {
                         const bookmark = checkBookmarkExists();
+                        console.log('🖱️ Mouse left', btn.id, '- bookmark exists:', !!bookmark);
                         if (!bookmark) {
                             btn.classList.remove('has-bookmark');
-                            console.log('🔄 Reset bookmark state on mouseleave');
+                            console.log('🔄 Reset bookmark state on mouseleave for', btn.id);
                         }
                     });
                     
-                    // Also reset on blur
+                    // Reset on blur
                     btn.addEventListener('blur', () => {
                         const bookmark = checkBookmarkExists();
+                        console.log('🔍 Blur on', btn.id, '- bookmark exists:', !!bookmark);
                         if (!bookmark) {
                             btn.classList.remove('has-bookmark');
-                            console.log('🔄 Reset bookmark state on blur');
+                            console.log('🔄 Reset bookmark state on blur for', btn.id);
                         }
                     });
+                    
+                                         // Debug click events and force correct state
+                     btn.addEventListener('click', () => {
+                         console.log('🖱️ Click detected on', btn.id, '- classes before:', btn.className);
+                         
+                         // Force correct state after click
+                         setTimeout(() => {
+                             const bookmark = checkBookmarkExists();
+                             console.log('🖱️ Click aftermath on', btn.id, '- classes after:', btn.className, '- bookmark exists:', !!bookmark);
+                             
+                             if (!bookmark && btn.classList.contains('has-bookmark')) {
+                                 console.log('🚨 FIXING INCORRECT STATE - removing has-bookmark class');
+                                 btn.classList.remove('has-bookmark');
+                                 btn.title = 'No bookmark set';
+                             }
+                         }, 100);
+                     });
                 }
             });
         }
