@@ -319,7 +319,7 @@ class SyncManager {
 
         try {
             const response = await this.fetchWithTimeout(
-                `${this.API_BASE}/users/${this.currentUser.id}/gold-star`,
+                `${this.apiBaseUrl}/users/${this.currentUser.id}/gold-star`,
                 {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -349,7 +349,7 @@ class SyncManager {
 
         try {
             const response = await this.fetchWithTimeout(
-                `${this.API_BASE}/users/${this.currentUser.id}/gold-stars`
+                `${this.apiBaseUrl}/users/${this.currentUser.id}/gold-stars`
             );
 
             if (response.ok) {
@@ -365,7 +365,7 @@ class SyncManager {
     async getLeaderboard() {
         try {
             const response = await this.fetchWithTimeout(
-                `${this.API_BASE}/leaderboard`
+                `${this.apiBaseUrl}/leaderboard`
             );
 
             if (response.ok) {

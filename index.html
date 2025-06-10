@@ -1747,12 +1747,12 @@
             
             try {
                 // Check if sync manager has a method to retroactively award gold stars
-                if (typeof window.syncManager.awardGoldStar === 'function') {
+                if (typeof window.syncManager.calculateGoldStar === 'function') {
                     let awarded = 0;
                     for (const lessonId of completedLessons) {
                         try {
                             console.log(`🌟 Checking lesson ${lessonId} for retroactive gold star...`);
-                            const result = await window.syncManager.awardGoldStar(lessonId);
+                            const result = await window.syncManager.calculateGoldStar(lessonId);
                             if (result && result.success) {
                                 awarded++;
                                 console.log(`⭐ Retroactive gold star awarded for ${lessonId}`);
@@ -1769,7 +1769,7 @@
                         console.log('ℹ️ No retroactive gold stars awarded');
                     }
                 } else {
-                    console.log('❌ awardGoldStar method not available in sync manager');
+                    console.log('❌ calculateGoldStar method not available in sync manager');
                 }
             } catch (error) {
                 console.error('❌ Error during retroactive gold star check:', error);
@@ -2040,7 +2040,7 @@
                     console.log('🎉 Lesson completed BEFORE deadline! Awarding gold star...');
                     
                     // Award gold star via sync manager
-                    const result = await window.syncManager.awardGoldStar(lessonId);
+                    const result = await window.syncManager.calculateGoldStar(lessonId);
                     
                     if (result && result.success) {
                         console.log('⭐ Gold star awarded successfully!', result);
