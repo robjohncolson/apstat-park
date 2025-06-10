@@ -85,7 +85,7 @@
         .unit-selector.mobile .bookmark-button,
         .lesson-selector.mobile .lesson-bookmark {
             position: fixed !important;
-            top: 8px !important;
+            top: 40px !important;
             right: 8px !important;
             z-index: 100 !important;
             background: none !important;
@@ -1146,7 +1146,7 @@
             background: #2d5a2d;
             color: white;
             text-align: center;
-            padding: 15px 20px;
+            padding: 35px 20px 15px 20px; /* Extra top padding for user info */
             box-shadow: 0 4px 8px rgba(0,0,0,0.2);
             position: relative;
             margin-bottom: 0;
@@ -1710,6 +1710,7 @@
         }
 
         function updateBookmarkButton() {
+            // Update desktop bookmark button
             const bookmarkBtn = document.getElementById('bookmarkButton');
             const bookmark = checkBookmarkExists();
             
@@ -1741,6 +1742,24 @@
                     bookmarkBtn.title = 'No bookmark set';
                 }
             }
+            
+            // Also update mobile bookmark buttons if they exist
+            updateMobileBookmarkButtons(bookmark);
+        }
+        
+        function updateMobileBookmarkButtons(bookmark) {
+            // Get all mobile bookmark buttons
+            const mobileBookmarkButtons = document.querySelectorAll('.unit-selector.mobile .bookmark-button, .lesson-selector.mobile .lesson-bookmark');
+            
+            mobileBookmarkButtons.forEach(btn => {
+                if (bookmark) {
+                    btn.classList.add('has-bookmark');
+                    btn.style.color = '#FFD54F';
+                } else {
+                    btn.classList.remove('has-bookmark');
+                    btn.style.color = '#ccc';
+                }
+            });
         }
 
         function updateLessonBookmarkButton() {
@@ -1775,6 +1794,9 @@
                     lessonBookmarkBtn.title = 'No bookmark set';
                 }
             }
+            
+            // Also update mobile bookmark buttons
+            updateMobileBookmarkButtons(bookmark);
         }
 
         function getUnitForLesson(lessonId) {
@@ -2691,11 +2713,33 @@
             // Reset focus to main content when returning to unit selector
             currentFocus = 'main';
             
-            // Show main header again
-            document.getElementById('gameHeader').style.display = 'block';
-            document.getElementById('lessonSelector').classList.remove('active');
-            document.getElementById('unitSelector').style.display = 'block';
-            setTimeout(updateSelectedUnit, 100);
+            // Properly handle mobile vs desktop transitions
+            const unitSelector = document.getElementById('unitSelector');
+            const lessonSelector = document.getElementById('lessonSelector');
+            const gameHeader = document.getElementById('gameHeader');
+            const mobileHeader = document.getElementById('mobileHeader');
+            
+            // Remove lesson selector
+            lessonSelector.classList.remove('active');
+            lessonSelector.classList.remove('mobile');
+            
+            // Show unit selector
+            unitSelector.style.display = 'block';
+            
+            // Determine if we should be in mobile mode
+            if (isMobile) {
+                // Force mobile mode
+                unitSelector.classList.add('mobile');
+                if (mobileHeader) mobileHeader.classList.add('show');
+                if (gameHeader) gameHeader.style.display = 'none';
+                setupMobileUnitInterface();
+            } else {
+                // Force desktop mode
+                unitSelector.classList.remove('mobile');
+                if (mobileHeader) mobileHeader.classList.remove('show');
+                if (gameHeader) gameHeader.style.display = 'block';
+                setTimeout(updateSelectedUnit, 100);
+            }
             
             // Update bookmark button for unit selector
             updateBookmarkButton();
@@ -3139,6 +3183,10 @@
                         lessonSelector.classList.remove('mobile');
                     }
                 }
+                
+                // Update bookmark buttons for new layout
+                updateBookmarkButton();
+                updateLessonBookmarkButton();
             }
         });
     </script>
