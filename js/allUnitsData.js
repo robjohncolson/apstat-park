@@ -2964,6 +2964,17 @@ const ALL_UNITS_DATA = [
                 completionDate: null
             }
         ],
+        blooket: {
+            url: "", // To be provided
+            completed: false,
+            completionDate: null
+        },
+        origami: {
+            name: "Renaissance Portrait Frame",
+            description: "Elegant golden frame showcasing unexpected beauty",
+            videoUrl: "https://www.youtube.com/watch?v=oOLr8aKoQT8",
+            reflection: "Your ornate Renaissance frame displays the unexpected beauty in data patterns. Like art curators who identify masterpieces among ordinary paintings, you've learned to recognize when results are truly unexpected, worthy of the master's gallery of statistical discovery."
+        },
         quizzes: [],
         current: false
       },
@@ -2991,6 +3002,17 @@ const ALL_UNITS_DATA = [
                 completionDate: null
             }
         ],
+        blooket: {
+            url: "", // To be provided
+            completed: false,
+            completionDate: null
+        },
+        origami: {
+            name: "Gallery Curator's Easel",
+            description: "Sophisticated display stand for statistical masterpieces",
+            videoUrl: "https://www.youtube.com/watch?v=JKnXhgZLWTQ",
+            reflection: "Your curator's easel presents the elegant framework of goodness-of-fit testing. Like preparing a gallery exhibition, you've learned to set up the perfect display for comparing observed versus expected categorical data, creating the foundation for statistical artistry."
+        },
         quizzes: [
             {
                 questionPdf: "pdfs/unit8/unit8_section8.2_quiz.pdf",
@@ -3026,6 +3048,17 @@ const ALL_UNITS_DATA = [
                 completionDate: null
             }
         ],
+        blooket: {
+            url: "", // To be provided
+            completed: false,
+            completionDate: null
+        },
+        origami: {
+            name: "Art Critic's Magnifying Monocle",
+            description: "Refined lens for examining statistical masterpieces",
+            videoUrl: "https://www.youtube.com/watch?v=xj3Jc_JCxGw",
+            reflection: "Through your critic's monocle, you examine the fine details of goodness-of-fit execution. Like a distinguished art critic who spots authentic masterpieces through careful analysis, you now possess the refined skills to execute chi-square tests with gallery-worthy precision."
+        },
         quizzes: [
             {
                 questionPdf: "pdfs/unit8/unit8_section8.3_quiz.pdf",
@@ -3049,6 +3082,17 @@ const ALL_UNITS_DATA = [
                 completionDate: null
             }
         ],
+        blooket: {
+            url: "", // To be provided
+            completed: false,
+            completionDate: null
+        },
+        origami: {
+            name: "Master's Grid Canvas",
+            description: "Sophisticated foundation for two-dimensional artistic vision",
+            videoUrl: "https://www.youtube.com/watch?v=pBXKhrhP1QQ",
+            reflection: "Your master's grid canvas provides the elegant foundation for two-way table artistry. Like Renaissance masters who used mathematical grids to create perfect perspective, you now understand how expected counts create the structured foundation for categorical data analysis."
+        },
         quizzes: [
             {
                 questionPdf: "pdfs/unit8/unit8_section8.4_quiz.pdf",
@@ -3078,6 +3122,17 @@ const ALL_UNITS_DATA = [
                 completionDate: null
             }
         ],
+        blooket: {
+            url: "", // To be provided
+            completed: false,
+            completionDate: null
+        },
+        origami: {
+            name: "Venetian Masquerade Mask",
+            description: "Elegant disguise revealing hidden statistical relationships",
+            videoUrl: "https://www.youtube.com/watch?v=TKLKoYWKvBQ",
+            reflection: "Your Venetian mask embodies the sophisticated artistry of setting up tests for homogeneity and independence. Like skilled artisans who craft elaborate masks to reveal or conceal identity, you now design elegant statistical frameworks to uncover hidden relationships between categorical variables."
+        },
         quizzes: [
             {
                 questionPdf: "pdfs/unit8/unit8_section8.5_quiz.pdf",
@@ -3113,6 +3168,17 @@ const ALL_UNITS_DATA = [
                 completionDate: null
             }
         ],
+        blooket: {
+            url: "", // To be provided
+            completed: false,
+            completionDate: null
+        },
+        origami: {
+            name: "Sculptor's Finishing Chisel",
+            description: "Precision tool for revealing the final statistical masterpiece",
+            videoUrl: "https://www.youtube.com/watch?v=BQLDTjqYVlA",
+            reflection: "Your sculptor's chisel brings statistical masterpieces to completion through precise execution of homogeneity and independence tests. Like Michelangelo revealing David from marble, you now possess the refined technique to carve away uncertainty and reveal the true relationships hidden within categorical data."
+        },
         quizzes: [
             {
                 questionPdf: "pdfs/unit8/unit8_section8.6_quiz.pdf",
@@ -3136,6 +3202,17 @@ const ALL_UNITS_DATA = [
                 completionDate: null
             }
         ],
+        blooket: {
+            url: "", // To be provided
+            completed: false,
+            completionDate: null
+        },
+        origami: {
+            name: "Master Curator's Selection Guide",
+            description: "Elegant handbook for choosing the perfect statistical display",
+            videoUrl: "https://www.youtube.com/watch?v=QvyA_FwPeNI",
+            reflection: "Your curator's guide represents the sophisticated art of selecting appropriate inference procedures for categorical data. Like master curators who choose the perfect pieces for prestigious exhibitions, you now possess the refined judgment to select the ideal statistical approach for any categorical analysis."
+        },
         quizzes: [],
         current: false
       },
@@ -3167,6 +3244,17 @@ const ALL_UNITS_DATA = [
                 completionDate: null
             }
         ],
+        blooket: {
+            url: "", // To be provided
+            completed: false,
+            completionDate: null
+        },
+        origami: {
+            name: "Grand Gallery Exhibition Hall",
+            description: "🌟 Unit 8 Capstone Challenge - The prestigious showcase of categorical mastery!",
+            videoUrl: "https://www.youtube.com/watch?v=jZq_dL3Qh4w",
+            reflection: "Congratulations! You've opened your Grand Gallery Exhibition Hall, featuring the complete collection of categorical data mastery. Each wing displays a different expertise: goodness-of-fit testing, two-way tables, homogeneity tests, independence analysis, and procedure selection. Visitors from around the statistical world come to admire your sophisticated chi-square artistry!"
+        },
         isCapstone: true,
         current: false
       }
