@@ -1830,19 +1830,34 @@
             return null;
         }
 
+        // Rate limiting for bookmark updates
+        let lastBookmarkUpdate = 0;
+        const bookmarkUpdateCooldown = 100; // 100ms minimum between updates
+
         function updateBookmarkButton() {
+            // Rate limiting to prevent spam
+            const now = Date.now();
+            if (now - lastBookmarkUpdate < bookmarkUpdateCooldown) {
+                return;
+            }
+            lastBookmarkUpdate = now;
+
             // Update desktop bookmark buttons (both header and unit selector)
             const bookmarkBtn = document.getElementById('bookmarkButton');
             const unitBookmarkBtn = document.getElementById('unitBookmarkButton');
             const bookmark = checkBookmarkExists();
             
-            console.log('🔍 Updating bookmark buttons - bookmark exists:', !!bookmark, 'header button found:', !!bookmarkBtn, 'unit button found:', !!unitBookmarkBtn);
+            // Reduced debug logging to prevent spam
+            if (bookmark !== window.lastBookmarkState) {
+                console.log('🔍 Bookmark state changed:', !!bookmark);
+                window.lastBookmarkState = bookmark;
+            }
             
             // Update main header bookmark button
             if (bookmarkBtn) {
                 if (bookmark) {
                     bookmarkBtn.classList.add('has-bookmark');
-                    console.log('✨ Added has-bookmark class to header button');
+                    // Bookmark state updated
                     
                     // Update tooltip with bookmark info
                     if (bookmark.type === 'lesson') {
@@ -1865,7 +1880,7 @@
                     // Grey star when no bookmark
                     bookmarkBtn.classList.remove('has-bookmark');
                     bookmarkBtn.title = 'No bookmark set';
-                    console.log('💫 FORCE REMOVED has-bookmark class from header button - classes now:', bookmarkBtn.className);
+                    // Bookmark state cleared
                 }
             }
             
@@ -1918,11 +1933,21 @@
             });
         }
 
+        // Rate limiting for lesson bookmark updates
+        let lastLessonBookmarkUpdate = 0;
+
         function updateLessonBookmarkButton() {
+            // Rate limiting to prevent spam
+            const now = Date.now();
+            if (now - lastLessonBookmarkUpdate < bookmarkUpdateCooldown) {
+                return;
+            }
+            lastLessonBookmarkUpdate = now;
+
             const lessonBookmarkBtn = document.getElementById('lessonBookmarkButton');
             const bookmark = checkBookmarkExists();
             
-            console.log('🔍 Updating lesson bookmark button - bookmark exists:', !!bookmark, 'button found:', !!lessonBookmarkBtn);
+            // Reduced debug logging - only log changes
             
             if (lessonBookmarkBtn) {
                 if (bookmark) {
@@ -3682,15 +3707,7 @@
             
             [bookmarkBtn, unitBookmarkBtn, lessonBookmarkBtn].forEach(btn => {
                 if (btn) {
-                    // Debug: Log all class changes
-                    const observer = new MutationObserver((mutations) => {
-                        mutations.forEach((mutation) => {
-                            if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
-                                console.log('🎭 Class changed on', btn.id, '- New classes:', btn.className);
-                            }
-                        });
-                    });
-                    observer.observe(btn, { attributes: true, attributeFilter: ['class'] });
+                    // Removed excessive debug logging to prevent console spam
                     
                     // Reset state on mouse leave to ensure consistency
                     btn.addEventListener('mouseleave', () => {

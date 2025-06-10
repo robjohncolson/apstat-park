@@ -63,7 +63,17 @@ class SyncManager {
 
     // Connect to WebSocket server
     connectWebSocket() {
-        if (this.socket && this.socket.connected) return;
+        // Prevent multiple connections
+        if (this.socket && (this.socket.connected || this.socket.connecting)) {
+            console.log('🔌 WebSocket already connected/connecting, skipping...');
+            return;
+        }
+
+        // Clean up any existing socket
+        if (this.socket) {
+            this.socket.disconnect();
+            this.socket = null;
+        }
 
         try {
             console.log('🔌 Connecting to real-time server...');
@@ -73,7 +83,8 @@ class SyncManager {
                 timeout: 10000,
                 reconnection: true,
                 reconnectionAttempts: this.maxReconnectAttempts,
-                reconnectionDelay: this.reconnectDelay
+                reconnectionDelay: this.reconnectDelay,
+                forceNew: true // Force new connection instead of reusing
             });
 
             this.setupSocketEventListeners();
@@ -248,23 +259,28 @@ class SyncManager {
 
     // Refresh page bookmark elements (called after real-time updates)
     refreshPageBookmarks() {
-        // Trigger refresh of bookmark displays
-        if (typeof updateBookmarkButton === 'function') {
-            updateBookmarkButton();
-        }
-        if (typeof updateLessonBookmarkButton === 'function') {
-            updateLessonBookmarkButton();
-        }
-        
-        // Trigger storage event to notify other tabs
-        window.dispatchEvent(new StorageEvent('storage', {
-            key: 'item_bookmarks',
-            newValue: localStorage.getItem('item_bookmarks')
-        }));
-        window.dispatchEvent(new StorageEvent('storage', {
-            key: 'bookmarked_lessons',
-            newValue: localStorage.getItem('bookmarked_lessons')
-        }));
+        // Add delay to prevent rapid-fire updates
+        setTimeout(() => {
+            // Trigger refresh of bookmark displays
+            if (typeof updateBookmarkButton === 'function') {
+                updateBookmarkButton();
+            }
+            if (typeof updateLessonBookmarkButton === 'function') {
+                updateLessonBookmarkButton();
+            }
+            
+            // Trigger storage event to notify other tabs (with delay to prevent loops)
+            setTimeout(() => {
+                window.dispatchEvent(new StorageEvent('storage', {
+                    key: 'item_bookmarks',
+                    newValue: localStorage.getItem('item_bookmarks')
+                }));
+                window.dispatchEvent(new StorageEvent('storage', {
+                    key: 'bookmarked_lessons',
+                    newValue: localStorage.getItem('bookmarked_lessons')
+                }));
+            }, 50);
+        }, 100);
     }
 
     // Schedule reconnection with exponential backoff
