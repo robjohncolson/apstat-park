@@ -1999,6 +1999,17 @@ const ALL_UNITS_DATA = [
                     completionDate: null
                 }
             ],
+            blooket: {
+                url: "", // To be provided
+                completed: false,
+                completionDate: null
+            },
+            origami: {
+                name: "Master's Bell Curve Sculpture",
+                description: "Architectural monument to statistical normality",
+                videoUrl: "https://www.youtube.com/watch?v=fBJq_TfPnys",
+                reflection: "Your bell curve sculpture stands as a monument to statistical excellence, representing the pinnacle of inference mastery. Like a master architect who understands why certain proportions create timeless beauty, you now understand why normality creates the foundation for all statistical inference."
+            },
             quizzes: [],
             current: false
           },
@@ -2026,6 +2037,17 @@ const ALL_UNITS_DATA = [
                     completionDate: null
                 }
             ],
+            blooket: {
+                url: "", // To be provided
+                completed: false,
+                completionDate: null
+            },
+            origami: {
+                name: "Precision Bridge Architecture",
+                description: "Engineering confidence across uncertainty",
+                videoUrl: "https://www.youtube.com/watch?v=KPHJSq4I-lM",
+                reflection: "Your bridge spans the gap between sample and population with engineering precision, just like confidence intervals bridge the gap between what we observe and what we can confidently claim. Every strut and cable represents the mathematical precision needed to construct reliable inference."
+            },
             quizzes: [
                 {
                     questionPdf: "pdfs/unit6/unit6_section6.2_quiz.pdf",
@@ -2061,6 +2083,17 @@ const ALL_UNITS_DATA = [
                     completionDate: null
                 }
             ],
+            blooket: {
+                url: "", // To be provided
+                completed: false,
+                completionDate: null
+            },
+            origami: {
+                name: "Judicial Scales of Evidence",
+                description: "Weighing statistical claims with expert precision",
+                videoUrl: "https://www.youtube.com/watch?v=8KWDqHjjLU4",
+                reflection: "Your scales of justice weigh evidence with master-level precision, just like statistical experts use confidence intervals to adjudicate claims about population parameters. The balance represents the careful deliberation required for sound statistical judgment - evidence must tip the scales convincingly."
+            },
             quizzes: [
                 {
                     questionPdf: "pdfs/unit6/unit6_section6.3_quiz.pdf",
@@ -2090,6 +2123,17 @@ const ALL_UNITS_DATA = [
                     completionDate: null
                 }
             ],
+            blooket: {
+                url: "", // To be provided
+                completed: false,
+                completionDate: null
+            },
+            origami: {
+                name: "Master Architect's Blueprint",
+                description: "Designing the framework for hypothesis testing",
+                videoUrl: "https://www.youtube.com/watch?v=JKJrSsLUEO8",
+                reflection: "Your architectural blueprint shows master-level planning precision, laying the foundation for rigorous hypothesis testing. Every line represents careful consideration of null and alternative hypotheses, significance levels, and test conditions - the expert craftsmanship of statistical design."
+            },
             quizzes: [
                 {
                     questionPdf: "pdfs/unit6/unit6_section6.4_quiz.pdf",
@@ -2119,6 +2163,17 @@ const ALL_UNITS_DATA = [
                     completionDate: null
                 }
             ],
+            blooket: {
+                url: "", // To be provided
+                completed: false,
+                completionDate: null
+            },
+            origami: {
+                name: "Oracle's Probability Prism",
+                description: "Expert lens for reading statistical significance",
+                videoUrl: "https://www.youtube.com/watch?v=8tqm2gdcPEE",
+                reflection: "Your probability prism refracts p-values into clear interpretation, requiring the expert craftsmanship of a master statistician. Like an oracle reading signs, you must interpret the subtle language of probability with precision - understanding what p-values truly reveal about evidence against null hypotheses."
+            },
             quizzes: [
                 {
                     questionPdf: "pdfs/unit6/unit6_section6.5_quiz.pdf",
@@ -2148,6 +2203,17 @@ const ALL_UNITS_DATA = [
                     completionDate: null
                 }
             ],
+            blooket: {
+                url: "", // To be provided
+                completed: false,
+                completionDate: null
+            },
+            origami: {
+                name: "Expert Surgeon's Scalpel",
+                description: "Precise cuts through statistical uncertainty",
+                videoUrl: "https://www.youtube.com/watch?v=FTq4jDzPUIw",
+                reflection: "Your surgeon's scalpel makes precise incisions through statistical uncertainty with expert skill. Like a master surgeon who knows exactly where to cut, you now wield the tools to make clean, decisive conclusions in hypothesis testing - separating truth from chance with clinical precision."
+            },
             quizzes: [
                 {
                     questionPdf: "pdfs/unit6/unit6_section6.6_quiz.pdf",
@@ -2177,6 +2243,17 @@ const ALL_UNITS_DATA = [
                     completionDate: null
                 }
             ],
+            blooket: {
+                url: "", // To be provided
+                completed: false,
+                completionDate: null
+            },
+            origami: {
+                name: "Master Blacksmith's Forge",
+                description: "Tempering steel against Type I and Type II errors",
+                videoUrl: "https://www.youtube.com/watch?v=QKGRWafDYns",
+                reflection: "Your forge tempers statistical steel against the dual threats of Type I and Type II errors. Like a master blacksmith who understands that both too little and too much heat can ruin the blade, you now understand how to balance alpha and beta risks with expert craftsmanship."
+            },
             quizzes: [
                 {
                     questionPdf: "pdfs/unit6/unit6_section6.7_quiz.pdf",
@@ -2206,6 +2283,17 @@ const ALL_UNITS_DATA = [
                     completionDate: null
                 }
             ],
+            blooket: {
+                url: "", // To be provided
+                completed: false,
+                completionDate: null
+            },
+            origami: {
+                name: "Twin Tower Comparison",
+                description: "Architectural elegance in measuring differences",
+                videoUrl: "https://www.youtube.com/watch?v=8jADQlM_bZI",
+                reflection: "Your twin towers stand in measured comparison, their height difference captured with architectural precision. Like a master builder who can measure the gap between structures with expert accuracy, you now construct confidence intervals that capture the true difference between two population proportions."
+            },
             quizzes: [
                 {
                     questionPdf: "pdfs/unit6/unit6_section6.8_quiz.pdf",
@@ -2235,6 +2323,17 @@ const ALL_UNITS_DATA = [
                     completionDate: null
                 }
             ],
+            blooket: {
+                url: "", // To be provided
+                completed: false,
+                completionDate: null
+            },
+            origami: {
+                name: "Expert Detective's Magnifying Glass",
+                description: "Examining evidence through expert investigation",
+                videoUrl: "https://www.youtube.com/watch?v=IKHs-J8xoZY",
+                reflection: "Your magnifying glass focuses expert attention on the crucial evidence within confidence intervals. Like a master detective who can discern truth from the smallest clues, you now use differences in proportions to build compelling cases about population relationships with investigative excellence."
+            },
             quizzes: [
                 {
                     questionPdf: "pdfs/unit6/unit6_section6.9_quiz.pdf",
@@ -2264,6 +2363,17 @@ const ALL_UNITS_DATA = [
                     completionDate: null
                 }
             ],
+            blooket: {
+                url: "", // To be provided
+                completed: false,
+                completionDate: null
+            },
+            origami: {
+                name: "Master Engineer's Dual Compass",
+                description: "Precision instruments for measuring comparative hypotheses",
+                videoUrl: "https://www.youtube.com/watch?v=7VGlq0g-OkY",
+                reflection: "Your dual compass draws perfect circles of comparison with engineering precision. Like a master engineer who uses matched instruments to ensure perfect alignment, you now set up hypothesis tests for differences between proportions with the expertise that comes only from true statistical craftsmanship."
+            },
             quizzes: [
                 {
                     questionPdf: "pdfs/unit6/unit6_section6.10_quiz.pdf",
@@ -2299,6 +2409,17 @@ const ALL_UNITS_DATA = [
                     completionDate: null
                 }
             ],
+            blooket: {
+                url: "", // To be provided
+                completed: false,
+                completionDate: null
+            },
+            origami: {
+                name: "Master Conductor's Baton",
+                description: "Orchestrating the symphony of two-sample testing",
+                videoUrl: "https://www.youtube.com/watch?v=fK8R5-_sHIw",
+                reflection: "Your conductor's baton orchestrates the complex symphony of two-sample hypothesis testing with masterful precision. Like a virtuoso conductor who coordinates every instrument to create harmony, you now execute tests for proportion differences with the expertise of a statistical maestro."
+            },
             quizzes: [
                 {
                     questionPdf: "pdfs/unit6/unit6_section6.11_quiz.pdf",
@@ -2315,6 +2436,17 @@ const ALL_UNITS_DATA = [
             name: "Unit 6 Progress Check",
             description: "Capstone Assessment",
             videos: [],
+            blooket: {
+                url: "", // To be provided
+                completed: false,
+                completionDate: null
+            },
+            origami: {
+                name: "Master Craftsman's Workshop",
+                description: "🌟 Unit 6 Capstone Challenge - The guild hall of statistical expertise!",
+                videoUrl: "https://www.youtube.com/watch?v=kFQNOxNY_AE",
+                reflection: "Congratulations! Like this master craftsman's workshop filled with expert tools and completed masterpieces, you've achieved the rank of statistical expert in proportion inference. Each tool represents a key mastery: confidence intervals, hypothesis tests, p-values, errors, and comparisons. You now possess the complete toolkit of expert craftsmanship in categorical data inference!"
+            },
             quizzes: [
                 {
                     questionPdf: "pdfs/unit6/unit6_pc_frq_quiz.pdf",
