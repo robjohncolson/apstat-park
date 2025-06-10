@@ -55,7 +55,7 @@ const ALL_UNITS_DATA = [
         origami: {
             name: "Simple Boat",
             description: "Navigate the waters of variables with your paper boat",
-            videoUrl: "https://www.youtube.com/watch?v=veyZNyurlwU",
+            videoUrl: "https://www.youtube.com/watch?v=vNba3jbBSOw",
             reflection: "Like variables that take different values, your boat can sail different paths. Reflect on how data varies and what that tells us."
         },
         quizzes: [
@@ -89,7 +89,7 @@ const ALL_UNITS_DATA = [
         origami: {
             name: "Paper Hat",
             description: "Crown yourself with categorical thinking",
-            videoUrl: "https://www.youtube.com/watch?v=veyZNyurlwU",
+            videoUrl: "https://www.youtube.com/watch?v=2FHjUT8At0Y",
             reflection: "Just as your hat sits in the category 'headwear,' think about how we organize data into meaningful categories and tables."
         },
         quizzes: [
@@ -127,9 +127,9 @@ const ALL_UNITS_DATA = [
             completionDate: null
         },
         origami: {
-            name: "Fortune Teller",
+            name: "Fortune Teller (Cootie Catcher)",
             description: "Interactive origami for graphical exploration",
-            videoUrl: "https://www.youtube.com/watch?v=veyZNyurlwU",
+            videoUrl: "https://www.youtube.com/watch?v=FlX35Tg-lDk",
             reflection: "As you play with your fortune teller, think about how graphs help us visualize and interact with categorical data patterns."
         },
         quizzes: [
@@ -163,7 +163,7 @@ const ALL_UNITS_DATA = [
         origami: {
             name: "Paper Cup",
             description: "A practical fold for holding quantitative insights",
-            videoUrl: "https://www.youtube.com/watch?v=T5PsKGNWxJw",
+            videoUrl: "https://www.youtube.com/watch?v=2FHjUT8At0Y",
             reflection: "Your paper cup can hold water just as graphs hold data points. Consider how different graph types can contain and display quantitative information in meaningful ways."
         },
         quizzes: [
@@ -237,7 +237,7 @@ const ALL_UNITS_DATA = [
         origami: {
             name: "Jumping Frog",
             description: "Action origami for dynamic statistics",
-            videoUrl: "https://www.youtube.com/watch?v=GfNueI-sNWo",
+            videoUrl: "https://www.youtube.com/watch?v=Oy8KG_aZvGk",
             reflection: "Watch your frog jump different distances - just like data, each jump varies! Think about mean, median, and how we summarize the 'typical' jump distance."
         },
         quizzes: [
@@ -271,7 +271,7 @@ const ALL_UNITS_DATA = [
         origami: {
             name: "Paper Crane (Simplified)",
             description: "Graceful visualization of statistical summaries",
-            videoUrl: "https://www.youtube.com/watch?v=Tx6MHgLBiHs",
+            videoUrl: "https://www.youtube.com/watch?v=LloxymwKWLE",
             reflection: "The crane's elegant form represents how box plots and summary statistics create beautiful, meaningful representations of complex data. Each fold builds toward the complete picture."
         },
         quizzes: [
@@ -305,7 +305,7 @@ const ALL_UNITS_DATA = [
         origami: {
             name: "Butterfly",
             description: "Symmetrical beauty in comparative distributions",
-            videoUrl: "https://www.youtube.com/watch?v=HTBGBPOdpj4",
+            videoUrl: "https://www.youtube.com/watch?v=ncP9Xm2jRfU",
             reflection: "Your butterfly's symmetrical wings mirror how we compare distributions - looking at similarities and differences. Consider how two datasets can be as different yet beautiful as butterfly wing patterns."
         },
         quizzes: [
@@ -351,7 +351,7 @@ const ALL_UNITS_DATA = [
         origami: {
             name: "Simple Box",
             description: "Container for normal distribution insights",
-            videoUrl: "https://www.youtube.com/watch?v=svLIkxUQI9w",
+            videoUrl: "https://www.youtube.com/watch?v=miKVWRH6Jzc",
             reflection: "Your box has defined boundaries, just like the normal distribution has predictable ranges. As you fold, think about how 68%, 95%, and 99.7% of data fits within standard deviations - like items fitting perfectly in your box."
         },
         quizzes: [
@@ -378,7 +378,7 @@ const ALL_UNITS_DATA = [
         origami: {
             name: "Star Box",
             description: "🌟 Unit 1 Capstone Challenge - A stellar achievement!",
-            videoUrl: "https://www.youtube.com/watch?v=lDWL6aOJD4Q",
+            videoUrl: "https://www.youtube.com/watch?v=S3-2SiWG7N0",
             reflection: "Congratulations! Like this beautiful star box that brings together all your folding skills, you've now mastered exploring one-variable data. Each point of your star represents a key concept: distributions, summaries, graphs, comparisons, and the normal model. You're ready to shine in Unit 2!"
         },
         quizzes: [
@@ -701,9 +701,9 @@ const ALL_UNITS_DATA = [
             completionDate: null
         },
         origami: {
-            name: "Lotus Flower",
+            name: "Lotus Flower", 
             description: "Unfold the beauty of optimization",
-            videoUrl: "https://www.youtube.com/watch?v=3MqoQVJLCMQ",
+            videoUrl: "https://www.youtube.com/watch?v=eGPK1vvdyLE",
             reflection: "The lotus opens perfectly to reveal its center, just like least squares finds the perfect line by minimizing squared errors. Each petal unfolds with purpose, like each calculation brings us closer to the optimal solution."
         },
         quizzes: [
@@ -2684,7 +2684,7 @@ const ALL_UNITS_DATA = [
       origami: {
           name: "Thor's Mighty Hammer",
           description: "Wielding the legendary power of statistical testing",
-          videoUrl: "https://www.youtube.com/watch?v=dWcmgmJYNR4",
+          videoUrl: "https://www.youtube.com/watch?v=kqUyo_PLe5g",
           reflection: "Like Thor wielding Mjolnir, you now command the legendary power to execute hypothesis tests for population means. Your hammer strikes with the force of t-statistics and p-values, capable of shattering false claims and upholding statistical truth. Only those worthy of statistical mastery can lift this mythical weapon."
       },
       quizzes: [
