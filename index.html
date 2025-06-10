@@ -96,6 +96,18 @@
             box-shadow: 0 0 0 3px rgba(255, 213, 79, 0.6);
         }
 
+        /* Leaderboard button styling */
+        .leaderboard-button:hover, .leaderboard-button:focus {
+            color: #FFD54F !important;
+            transform: scale(1.2);
+            outline: none;
+            text-shadow: 0 0 8px rgba(255, 213, 79, 0.6);
+        }
+
+        .leaderboard-button:active {
+            transform: scale(1.1);
+        }
+
         /* Mobile bookmark buttons - small static stars */
         .unit-selector.mobile .bookmark-button,
         .lesson-selector.mobile .lesson-bookmark {
@@ -1459,6 +1471,9 @@
         <button class="bookmark-button" id="bookmarkButton" onclick="goToBookmark()" title="Bookmark">
             ★
         </button>
+        <button class="leaderboard-button" id="leaderboardButton" onclick="showLeaderboardModal()" title="View Leaderboard" style="position: absolute; top: 25px; right: 70px; background: none; border: none; color: #FFD54F; padding: 5px; cursor: pointer; transition: all 0.3s ease; font-size: 1.5em; line-height: 1;">
+            🏆
+        </button>
                         <div class="game-title">apstat-park</div>
         <div class="daily-goal" id="dynamicGoal">Loading progress...</div>
         <div class="user-info" id="userInfo" style="position: absolute; top: 10px; left: 20px; background: rgba(255,255,255,0.2); padding: 8px 12px; border-radius: 15px; font-size: 0.85em; opacity: 0.9; cursor: pointer;" onclick="showUsernameModal()">
@@ -1604,6 +1619,28 @@
             </div>
             
             <button class="qr-close" onclick="closeUsernameModal()">Close</button>
+        </div>
+    </div>
+
+    <!-- Leaderboard Modal -->
+    <div class="qr-overlay" id="leaderboardOverlay" style="display: none;">
+        <div class="qr-modal" style="max-width: 600px;">
+            <div class="qr-title">🏆 Gold Star Leaderboard</div>
+            <div class="qr-subtitle" id="leaderboardSubtitle">See who's crushing their deadlines!</div>
+            
+            <div style="margin: 20px 0; padding: 15px; background: #f5f5f5; border-radius: 10px;">
+                <div id="leaderboardContent" style="max-height: 400px; overflow-y: auto;">
+                    <div style="text-align: center; color: #666; padding: 20px;">
+                        <div style="font-size: 2em; margin-bottom: 10px;">⏳</div>
+                        <div>Loading leaderboard...</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div style="display: flex; gap: 10px; justify-content: center;">
+                <button style="background: #4CAF50; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold;" onclick="refreshLeaderboard()">🔄 Refresh</button>
+                <button class="qr-close" onclick="closeLeaderboardModal()">Close</button>
+            </div>
         </div>
     </div>
 
@@ -3388,11 +3425,19 @@
             }
         });
 
+        // Close leaderboard modal when clicking outside
+        document.getElementById('leaderboardOverlay').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeLeaderboardModal();
+            }
+        });
+
         // Escape key to close modals
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') {
                 closeQRModal();
                 closeUsernameModal();
+                closeLeaderboardModal();
             }
         });
 
@@ -3469,6 +3514,23 @@
                     if (data.activity && data.activity.type === 'lesson_opened') {
                         console.log(`👀 ${data.username} opened lesson ${data.activity.lessonId}`);
                         // Could show "User is active in lesson X" indicator
+                    }
+                });
+                
+                // Leaderboard updates
+                window.syncManager.onRealtimeUpdate('leaderboard_updates', (data) => {
+                    console.log('📊 Real-time leaderboard update received');
+                    
+                    // If leaderboard modal is open, refresh it
+                    const leaderboardModal = document.getElementById('leaderboardOverlay');
+                    if (leaderboardModal && leaderboardModal.style.display === 'flex') {
+                        setTimeout(() => {
+                            loadLeaderboardData();
+                        }, 500); // Small delay to ensure server update completed
+                    }
+                    
+                    if (data.action === 'gold_star_update') {
+                        showRealtimeNotification(`${data.username} earned a gold star! 🌟`, 'leaderboard');
                     }
                 });
             }
@@ -3692,6 +3754,105 @@
             stopLiveCountdown();
         });
 
+        // Leaderboard functions
+        async function showLeaderboardModal() {
+            const modal = document.getElementById('leaderboardOverlay');
+            const subtitle = document.getElementById('leaderboardSubtitle');
+            
+            // Show modal immediately
+            modal.style.display = 'flex';
+            
+            // Load leaderboard data
+            await loadLeaderboardData();
+        }
+
+        function closeLeaderboardModal() {
+            document.getElementById('leaderboardOverlay').style.display = 'none';
+        }
+
+        async function loadLeaderboardData() {
+            const content = document.getElementById('leaderboardContent');
+            const subtitle = document.getElementById('leaderboardSubtitle');
+            
+            try {
+                // Show loading state
+                content.innerHTML = `
+                    <div style="text-align: center; color: #666; padding: 20px;">
+                        <div style="font-size: 2em; margin-bottom: 10px;">⏳</div>
+                        <div>Loading leaderboard...</div>
+                    </div>
+                `;
+                
+                if (!window.syncManager) {
+                    throw new Error('Sync manager not available');
+                }
+                
+                const leaderboard = await window.syncManager.getLeaderboard();
+                console.log('📊 Leaderboard data:', leaderboard);
+                
+                if (!leaderboard || leaderboard.length === 0) {
+                    content.innerHTML = `
+                        <div style="text-align: center; color: #666; padding: 20px;">
+                            <div style="font-size: 2em; margin-bottom: 10px;">🌟</div>
+                            <div style="font-weight: bold; margin-bottom: 5px;">Be the first on the leaderboard!</div>
+                            <div style="font-size: 0.9em;">Complete lessons before your deadlines to earn gold stars</div>
+                        </div>
+                    `;
+                    subtitle.textContent = 'Be the first to earn gold stars!';
+                    return;
+                }
+                
+                // Build leaderboard HTML
+                let html = '<div style="font-size: 0.9em;">';
+                
+                leaderboard.forEach((player, index) => {
+                    const rank = index + 1;
+                    const isCurrentUser = window.syncManager.getCurrentUser() && 
+                                         player.username === window.syncManager.getCurrentUser().username;
+                    
+                    const rankIcon = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : '⭐';
+                    const currentUserStyle = isCurrentUser ? 'background: #fff3e0; border: 2px solid #FFD54F;' : 'background: white;';
+                    
+                    html += `
+                        <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px; margin: 8px 0; border-radius: 8px; border: 1px solid #e0e0e0; ${currentUserStyle}">
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <span style="font-size: 1.2em; min-width: 30px;">${rankIcon}</span>
+                                <div>
+                                    <div style="font-weight: bold; color: #2d5a2d;">${player.username}${isCurrentUser ? ' (You)' : ''}</div>
+                                    <div style="font-size: 0.8em; color: #666;">
+                                        ${player.currentStreak} lesson streak • ${player.totalStars} total stars
+                                    </div>
+                                </div>
+                            </div>
+                            <div style="text-align: right;">
+                                <div style="font-size: 1.5em; color: #FFD54F;">${player.currentStreak}</div>
+                                <div style="font-size: 0.7em; color: #666;">streak</div>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                html += '</div>';
+                content.innerHTML = html;
+                subtitle.textContent = `Top ${leaderboard.length} players by streak`;
+                
+            } catch (error) {
+                console.error('Error loading leaderboard:', error);
+                content.innerHTML = `
+                    <div style="text-align: center; color: #ff5722; padding: 20px;">
+                        <div style="font-size: 2em; margin-bottom: 10px;">❌</div>
+                        <div style="font-weight: bold; margin-bottom: 5px;">Failed to load leaderboard</div>
+                        <div style="font-size: 0.9em;">Check your internet connection and try again</div>
+                    </div>
+                `;
+                subtitle.textContent = 'Error loading leaderboard';
+            }
+        }
+
+        async function refreshLeaderboard() {
+            await loadLeaderboardData();
+        }
+
         // Global debug functions for console
         window.debugGoldStars = {
             checkEligibility: checkGoldStarEligibility,
@@ -3713,7 +3874,8 @@
             },
             getSyncManager: () => window.syncManager,
             getCompletedLessons: () => Array.from(studentProgress.completedLessons),
-            getCurrentDeadline: () => calculatePreciseDeadline()
+            getCurrentDeadline: () => calculatePreciseDeadline(),
+            getLeaderboard: () => window.syncManager ? window.syncManager.getLeaderboard() : null
         };
     </script>
 </body>
