@@ -111,14 +111,12 @@ io.on('connection', (socket) => {
         
         try {
             // Notify PostgreSQL about user activity
-            await pool.query(
-                'NOTIFY user_activity, $1',
-                [JSON.stringify({
-                    username: socket.username,
-                    activity: activity,
-                    timestamp: new Date().toISOString()
-                })]
-            );
+            const activityPayload = JSON.stringify({
+                username: socket.username,
+                activity: activity,
+                timestamp: new Date().toISOString()
+            });
+            await pool.query(`NOTIFY user_activity, '${activityPayload.replace(/'/g, "''")}'`);
         } catch (error) {
             console.error('Error notifying user activity:', error);
         }
@@ -344,15 +342,13 @@ app.post('/api/users/:userId/progress/sync', async (req, res) => {
             await client.query('COMMIT');
             
             // 🚀 REAL-TIME MAGIC: Notify other devices about progress update
-            await pool.query(
-                'NOTIFY progress_updates, $1',
-                [JSON.stringify({
-                    username: username,
-                    userId: userId,
-                    progressData: progressData,
-                    timestamp: new Date().toISOString()
-                })]
-            );
+            const notificationPayload = JSON.stringify({
+                username: username,
+                userId: userId,
+                progressData: progressData,
+                timestamp: new Date().toISOString()
+            });
+            await pool.query(`NOTIFY progress_updates, '${notificationPayload.replace(/'/g, "''")}'`);
             
             // Return updated progress
             const finalResult = await client.query(
@@ -426,15 +422,13 @@ app.post('/api/users/:userId/bookmarks/sync', async (req, res) => {
             await client.query('COMMIT');
             
             // 🚀 REAL-TIME MAGIC: Notify other devices about bookmark update
-            await pool.query(
-                'NOTIFY bookmark_updates, $1',
-                [JSON.stringify({
-                    username: username,
-                    userId: userId,
-                    bookmarks: bookmarks,
-                    timestamp: new Date().toISOString()
-                })]
-            );
+            const bookmarkNotificationPayload = JSON.stringify({
+                username: username,
+                userId: userId,
+                bookmarks: bookmarks,
+                timestamp: new Date().toISOString()
+            });
+            await pool.query(`NOTIFY bookmark_updates, '${bookmarkNotificationPayload.replace(/'/g, "''")}'`);
             
             // Return updated bookmarks
             const result = await pool.query(
@@ -589,16 +583,14 @@ app.post('/api/users/:userId/gold-star', async (req, res) => {
         };
         
         // 🚀 REAL-TIME LEADERBOARD UPDATE
-        await pool.query(
-            'NOTIFY leaderboard_updates, $1',
-            [JSON.stringify({ 
-                username, 
-                userId,
-                action: 'gold_star_update',
-                data: response,
-                timestamp: new Date().toISOString() 
-            })]
-        );
+        const leaderboardPayload = JSON.stringify({ 
+            username, 
+            userId,
+            action: 'gold_star_update',
+            data: response,
+            timestamp: new Date().toISOString() 
+        });
+        await pool.query(`NOTIFY leaderboard_updates, '${leaderboardPayload.replace(/'/g, "''")}'`);
         
         res.json(response);
         
