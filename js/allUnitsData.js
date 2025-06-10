@@ -42,7 +42,7 @@ const ALL_UNITS_DATA = [
             }
         ],
         blooket: {
-            url: "", // To be provided
+            url: "https://dashboard.blooket.com/set/6847beef46fe0cb8b31e937f",
             completed: false,
             completionDate: null
         },
@@ -70,7 +70,7 @@ const ALL_UNITS_DATA = [
             }
         ],
         blooket: {
-            url: "", // To be provided
+            url: "https://dashboard.blooket.com/set/6847c1aa46fe0cb8b31e93b4",
             completed: false,
             completionDate: null
         },
