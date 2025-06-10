@@ -1647,6 +1647,9 @@
                     console.warn('Failed to initialize sync manager:', error);
                 }
             }
+            
+            // Start live countdown after progress is loaded
+            startLiveCountdown();
         }
         
         // Update user display
@@ -1941,6 +1944,9 @@
             };
             localStorage.setItem('apStatsProgress', JSON.stringify(data));
             
+            // Restart live countdown with new progress
+            startLiveCountdown();
+            
             // Try to sync progress
             if (window.syncManager) {
                 try {
@@ -1956,81 +1962,213 @@
             }
         }
 
-        // Calculate dynamic deadline based on remaining lessons
-        function calculateNextDeadline() {
+        // Global deadline state
+        let nextDeadlineTime = null;
+        let deadlineUpdateInterval = null;
+
+        // Calculate precise hours-based deadline
+        function calculatePreciseDeadline() {
             try {
-                const today = new Date();
-                const apExamDate = new Date(2026, 4, 7); // May 7, 2026
+                const now = new Date();
+                
+                // Create AP exam date: May 7, 2026 at 8:00 AM Eastern Time
+                // Note: May 2026 will be in EDT (UTC-4), not EST (UTC-5)
+                const apExamDate = new Date('2026-05-07T08:00:00-04:00'); // 8 AM EDT
                 
                 // Count total and completed lessons
                 const totalLessons = getTotalLessonCount();
                 const completedCount = studentProgress.completedLessons.size;
                 const remainingLessons = totalLessons - completedCount;
                 
-                // Calculate days until exam
-                const msPerDay = 24 * 60 * 60 * 1000;
-                const daysUntilExam = Math.ceil((apExamDate - today) / msPerDay);
+                // Calculate total hours until AP exam (precise to the minute)
+                const msUntilExam = apExamDate.getTime() - now.getTime();
+                const hoursUntilExam = msUntilExam / (1000 * 60 * 60); // Convert to hours
                 
-                // Calculate pace (days per lesson)
-                const daysPerLesson = remainingLessons > 0 ? Math.max(1, Math.floor(daysUntilExam / remainingLessons)) : 0;
-                
-                // Calculate next deadline
-                const nextDeadline = new Date(today);
-                nextDeadline.setDate(today.getDate() + daysPerLesson);
-                
-                // Format deadline
-                const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-                const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-                
-                const dayName = days[nextDeadline.getDay()];
-                const monthName = months[nextDeadline.getMonth()];
-                const dayNumber = nextDeadline.getDate();
-                const year = nextDeadline.getFullYear();
-                
-                const formattedDate = `${dayName}, ${monthName} ${dayNumber}, ${year}`;
-                
-                // Update desktop display
-                const goalElement = document.getElementById('dynamicGoal');
-                if (goalElement) {
-                    if (remainingLessons > 0) {
-                        const paceText = daysPerLesson === 1 ? '1 lesson daily' : `1 lesson every ${daysPerLesson} days`;
-                        goalElement.innerHTML = `
-                            Daily Goal: Complete next lesson by <strong>${formattedDate}</strong><br>
-                            <small style="opacity: 0.8;">${paceText} • ${remainingLessons}/${totalLessons} lessons remaining • ${daysUntilExam} days until AP exam</small>
-                        `;
-                    } else {
-                        goalElement.innerHTML = `
-                            🎉 <strong>All lessons completed!</strong> 🎉<br>
-                            <small style="opacity: 0.8;">Ready for AP exam on May 7, 2026 • ${daysUntilExam} days to review</small>
-                        `;
-                    }
+                if (remainingLessons <= 0) {
+                    // All lessons completed
+                    return {
+                        isComplete: true,
+                        hoursUntilExam: Math.max(0, hoursUntilExam),
+                        totalLessons,
+                        completedCount
+                    };
                 }
-
-                // Update mobile display - simplified
-                const mobileGoalElement = document.getElementById('mobileDynamicGoal');
-                if (mobileGoalElement) {
-                    if (remainingLessons > 0) {
-                        mobileGoalElement.innerHTML = `
-                            Complete next lesson by <strong>${formattedDate}</strong>
-                            <small>${remainingLessons} lessons remaining</small>
-                        `;
-                    } else {
-                        mobileGoalElement.innerHTML = `
-                            🎉 <strong>All lessons completed!</strong> 🎉
-                            <small>Ready for AP exam!</small>
-                        `;
-                    }
+                
+                // Calculate hours per lesson (precise)
+                let hoursPerLesson = hoursUntilExam / remainingLessons;
+                
+                // Apply minimum deadline of 8 hours per lesson (prevents cramming)
+                const minimumHours = 8;
+                let isUsingMinimum = false;
+                if (hoursPerLesson < minimumHours) {
+                    isUsingMinimum = true;
+                    hoursPerLesson = minimumHours;
+                    console.log(`⚠️ Pace too fast! Using minimum ${minimumHours}h per lesson instead of ${(hoursUntilExam / remainingLessons).toFixed(1)}h`);
                 }
+                
+                // Calculate next deadline (exactly X hours from now)
+                nextDeadlineTime = new Date(now.getTime() + (hoursPerLesson * 60 * 60 * 1000));
+                
+                return {
+                    isComplete: false,
+                    hoursPerLesson: hoursPerLesson,
+                    nextDeadline: nextDeadlineTime,
+                    remainingLessons,
+                    totalLessons,
+                    completedCount,
+                    hoursUntilExam: Math.max(0, hoursUntilExam),
+                    hoursUntilDeadline: hoursPerLesson,
+                    isUsingMinimum: isUsingMinimum
+                };
                 
             } catch (error) {
-                console.error('Error calculating deadline:', error);
-                if (document.getElementById('dynamicGoal')) {
-                    document.getElementById('dynamicGoal').innerHTML = 'apstat-park Summer Learning • 78 total lessons';
-                }
-                if (document.getElementById('mobileDynamicGoal')) {
-                    document.getElementById('mobileDynamicGoal').innerHTML = 'apstat-park Summer Learning';
-                }
+                console.error('Error calculating precise deadline:', error);
+                return null;
             }
+        }
+
+        // Smart format for time remaining
+        function formatTimeRemaining(hours) {
+            if (hours <= 0) return "⏰ Deadline passed";
+            
+            const totalMinutes = Math.round(hours * 60);
+            const days = Math.floor(totalMinutes / (24 * 60));
+            const remainingHours = Math.floor((totalMinutes % (24 * 60)) / 60);
+            const minutes = totalMinutes % 60;
+            
+            if (days > 0) {
+                if (remainingHours > 0) {
+                    return `${days}d ${remainingHours}h remaining`;
+                } else {
+                    return `${days} day${days === 1 ? '' : 's'} remaining`;
+                }
+            } else if (remainingHours > 0) {
+                if (minutes > 0 && remainingHours < 6) {
+                    return `${remainingHours}h ${minutes}m remaining`;
+                } else {
+                    return `${remainingHours} hour${remainingHours === 1 ? '' : 's'} remaining`;
+                }
+            } else {
+                return `${minutes} minute${minutes === 1 ? '' : 's'} remaining`;
+            }
+        }
+
+        // Calculate and update all deadline displays
+        function updateAllDeadlineDisplays() {
+            const deadlineData = calculatePreciseDeadline();
+            
+            if (!deadlineData) {
+                // Fallback display
+                updateDisplayWithFallback();
+                return;
+            }
+            
+            if (deadlineData.isComplete) {
+                // All lessons completed
+                updateDisplaysForCompletion(deadlineData);
+            } else {
+                // Update with live countdown
+                updateDisplaysWithCountdown(deadlineData);
+            }
+        }
+
+        // Update displays when all lessons are complete
+        function updateDisplaysForCompletion(data) {
+            const examCountdown = formatTimeRemaining(data.hoursUntilExam);
+            
+            // Desktop display
+            const goalElement = document.getElementById('dynamicGoal');
+            if (goalElement) {
+                goalElement.innerHTML = `
+                    🎉 <strong>All ${data.totalLessons} lessons completed!</strong> 🎉<br>
+                    <small style="opacity: 0.8;">AP Exam in ${examCountdown} • Ready for May 7, 2026!</small>
+                `;
+            }
+
+            // Mobile display
+            const mobileGoalElement = document.getElementById('mobileDynamicGoal');
+            if (mobileGoalElement) {
+                mobileGoalElement.innerHTML = `
+                    🎉 <strong>All lessons done!</strong> 🎉
+                    <small>AP Exam: ${examCountdown}</small>
+                `;
+            }
+        }
+
+        // Update displays with live countdown
+        function updateDisplaysWithCountdown(data) {
+            const now = new Date();
+            const hoursUntilDeadline = (data.nextDeadline.getTime() - now.getTime()) / (1000 * 60 * 60);
+            const deadlineCountdown = formatTimeRemaining(hoursUntilDeadline);
+            const examCountdown = formatTimeRemaining(data.hoursUntilExam);
+            
+            // Get next deadline date for display
+            const deadlineDate = data.nextDeadline.toLocaleDateString('en-US', {
+                weekday: 'short',
+                month: 'short', 
+                day: 'numeric',
+                hour: 'numeric',
+                minute: '2-digit'
+            });
+            
+            // Desktop display
+            const goalElement = document.getElementById('dynamicGoal');
+            if (goalElement) {
+                const paceText = data.hoursPerLesson < 24 ? 
+                    `${data.hoursPerLesson.toFixed(1)}h per lesson` : 
+                    `${(data.hoursPerLesson / 24).toFixed(1)} days per lesson`;
+                    
+                const minimumWarning = data.isUsingMinimum ? ' 🐌 (minimum pace)' : '';
+                    
+                goalElement.innerHTML = `
+                    ⏰ Next lesson due: <strong>${deadlineDate}</strong> (${deadlineCountdown})<br>
+                    <small style="opacity: 0.8;">${paceText}${minimumWarning} • ${data.remainingLessons}/${data.totalLessons} lessons left • AP Exam: ${examCountdown}</small>
+                `;
+            }
+
+            // Mobile display
+            const mobileGoalElement = document.getElementById('mobileDynamicGoal');
+            if (mobileGoalElement) {
+                const minimumIcon = data.isUsingMinimum ? ' 🐌' : '';
+                mobileGoalElement.innerHTML = `
+                    ⏰ Next lesson: <strong>${deadlineCountdown}</strong>${minimumIcon}
+                    <small>${data.remainingLessons} lessons left • ${deadlineDate}</small>
+                `;
+            }
+        }
+
+        // Fallback display for errors
+        function updateDisplayWithFallback() {
+            const goalElement = document.getElementById('dynamicGoal');
+            const mobileGoalElement = document.getElementById('mobileDynamicGoal');
+            
+            if (goalElement) {
+                goalElement.innerHTML = 'apstat-park Summer Learning • Complete lessons to unlock progress tracking';
+            }
+            if (mobileGoalElement) {
+                mobileGoalElement.innerHTML = 'apstat-park Summer Learning';
+            }
+        }
+
+        // Start live countdown updates
+        function startLiveCountdown() {
+            // Clear any existing interval
+            if (deadlineUpdateInterval) {
+                clearInterval(deadlineUpdateInterval);
+            }
+            
+            // Update immediately
+            updateAllDeadlineDisplays();
+            
+            // Update every minute for live countdown
+            deadlineUpdateInterval = setInterval(() => {
+                updateAllDeadlineDisplays();
+            }, 60000); // 60 seconds
+        }
+
+        // Legacy function name for compatibility
+        function calculateNextDeadline() {
+            startLiveCountdown();
         }
 
         // Get total lesson count from data
@@ -3126,7 +3264,7 @@
                         loadProgress().then(() => {
                             initializeUnitsData();
                             generateUnitsGrid();
-                            calculateNextDeadline();
+                            startLiveCountdown(); // Restart countdown with updated progress
                             if (currentUnit) {
                                 generateLessonPath();
                             }
@@ -3298,7 +3436,6 @@
             await loadProgress();
             initializeUnitsData();
             generateUnitsGrid();
-            calculateNextDeadline();
             updateSelectedUnit();
             
             // Initialize bookmark button after a brief delay to ensure DOM is ready
@@ -3362,6 +3499,30 @@
                 updateBookmarkButton();
                 updateLessonBookmarkButton();
             }
+        });
+
+        // Cleanup function to stop countdown
+        function stopLiveCountdown() {
+            if (deadlineUpdateInterval) {
+                clearInterval(deadlineUpdateInterval);
+                deadlineUpdateInterval = null;
+            }
+        }
+
+        // Handle page visibility changes (pause countdown when tab is hidden)
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+                // Tab is hidden, pause countdown to save resources
+                stopLiveCountdown();
+            } else {
+                // Tab is visible again, restart countdown
+                startLiveCountdown();
+            }
+        });
+
+        // Cleanup when page unloads
+        window.addEventListener('beforeunload', function() {
+            stopLiveCountdown();
         });
     </script>
 </body>
