@@ -1677,7 +1677,10 @@
                 // Update gold star display (desktop and mobile)
                 if (goldStarEl) {
                     try {
+                        console.log('🔍 Fetching gold star stats...');
                         const goldStarStats = await window.syncManager.getGoldStarStats();
+                        console.log('⭐ Gold star stats received:', goldStarStats);
+                        
                         const streak = goldStarStats.currentStreak || 0;
                         const total = goldStarStats.totalStars || 0;
                         
@@ -1710,18 +1713,66 @@
                         }
                         
                     } catch (error) {
-                        console.warn('Failed to get gold star stats:', error);
+                        console.error('❌ Failed to get gold star stats:', error);
                         goldStarEl.innerHTML = '⭐0';
-                        goldStarEl.title = 'Gold Star Streak';
+                        goldStarEl.title = 'Gold Star Streak (Error loading)';
                         
                         // Update mobile fallback too
                         const mobileGoldStarEl = document.getElementById('mobileGoldStarDisplay');
                         if (mobileGoldStarEl) {
                             mobileGoldStarEl.innerHTML = '⭐0';
-                            mobileGoldStarEl.title = 'Gold Star Streak';
+                            mobileGoldStarEl.title = 'Gold Star Streak (Error loading)';
                         }
                     }
                 }
+            }
+        }
+
+        // Manual function to check existing completed lessons for gold stars
+        async function recheckAllLessonsForGoldStars() {
+            console.log('🔄 Manually rechecking all completed lessons for gold stars...');
+            
+            if (!window.syncManager) {
+                console.log('❌ Sync manager not available');
+                return;
+            }
+            
+            const completedLessons = Array.from(studentProgress.completedLessons);
+            console.log('📚 Found completed lessons:', completedLessons);
+            
+            if (completedLessons.length === 0) {
+                console.log('ℹ️ No completed lessons found');
+                return;
+            }
+            
+            try {
+                // Check if sync manager has a method to retroactively award gold stars
+                if (typeof window.syncManager.awardGoldStar === 'function') {
+                    let awarded = 0;
+                    for (const lessonId of completedLessons) {
+                        try {
+                            console.log(`🌟 Checking lesson ${lessonId} for retroactive gold star...`);
+                            const result = await window.syncManager.awardGoldStar(lessonId);
+                            if (result && result.success) {
+                                awarded++;
+                                console.log(`⭐ Retroactive gold star awarded for ${lessonId}`);
+                            }
+                        } catch (error) {
+                            console.log(`❌ Failed to award retroactive star for ${lessonId}:`, error);
+                        }
+                    }
+                    
+                    if (awarded > 0) {
+                        console.log(`🎉 Awarded ${awarded} retroactive gold stars!`);
+                        updateUserDisplay();
+                    } else {
+                        console.log('ℹ️ No retroactive gold stars awarded');
+                    }
+                } else {
+                    console.log('❌ awardGoldStar method not available in sync manager');
+                }
+            } catch (error) {
+                console.error('❌ Error during retroactive gold star check:', error);
             }
         }
 
@@ -1960,6 +2011,122 @@
                     console.warn('Sync failed:', error);
                 }
             }
+        }
+
+        // Check and award gold star for lesson completion
+        async function checkGoldStarEligibility(lessonId) {
+            console.log('🌟 Checking gold star eligibility for lesson:', lessonId);
+            
+            if (!window.syncManager) {
+                console.log('❌ Sync manager not available for gold stars');
+                return false;
+            }
+            
+            try {
+                // Get the current deadline data
+                const deadlineData = calculatePreciseDeadline();
+                if (!deadlineData || deadlineData.isComplete) {
+                    console.log('❌ No deadline data available or all lessons complete');
+                    return false;
+                }
+                
+                // Calculate if lesson was completed before deadline
+                const now = new Date();
+                const hoursBeforeDeadline = (deadlineData.nextDeadline.getTime() - now.getTime()) / (1000 * 60 * 60);
+                
+                console.log('⏰ Hours before deadline:', hoursBeforeDeadline.toFixed(2));
+                
+                if (hoursBeforeDeadline > 0) {
+                    console.log('🎉 Lesson completed BEFORE deadline! Awarding gold star...');
+                    
+                    // Award gold star via sync manager
+                    const result = await window.syncManager.awardGoldStar(lessonId);
+                    
+                    if (result && result.success) {
+                        console.log('⭐ Gold star awarded successfully!', result);
+                        
+                        // Update display immediately
+                        setTimeout(() => {
+                            updateUserDisplay();
+                        }, 100);
+                        
+                        // Show celebration notification
+                        showGoldStarNotification(result);
+                        
+                        return true;
+                    } else {
+                        console.log('❌ Failed to award gold star:', result);
+                        return false;
+                    }
+                } else {
+                    console.log('⏰ Lesson completed AFTER deadline, no gold star');
+                    return false;
+                }
+                
+            } catch (error) {
+                console.error('❌ Error checking gold star eligibility:', error);
+                return false;
+            }
+        }
+
+        // Show gold star celebration notification
+        function showGoldStarNotification(goldStarResult) {
+            const streak = goldStarResult.currentStreak || 1;
+            const isNewStreak = streak === 1;
+            
+            let message;
+            if (isNewStreak) {
+                message = `🌟 Gold Star Earned! Completed before deadline!`;
+            } else {
+                message = `🔥 ${streak} Star Streak! Keep it up!`;
+            }
+            
+            // Create special gold star notification
+            const notification = document.createElement('div');
+            notification.className = 'gold-star-notification';
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                z-index: 1000;
+                background: linear-gradient(135deg, #FFD700, #FFA500);
+                color: #333;
+                padding: 16px 20px;
+                border-radius: 12px;
+                box-shadow: 0 8px 24px rgba(255, 215, 0, 0.4);
+                font-size: 1em;
+                font-weight: bold;
+                transform: translateX(100%) scale(0.8);
+                transition: all 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+                max-width: 320px;
+                text-align: center;
+                border: 2px solid #FFD700;
+            `;
+            
+            notification.innerHTML = `
+                <div style="font-size: 1.5em; margin-bottom: 5px;">⭐</div>
+                <div>${message}</div>
+                <div style="font-size: 0.85em; opacity: 0.8; margin-top: 5px;">
+                    Total Stars: ${goldStarResult.totalStars || streak}
+                </div>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            // Slide in with bounce
+            setTimeout(() => {
+                notification.style.transform = 'translateX(0) scale(1)';
+            }, 100);
+            
+            // Slide out and remove
+            setTimeout(() => {
+                notification.style.transform = 'translateX(100%) scale(0.8)';
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.parentNode.removeChild(notification);
+                    }
+                }, 500);
+            }, 4000);
         }
 
         // Global deadline state
@@ -3524,6 +3691,30 @@
         window.addEventListener('beforeunload', function() {
             stopLiveCountdown();
         });
+
+        // Global debug functions for console
+        window.debugGoldStars = {
+            checkEligibility: checkGoldStarEligibility,
+            recheckAll: recheckAllLessonsForGoldStars,
+            getStats: async () => {
+                if (window.syncManager) {
+                    try {
+                        const stats = await window.syncManager.getGoldStarStats();
+                        console.log('Gold Star Stats:', stats);
+                        return stats;
+                    } catch (error) {
+                        console.error('Error getting stats:', error);
+                        return null;
+                    }
+                } else {
+                    console.log('Sync manager not available');
+                    return null;
+                }
+            },
+            getSyncManager: () => window.syncManager,
+            getCompletedLessons: () => Array.from(studentProgress.completedLessons),
+            getCurrentDeadline: () => calculatePreciseDeadline()
+        };
     </script>
 </body>
 </html> 
