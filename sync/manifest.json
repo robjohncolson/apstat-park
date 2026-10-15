@@ -108,7 +108,6 @@
         "CONTINUATION_PROMPT.md",
         "SCHEDULE_HANDOFF.md",
         "package-lock.json",
-        "/tests/schedule.test.js",
         "/tests/secure-key-plugin.test.js"
       ],
       "keep": [
@@ -135,7 +134,8 @@
         "/GRADEBOOK_TAGGING_T3_QUEUE.md",
         "/.session90-question-audit.md",
         "/.session90-missing-pictures.md",
-        "/apstat-park/CALCULATOR_GOALS_REVIEW.md"
+        "/apstat-park/CALCULATOR_GOALS_REVIEW.md",
+        "/unit4_schedule_v4.html"
       ]
     },
     {

@@ -128,6 +128,16 @@ export default [
     ],
   },
   {
+    id: 'site-data-lineage-md-roster-paths',
+    why: 'DATA_LINEAGE.md is the committed render of data/lineage.json; lineage.test.js requires it to equal a fresh render, so it takes the same path changes as site-lineage-roster-paths (backtick-quoted in the Markdown).',
+    files: ['site/DATA_LINEAGE.md'],
+    replace: [
+      ['`roster-server/', '`../services/roster/'],
+      ['`node roster-server/', '`node ../services/roster/'],
+      ['`cd roster-server && ', '`cd ../services/roster && '],
+    ],
+  },
+  {
     id: 'site-frq-regrade-workflow-path',
     why: 'frq-regrade-job.test.js reads .github/workflows/frq-regrade.yml relative to the site root; the workflow is at the repo root here (written natively with the same assertions kept true).',
     files: ['site/tests/frq-regrade-job.test.js'],
@@ -194,7 +204,7 @@ export default [
   {
     id: 'site-study-guide-quiz-data',
     why: 'study_guide_diagnostic.html loads the quiz data and links questions via ../curriculum_render/ (the sibling Pages site). Here the quiz is published at quiz/ under the same site, so the page is self-contained. (study-guide.test.js pins these src strings; site-cr-string-paths already moves them to quiz/.)',
-    files: ['site/study_guide_diagnostic.html'],
+    files: ['site/study_guide_diagnostic.html', 'site/gitnexus-shadow/study_guide_diagnostic.inline.js'],
     replace: [["../curriculum_render/", "quiz/"]],
   },
 

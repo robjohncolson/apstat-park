@@ -3663,8 +3663,8 @@ window.MathJax = { tex: { inlineMath: [['\\(','\\)'],['$','$']], displayMath: [[
       }
 
       function buildCurriculumLink(unit, lesson, questionId) {
-        if (typeof questionId === 'string' && questionId) return `../curriculum_render/index.html?q=${encodeURIComponent(questionId)}`;
-        return `../curriculum_render/index.html?u=${unit}&l=${lesson}`;
+        if (typeof questionId === 'string' && questionId) return `quiz/index.html?q=${encodeURIComponent(questionId)}`;
+        return `quiz/index.html?u=${unit}&l=${lesson}`;
       }
 
       function setActiveProbe(unit, questionId, source, formulaId) {
