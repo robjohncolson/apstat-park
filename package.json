@@ -12,6 +12,9 @@
     "test:quiz": "npm --prefix site/quiz test",
     "test:roster": "npm --prefix services/roster test -- --retry=2",
     "test:relay": "npm --prefix services/relay run test:park",
-    "typecheck": "npm --prefix site run typecheck && npm --prefix services/roster run typecheck"
+    "typecheck": "npm --prefix site run typecheck && npm --prefix services/roster run typecheck",
+    "test:scripts": "node --test \"scripts/lib/*.test.mjs\"",
+    "doctor": "node scripts/doctor.mjs",
+    "setup": "node scripts/setup.mjs"
   }
 }
