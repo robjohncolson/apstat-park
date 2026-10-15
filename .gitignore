@@ -36,3 +36,4 @@ __pycache__/
 # cross-agent.py (Codex reviews) writes its request/result log here
 /state/
 config/identity.next.json
+/seed.sql

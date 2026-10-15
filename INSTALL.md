@@ -16,7 +16,17 @@ If you are the original teacher keeping this repo in step with the old ones, ski
 | Groq and/or DeepSeek | yes | AI grading of free-response answers and the tutor chat |
 | Optional: Schoology, Blooket, Dogecoin via BlockCypher, Cloudflare R2 | | grade sync, quizzes, the candy economy, video hosting |
 
-On your machine: git, Node 22, and the GitHub CLI `gh` (optional but used by the doctor). `psql` is optional.
+On your machine: git, Node 22, and the GitHub CLI `gh` (optional but used by the doctor). `psql` is optional:
+without it you build the databases by pasting SQL files into Supabase's SQL editor (step 2).
+
+**Which shell.** Every command in this guide is written for a Bash-style shell:
+
+- **Windows:** use **Git Bash** (installed with Git for Windows; Start menu → Git Bash). PowerShell and cmd
+  cannot run `bash`, `grep`, `wc` or the `>` paths below as written.
+- **macOS:** Terminal. The stock Bash 3.2 and `shasum` are enough; nothing extra to install.
+- **Linux:** any terminal.
+
+Run every command from the repo's top folder (`apstat-park/`).
 
 ## 1. Get the repo
 
@@ -35,10 +45,18 @@ Check: the last line of `npm test` is `all suites passed`.
 ## 2. Create the two Supabase projects
 
 Follow `supabase/README.md`. Order matters: baselines and the realtime publication, then the relay
-migrations, then the roster migrations, then the storage buckets. With `psql` installed,
-`bash supabase/apply.sh core "$CORE_DB_URL"` and `bash supabase/apply.sh content "$CONTENT_DB_URL"` run
-exactly that order and record what ran, so re-running them later only applies new files. You will come
-back with, per project: the URL, the anon key, the service_role key.
+migrations, then the roster migrations, then the storage buckets. `supabase/README.md` lists every file in
+order for each project. There are two equally good ways to run them:
+
+- **Without psql:** in each project's SQL Editor, paste and run the files one at a time in that order
+  (54 files for core, 3 for content).
+- **With psql:** `bash supabase/apply.sh core "$CORE_DB_URL"` and
+  `bash supabase/apply.sh content "$CONTENT_DB_URL"` run exactly that order, each file together with a
+  record of it in one transaction, so re-running them later only applies new files. Add `--dry-run` first
+  to see the plan. It refuses, and explains why, if you point it at the wrong project or at a project that
+  already has tables but no record of how they got there.
+
+You will come back with, per project: the URL, the anon key, the service_role key.
 
 Check: in each project's Table Editor you see the tables listed in `supabase/expected-tables.json`, and
 under Storage the buckets listed under its `buckets` key. (`node scripts/doctor.mjs --env` checks both for
@@ -74,7 +92,15 @@ node scripts/rebrand.mjs --to config/identity.next.json
 git add -A && git commit -m "Rebrand to <your name>"
 ```
 
-Check: `grep -r robjohncolson site services | wc -l` prints 0 (only `docs/LINEAGE.md` still mentions the original author).
+Check: no deployment of the original teacher is still referenced (their site, services and databases):
+
+```bash
+grep -rn --exclude-dir=node_modules -E "robjohncolson\.github\.io|roster-production-12c1|curriculumrender-production|bzqbhtrurzzavhqbgqrs|hgvnytaqmuybzbotosyj" site services .github | wc -l
+```
+
+prints 0. The original author's name itself stays on purpose in provenance notes (for example
+`docs/LINEAGE.md`, `site/CLAUDE.md`, `site/apstat-park/fixtures/ti84/PROVENANCE.md`) and in a test title;
+those credit where code came from and do not point anything at their deployment.
 
 ## 4. Deploy the two services on Railway
 
@@ -111,11 +137,15 @@ Check: `https://<you>.github.io/apstat-park/` shows the landing page and `/quiz/
 ## 6. Seed the Desk's content tables
 
 ```bash
-node scripts/build-lesson-urls-seed.mjs --schedule > /tmp/seed.sql
+node scripts/build-lesson-urls-seed.mjs --schedule > seed.sql
 ```
 
-Run it in the **content** project's SQL editor. Edit `topic_schedule` dates for your sections. The Desk
+This writes `seed.sql` in the repo's top folder. Open it, paste it into the **content** project's SQL editor
+and run it (or `psql "$CONTENT_DB_URL" -f seed.sql`). Edit `topic_schedule` dates for your sections. The Desk
 reads these two tables at runtime; without them it shows the baked registry, which is fine for a first look.
+
+Do not commit `seed.sql` (it is generated, and re-generating it is one command). The same goes for the
+files the wizard writes: `services/roster/.env`, `services/relay/.env`, and any `pg_dump` output.
 
 ## 7. Enrol students and verify
 
