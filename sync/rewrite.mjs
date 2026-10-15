@@ -77,7 +77,18 @@ export function identityPairs(fromMap, toMap, order) {
     const toForms = derivedForms(key, toMap[key]);
     for (const [label, a] of Object.entries(fromForms)) addPair(pairs, label, a, toForms[label]);
   }
+  for (const repoKey of ['site_repo', 'quiz_repo']) {
+    addPair(pairs, `${repoKey} (slug)`, repoSlug(fromMap, repoKey), repoSlug(toMap, repoKey));
+  }
   return pairs;
+}
+
+// "owner/repo" as `gh -R`, issue links and the quiz's share box write it. Built from github_user
+// and site_repo / quiz_repo, which are not in rewrite_order themselves. Last because it is the
+// shortest literal: by then every full URL that contains it has already been rewritten.
+function repoSlug(map, repoKey) {
+  if (!map.github_user || !map[repoKey]) return undefined;
+  return `${map.github_user}/${map[repoKey]}`;
 }
 
 function addPair(pairs, key, from, to) {

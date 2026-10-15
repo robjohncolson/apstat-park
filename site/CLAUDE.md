@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A full AP Statistics course platform: 69 video follow-along live worksheets, the "Desk" student home hub, diagnostic study guides, teacher tools, a roster/grading backend, and authoring/dev tooling.
 
-- **Repo**: github.com/robjohncolson/apstats-live-worksheet (branch `master`)
+- **Repo**: github.com/robjohncolson/apstat-park (branch `master`)
 - **Frontend**: GitHub Pages, base `https://robjohncolson.github.io/apstat-park/`
 - **Backends**: two Railway services (see Config & External Services)
 - Everything student-facing is single-file HTML with embedded CSS/JS — no build step (exception: `ti84-trainer-v2/` has `build.mjs`).

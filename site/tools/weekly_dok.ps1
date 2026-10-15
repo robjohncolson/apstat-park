@@ -50,7 +50,7 @@ if ($Apply) {
     $today = Get-Date
     $date = $today.ToString('yyyy-MM-dd')
     $title = "Weekly DOK sheet failed $date"
-    $issuesJson = & gh issue list -R robjohncolson/apstats-live-worksheet --state open --search '"Weekly DOK sheet failed" in:title' --limit 100 --json number,title 2>$null
+    $issuesJson = & gh issue list -R robjohncolson/apstat-park --state open --search '"Weekly DOK sheet failed" in:title' --limit 100 --json number,title 2>$null
     if ($LASTEXITCODE -ne 0) { throw 'Issue lookup failed' }
     $issues = @($issuesJson | ConvertFrom-Json)
     if ($code -ne 0) {
@@ -58,9 +58,9 @@ if ($Apply) {
       $body = "$lastLine`n`nLog: tools/.weekly-dok-logs/$date.log on Athena. Manual run: tools\weekly_dok.ps1 -Apply -Now"
       $existing = $issues | Where-Object { $_.title -eq $title } | Select-Object -First 1
       if ($existing) {
-        & gh issue comment $existing.number -R robjohncolson/apstats-live-worksheet --body $body 2>$null | Out-Null
+        & gh issue comment $existing.number -R robjohncolson/apstat-park --body $body 2>$null | Out-Null
       } else {
-        & gh issue create -R robjohncolson/apstats-live-worksheet --title $title --body $body 2>$null | Out-Null
+        & gh issue create -R robjohncolson/apstat-park --title $title --body $body 2>$null | Out-Null
       }
     } else {
       $published = $runOutput | Where-Object { $_ -match '^Published commit: [0-9a-f]+$' } | Select-Object -Last 1
@@ -70,7 +70,7 @@ if ($Apply) {
           if ($issue.title -notmatch '^Weekly DOK sheet failed (\d{4}-\d{2}-\d{2})$') { continue }
           $failedDate = [datetime]::ParseExact($Matches[1], 'yyyy-MM-dd', $null)
           if ($failedDate -lt $monday -or $failedDate -ge $monday.AddDays(7)) { continue }
-          & gh issue close $issue.number -R robjohncolson/apstats-live-worksheet --comment $published 2>$null | Out-Null
+          & gh issue close $issue.number -R robjohncolson/apstat-park --comment $published 2>$null | Out-Null
         }
       }
     }
