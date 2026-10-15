@@ -6,6 +6,7 @@
     "sync": "node sync/sync.mjs",
     "sync:check": "node sync/sync.mjs --check",
     "rebrand": "node scripts/rebrand.mjs",
+    "install:all": "node scripts/install-all.mjs",
     "test": "node -e \"let failed=[];for(const s of ['site','park','quiz','roster','relay']){const r=require('child_process').spawnSync('npm',['run','test:'+s],{stdio:'inherit',shell:true});if(r.status!==0)failed.push(s)}if(failed.length){console.error('FAILED suites: '+failed.join(', '));process.exit(1)}console.log('all suites passed')\"",
     "test:site": "npm --prefix site test -- --retry=2",
     "test:park": "npm --prefix site run test:park",

@@ -1,20 +1,13 @@
 {
-  "$comment": "Every table the code reads or writes, by project. scripts/doctor.mjs --env probes each one. Derived 2026-10-14 from .from('...') calls in services/roster, services/relay, site/quiz and the Desk's REST URLs. Add a table here in the same commit as its migration.",
-  "core": [
-    "users", "answers", "badges", "user_activity", "votes", "identity_claims", "teacher_notifications", "user_settings",
-    "guest_log", "quiz_reviews",
-    "park_campaign_keys", "park_campaign_wallet", "park_campaign_open", "park_campaign_key_grants", "park_calc_clears",
-    "roster", "roster_alias", "item_ledger", "remediation_assignment", "poll_archive", "nudges_log", "lesson_unlock",
-    "schoology_assignment", "schoology_grade_sync", "schoology_sync_log",
-    "trainer_state", "doge_account", "doge_ledger", "tetris_bet", "review_marks", "review_candy_grants",
-    "trusted_issuers", "student_keys", "submission_archive", "pc_bank", "pc_unlock", "quarter_grade_snapshot",
-    "payout_batch", "official_grade", "park_key_purchases", "net_probes"
-  ],
-  "content": [
-    "lesson_urls", "topic_schedule", "students", "student_progress"
-  ],
+  "$comment": "Every table the code reads or writes, by project. scripts/doctor.mjs --env probes each one. Derived 2026-10-14 from .from('...') calls in services/roster, services/relay, site/quiz and the Desk's REST URLs. Add a table here in the same commit as its migration. buckets: every storage bucket the code reads or writes (grep .storage.from( / storage/v1); doctor --env probes each with the service key. realtime: every table subscribed via postgres_changes; it must be in the supabase_realtime publication (supabase/core/010_realtime_publication.sql).",
+  "core": ["users", "answers", "badges", "user_activity", "votes", "identity_claims", "teacher_notifications", "user_settings", "guest_log", "quiz_reviews", "park_campaign_keys", "park_campaign_wallet", "park_campaign_open", "park_campaign_key_grants", "park_calc_clears", "roster", "roster_alias", "item_ledger", "remediation_assignment", "poll_archive", "nudges_log", "lesson_unlock", "schoology_assignment", "schoology_grade_sync", "schoology_sync_log", "trainer_state", "doge_account", "doge_ledger", "tetris_bet", "review_marks", "review_candy_grants", "trusted_issuers", "student_keys", "submission_archive", "pc_bank", "pc_unlock", "quarter_grade_snapshot", "payout_batch", "official_grade", "park_key_purchases", "net_probes"],
+  "content": ["lesson_urls", "topic_schedule", "students", "student_progress"],
   "buckets": {
-    "core": ["pc-figures"],
+    "core": ["pc-figures", "worksheet-diagnostics"],
     "content": ["ti84-trainer-assets"]
+  },
+  "realtime": {
+    "core": ["answers"],
+    "content": []
   }
 }

@@ -20,15 +20,18 @@ economy that runs classroom incentives.
 2026-10-14 from two older repos and is kept in step with them by `sync/` until they are retired.
 
 **To work on the code:** each part keeps its own guide: `site/CLAUDE.md`, `site/quiz/CLAUDE.md`,
-`services/roster/README.md`, `services/relay/README.md`. Tests: `npm test` at the root runs every suite.
+`services/roster/README.md`, `services/relay/README.md`. On a fresh clone run `npm run install:all` once;
+then `npm test` at the root runs every suite.
 
 ## Scripts
 
 | Command | Does |
 |---|---|
-| `node scripts/setup.mjs` | Teacher-switch wizard: asks for your accounts, generates secrets, writes the `.env` files, prints the Railway and GitHub commands |
+| `npm run install:all` | Installs every part's dependencies (`npm ci` in `site/`, `site/quiz/`, `services/roster/`; `npm install --no-package-lock` in `services/relay/`, which has no lockfile) |
+| `node scripts/setup.mjs` | Teacher-switch wizard: asks for your accounts (answer `later` for Railway URLs you do not have yet), generates secrets, writes the `.env` files, prints the Railway and GitHub commands |
 | `node scripts/rebrand.mjs --to <identity.json>` | Rewrites every baked URL and key in the repo to a new identity |
-| `node scripts/doctor.mjs [--env]` | Checks the live site, both services, both databases |
+| `node scripts/doctor.mjs [--env]` | Checks the live site, both services (including signed receipts), both databases; `--env` adds tables and storage buckets |
 | `node scripts/check-env.mjs <roster\|relay>` | Validates a service's environment against `config/env-schema.json` |
 | `node scripts/build-lesson-urls-seed.mjs [--schedule]` | SQL that seeds the Desk's content tables from the baked registry |
+| `bash supabase/apply.sh <core\|content> <db-url> [--dry-run\|--mark-applied]` | Applies only the SQL files a project has not run yet, tracked in `public.apstat_park_migrations` (see `supabase/README.md`) |
 | `node sync/sync.mjs [--check]` | Rebuild the mirrored directories from the parent repos |

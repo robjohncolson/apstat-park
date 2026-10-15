@@ -3,15 +3,15 @@
 //
 //   node scripts/doctor.mjs [--identity config/identity.json] [--env] [--json] [--root dir]
 //
-// Read-only GETs, 10 s timeout each. PASS / WARN / FAIL per line; exit 1 on any FAIL.
+// Read-only GETs, 10 s timeout each. PASS / WARN / FAIL (and INFO) per line; exit 1 on any FAIL.
 // --env also validates services/*/.env (check-env) and uses local service keys to probe every table in
-// supabase/expected-tables.json. Secret values are never printed.
+// supabase/expected-tables.json and every storage bucket listed there. Secret values are never printed.
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { parseArgs, resolveRoot } from './lib/args.mjs';
-import { SERVICES, loadIdentity, loadSchema, envPath, readEnvFile, isSet } from './lib/env.mjs';
+import { SERVICES, loadIdentity, loadSchema, envPath, readEnvFile, isSet, isPlaceholder } from './lib/env.mjs';
 import { OPERATOR_ENV } from './lib/wizard.mjs';
 import { checkService } from './check-env.mjs';
 
@@ -32,10 +32,70 @@ async function get(fetchImpl, url, headers = {}) {
 const supaHeaders = (key) => ({ apikey: key, Authorization: `Bearer ${key}` });
 const why = (r) => (r.status ? `HTTP ${r.status}` : r.error);
 
+function readExpected(root) {
+  const file = path.join(root, 'supabase', 'expected-tables.json');
+  if (!fs.existsSync(file)) return null;
+  return JSON.parse(fs.readFileSync(file, 'utf8'));
+}
+
 function defaultGh(args) {
   const r = spawnSync('gh', args, { encoding: 'utf8', timeout: TIMEOUT_MS });
   if (r.error) return { missing: r.error.code === 'ENOENT', code: -1, stdout: '', stderr: r.error.message };
   return { code: r.status, stdout: r.stdout || '', stderr: r.stderr || '' };
+}
+
+// A Railway URL the wizard wrote for `later`: there is nothing to probe yet.
+function placeholderFail(add, label, url) {
+  if (!isPlaceholder(url)) return false;
+  add('FAIL', `${label} ${url}`, 'placeholder URL from setup "later": deploy the service, re-run node scripts/setup.mjs with the real URL, rebrand');
+  return true;
+}
+
+// Both /health bodies carry receipts: { enabled, pubkey }. Disabled receipts mean the issuer key is
+// missing or unparseable, which silently stops ledger receipts (roster) or AI review grants (relay).
+function receiptsFail(add, label, url, json) {
+  if (json?.receipts?.enabled !== false) return;
+  add('FAIL', `${label} receipts`, `${url}/health reports receipts.enabled=false: RECEIPT_ISSUER_PRIVATE_KEY is unset or not a base64 PKCS8 Ed25519 key`);
+}
+
+async function checkRoster(fetchImpl, url, add) {
+  if (placeholderFail(add, 'roster', url)) return null;
+  const r = await get(fetchImpl, `${url}/health`);
+  if (r.status !== 200 || r.json?.ok !== true) {
+    add('FAIL', `roster ${url}/health`, r.status === 200 ? 'body is not {"ok":true,...}' : why(r));
+    return r;
+  }
+  add('PASS', `roster ${url}/health`, `ok:true${r.json.commit ? `, commit ${r.json.commit}` : ', no commit reported (not on Railway?)'}`);
+  receiptsFail(add, 'roster', url, r.json);
+  return r;
+}
+
+async function checkRelay(fetchImpl, url, add) {
+  if (placeholderFail(add, 'relay', url)) return null;
+  const r = await get(fetchImpl, `${url}/health`);
+  if (r.status !== 200) {
+    add('FAIL', `relay ${url}/health`, why(r));
+    return r;
+  }
+  add('PASS', `relay ${url}/health`, `200${r.json?.status ? `, ${r.json.status}` : ''}`);
+  receiptsFail(add, 'relay', url, r.json);
+  return r;
+}
+
+// Storage buckets: GET /storage/v1/bucket/<name> with the project's service key.
+async function checkBuckets(fetchImpl, add, proj, cfg, buckets) {
+  if (!buckets.length) return;
+  if (!isSet(cfg.key)) {
+    add('WARN', `supabase ${proj} buckets`, `not checked: no service key (${cfg.from}); expected ${buckets.join(', ')}`);
+    return;
+  }
+  for (const name of buckets) {
+    const r = await get(fetchImpl, `${cfg.url}/storage/v1/bucket/${encodeURIComponent(name)}`, supaHeaders(cfg.key));
+    const check = `supabase ${proj} bucket ${name}`;
+    if (r.status === 200) { add('PASS', check, '200'); continue; }
+    const missing = r.status === 404 || /not found/i.test(`${r.json?.error || ''} ${r.json?.message || ''}`);
+    add('FAIL', check, missing ? 'bucket missing (run the supabase/*/9*_bucket.sql file)' : `${why(r)}${r.json?.message ? ': ' + r.json.message : ''}`);
+  }
 }
 
 /**
@@ -64,15 +124,9 @@ export async function runDoctor({ root, identityPath = 'config/identity.json', w
   });
 
   // ---- Railway services ----
-  const [roster, relay] = await Promise.all([get(fetchImpl, `${cur.roster_url}/health`), get(fetchImpl, `${cur.relay_url}/health`)]);
-  if (roster.status === 200 && roster.json?.ok === true) {
-    add('PASS', `roster ${cur.roster_url}/health`, `ok:true${roster.json.commit ? `, commit ${roster.json.commit}` : ', no commit reported (not on Railway?)'}`);
-  } else {
-    add('FAIL', `roster ${cur.roster_url}/health`, roster.status === 200 ? 'body is not {"ok":true,...}' : why(roster));
-  }
-  const relayPub = relay.json?.receipts?.pubkey || null;
-  if (relay.status === 200) add('PASS', `relay ${cur.relay_url}/health`, `200${relay.json?.status ? `, ${relay.json.status}` : ''}${relay.json?.receipts?.enabled === false ? ', receipts DISABLED' : ''}`);
-  else add('FAIL', `relay ${cur.relay_url}/health`, why(relay));
+  const roster = await checkRoster(fetchImpl, cur.roster_url, add);
+  const relay = await checkRelay(fetchImpl, cur.relay_url, add);
+  const relayPub = relay?.json?.receipts?.pubkey || null;
 
   // ---- Supabase REST (anon) ----
   for (const [label, url, key] of [['core', cur.supabase_url, cur.supabase_anon_key], ['content', cur.content_supabase_url, cur.content_supabase_anon_key]]) {
@@ -112,7 +166,17 @@ export async function runDoctor({ root, identityPath = 'config/identity.json', w
     add(pg.code === 0 ? 'PASS' : 'WARN', `github pages ${repo}`, note);
   }
 
-  if (!withEnv) return { ok: !rows.some((r) => r.status === 'FAIL'), rows };
+  const expected = readExpected(root);
+
+  if (!withEnv) {
+    if (expected) {
+      for (const proj of ['core', 'content']) {
+        const buckets = expected.buckets?.[proj] || [];
+        if (buckets.length) add('WARN', `supabase ${proj} buckets`, `not checked (needs --env for the service key): ${buckets.join(', ')}`);
+      }
+    }
+    return { ok: !rows.some((r) => r.status === 'FAIL'), rows };
+  }
 
   // ---- --env: local env files ----
   const schema = loadSchema(root);
@@ -132,16 +196,22 @@ export async function runDoctor({ root, identityPath = 'config/identity.json', w
       grant === relayPub ? 'match' : `local roster .env has ${grant}, live relay signs with ${relayPub}: AI review grants would be rejected`);
   }
 
-  // ---- --env: expected tables with service keys ----
-  const tablesFile = path.join(root, 'supabase', 'expected-tables.json');
-  if (!fs.existsSync(tablesFile)) {
+  // ---- --env: expected tables, buckets and realtime with service keys ----
+  if (!expected) {
     add('WARN', 'supabase tables', 'supabase/expected-tables.json missing; skipped');
   } else {
-    const expected = JSON.parse(fs.readFileSync(tablesFile, 'utf8'));
     const projects = {
       core: { url: cur.supabase_url, key: envs.roster.ROSTER_SUPABASE_SERVICE_KEY || envs.relay.SUPABASE_SERVICE_KEY, from: 'services/roster/.env ROSTER_SUPABASE_SERVICE_KEY' },
       content: { url: cur.content_supabase_url, key: envs.operator.CONTENT_SUPABASE_SERVICE_KEY, from: `${OPERATOR_ENV} CONTENT_SUPABASE_SERVICE_KEY` }
     };
+    for (const [proj, cfg] of Object.entries(projects)) {
+      await checkBuckets(fetchImpl, add, proj, cfg, expected.buckets?.[proj] || []);
+      // Publication membership is not visible over REST; say what must be true and how to check it.
+      const realtime = expected.realtime?.[proj] || [];
+      if (realtime.length) {
+        add('INFO', `supabase ${proj} realtime`, `${realtime.join(', ')} must be in publication supabase_realtime (supabase/core/010_realtime_publication.sql); verify in SQL: select tablename from pg_publication_tables where pubname = 'supabase_realtime'`);
+      }
+    }
     for (const [proj, cfg] of Object.entries(projects)) {
       const tables = Array.isArray(expected[proj]) ? expected[proj] : [];
       if (!tables.length) continue;

@@ -123,5 +123,67 @@ test('check-env --render-examples writes both .env.example files; check-env flag
   fs.writeFileSync(relayFile, fs.readFileSync(relayFile, 'utf8').replace(/^ROSTER_GRADER_SECRET=.*$/m, 'ROSTER_GRADER_SECRET=mismatch'));
   const c = node('check-env.mjs', ['relay', '--no-process-env'], root);
   assert.equal(c.status, 1);
-  assert.match(c.stdout, /FAIL\s+ROSTER_GRADER_SECRET\s+mism\.\.\.\(8\)\s+must equal roster/);
+  assert.match(c.stdout, /FAIL\s+ROSTER_GRADER_SECRET\s+mism\.\.\.\(8\)\s+.*must equal roster's ROSTER_GRADER_SECRET, but differs \(this side: ROSTER_GRADER_SECRET from relay's \.env/);
+});
+
+test('setup: a new teacher never inherits the original Railway URLs', (t) => {
+  const root = scratch();
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const { roster_url, relay_url, ...noUrls } = ANSWERS;
+  const r = node('setup.mjs', ['--dry-run', '--answers', JSON.stringify(noUrls)], root);
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /roster_url is required: enter your own Railway URL, or "later"/);
+  assert.doesNotMatch(r.stdout, /roster-production-12c1/);
+});
+
+test('setup: the original teacher keeps the current Railway URLs as defaults', (t) => {
+  const root = scratch();
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const { roster_url, relay_url, ...noUrls } = ANSWERS;
+  const r = node('setup.mjs', ['--answers', JSON.stringify({ ...noUrls, github_user: 'robjohncolson', repo: 'apstat-park' })], root);
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(readEnv(root, 'relay').ROSTER_SERVICE_URL, 'https://roster-production-12c1.up.railway.app');
+});
+
+test('setup: "later" writes placeholder URLs, lists the re-run step, and check-env FAILs on them', (t) => {
+  const root = scratch();
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const r = node('setup.mjs', ['--answers', JSON.stringify({ ...ANSWERS, roster_url: 'later', relay_url: 'LATER' })], root);
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(readEnv(root, 'relay').ROSTER_SERVICE_URL, 'https://TODO-roster.up.railway.app');
+  assert.equal(readEnv(root, 'roster').PARK_RELAY_URL, 'https://TODO-relay.up.railway.app');
+  const next = JSON.parse(fs.readFileSync(path.join(root, 'config', 'identity.next.json'), 'utf8'));
+  assert.equal(next.current.roster_url, 'https://TODO-roster.up.railway.app');
+  assert.match(r.stdout, /\[ \] 1\. Railway URLs deferred \(roster_url, relay_url are TODO placeholders/);
+  assert.match(r.stdout, /re-run node scripts\/setup\.mjs with the real URLs/);
+
+  const c = node('check-env.mjs', ['relay', '--no-process-env'], root);
+  assert.equal(c.status, 1);
+  assert.match(c.stdout, /FAIL\s+ROSTER_SERVICE_URL\s+https:\/\/TODO-roster\.up\.railway\.app\s+placeholder/);
+
+  // re-running keeps the placeholder as the default until a real URL is given
+  const again = node('setup.mjs', ['--answers', JSON.stringify({ github_user: 'NewTeacher', repo: 'stats-park', roster_url: 'https://roster-real.up.railway.app' })], root);
+  assert.equal(again.status, 0, again.stderr);
+  assert.equal(readEnv(root, 'relay').ROSTER_SERVICE_URL, 'https://roster-real.up.railway.app');
+  assert.equal(readEnv(root, 'roster').PARK_RELAY_URL, 'https://TODO-relay.up.railway.app');
+});
+
+test('setup: the summary warns that the commands contain secrets', (t) => {
+  const root = scratch();
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const r = node('setup.mjs', ['--dry-run', '--answers', JSON.stringify(ANSWERS)], root);
+  assert.equal(r.status, 0, r.stderr);
+  const notice = r.stdout.indexOf('contain your secrets in plain text');
+  assert.ok(notice > 0, 'notice printed');
+  assert.ok(notice < r.stdout.indexOf('railway variables --service'), 'notice comes before the commands');
+});
+
+test('setup: a new teacher never inherits the original Supabase projects', (t) => {
+  const root = scratch();
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const { supabase_url, supabase_anon_key, content_supabase_url, content_supabase_anon_key, ...noSupabase } = ANSWERS;
+  const r = node('setup.mjs', ['--dry-run', '--answers', JSON.stringify(noSupabase)], root);
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /supabase_url is required/);
+  assert.doesNotMatch(r.stdout, /bzqbhtrurzzavhqbgqrs|hgvnytaqmuybzbotosyj/);
 });

@@ -10,7 +10,9 @@
 // supabase_service_key, content_supabase_url, content_supabase_anon_key, content_supabase_service_key,
 // groq_api_key, deepseek_api_key, teacher_name, sections, rotate (array of "KEY" or "svc:KEY").
 // Missing answers take the current value (identity.json / existing .env). Existing secrets are kept
-// unless listed in `rotate`.
+// unless listed in `rotate`. roster_url / relay_url never default to the ORIGINAL teacher's deployment
+// for a new github_user: give a URL or "later" (writes https://TODO-roster.up.railway.app /
+// https://TODO-relay.up.railway.app, which check-env and doctor FAIL on until setup is re-run).
 import fs from 'node:fs';
 import path from 'node:path';
 import readline from 'node:readline/promises';
@@ -19,7 +21,7 @@ import { parseArgs, resolveRoot } from './lib/args.mjs';
 import { SERVICES, loadSchema, loadIdentity, envPath, readEnvFile, renderEnvFile, serializeValue, mask, isSet } from './lib/env.mjs';
 import {
   OPERATOR_ENV, questions, makeContext, checkAnswer, resolveAnswers, generatedKeys, planSetup,
-  railwayCommands, ghCommands, checklist, trimUrl, relPath
+  railwayCommands, ghCommands, checklist, trimUrl, relPath, expandLater
 } from './lib/wizard.mjs';
 
 const INTRO = [
@@ -29,6 +31,8 @@ const INTRO = [
   'Nothing is uploaded anywhere. At the end it prints the railway / gh commands for YOU to run.',
   'Press Enter to keep the value in [brackets]. Ctrl+C aborts without writing anything.'
 ];
+
+const SECRETS_NOTICE = '!! The Railway and GitHub commands below contain your secrets in plain text. Do not paste this output into chat, issues or screenshots.';
 
 function readAnswers(arg, root) {
   if (arg === true) throw new Error('--answers needs a JSON file path or an inline JSON object');
@@ -44,7 +48,8 @@ async function askAll(rl, ctx) {
       const def = q.def(ctx, given);
       const shown = q.secret ? (def ? mask(def) : '') : def;
       const raw = (await rl.question(`${q.q}${shown ? ` [${shown}]` : q.optional ? ' [skip]' : ''}: `)).trim();
-      const value = raw === '' ? def : raw === '-' && q.optional ? '' : raw;
+      const typed = raw === '' ? def : raw === '-' && q.optional ? '' : raw;
+      const value = expandLater(q, typed);
       const v = q.url ? trimUrl(value) : String(value).trim();
       const err = checkAnswer(q, v, given);
       if (!err) { given[q.id] = v; break; }
@@ -82,10 +87,13 @@ async function main(argv) {
   const schema = loadSchema(root);
   const identity = loadIdentity(root);
   const operatorFile = path.join(root, OPERATOR_ENV);
+  const nextFile = path.join(root, 'config', 'identity.next.json');
   const existing = {
     roster: readEnvFile(envPath(root, 'roster')) || {},
     relay: readEnvFile(envPath(root, 'relay')) || {},
-    operator: readEnvFile(operatorFile) || {}
+    operator: readEnvFile(operatorFile) || {},
+    // A previous run's answers, so a re-run keeps them without falling back to identity.json.
+    next: fs.existsSync(nextFile) ? (JSON.parse(fs.readFileSync(nextFile, 'utf8')).current || {}) : {}
   };
   const ctx = makeContext(schema, identity, existing);
 
@@ -118,7 +126,6 @@ async function main(argv) {
     ...Object.entries(plan.operator).filter(([, v]) => isSet(v)).map(([k, v]) => `${k}=${serializeValue(v)}`)
   ].join('\n') + '\n';
   writeFile(operatorFile, opText, dryRun, written);
-  const nextFile = path.join(root, 'config', 'identity.next.json');
   writeFile(nextFile, JSON.stringify(plan.identityNext, null, 2) + '\n', dryRun, written);
 
   const hr = (t) => console.log(`\n==== ${t} ${'='.repeat(Math.max(0, 70 - t.length))}`);
@@ -142,6 +149,7 @@ async function main(argv) {
   console.log('node scripts/rebrand.mjs --to config/identity.next.json');
 
   const rw = railwayCommands(schema, plan.envs);
+  console.log(`\n${SECRETS_NOTICE}`);
   for (const svc of SERVICES) {
     hr(`Railway variables: ${svc} (Root Directory ${schema[svc].railway_root_directory})`);
     console.log(rw[svc].join('\n'));

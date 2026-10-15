@@ -6,6 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { REPO_ROOT } from './args.mjs';
 import { runDoctor } from '../doctor.mjs';
+import { ed25519 } from './secrets.mjs';
 
 function scratch() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'apstat-doctor-'));
@@ -46,7 +47,7 @@ test('doctor: page 404, bad anon key, stale lesson_urls, missing table', async (
   fs.mkdirSync(path.join(root, 'supabase'));
   fs.writeFileSync(path.join(root, 'supabase', 'expected-tables.json'), JSON.stringify({ core: ['answers', 'gone'], content: ['lesson_urls'] }));
   fs.mkdirSync(path.join(root, 'services', 'roster'), { recursive: true });
-  fs.writeFileSync(path.join(root, 'services', 'roster', '.env'), 'ROSTER_SUPABASE_SERVICE_KEY=svc\nREVIEW_GRANT_PUBKEY=OTHER\n');
+  fs.writeFileSync(path.join(root, 'services', 'roster', '.env'), `ROSTER_SUPABASE_SERVICE_KEY=svc\nREVIEW_GRANT_PUBKEY=${ed25519().publicKey}\n`);
   const res = await runDoctor({
     root, withEnv: true, gh: noGh,
     fetchImpl: fakeFetch(site, {
@@ -68,6 +69,66 @@ test('doctor: page 404, bad anon key, stale lesson_urls, missing table', async (
   assert.equal(find('table gone').note, 'table missing');
   assert.equal(find('table answers').status, 'PASS');
   assert.match(find('supabase content tables').note, /no service key/);
-  assert.equal(find('REVIEW_GRANT_PUBKEY').status, 'WARN');
+  assert.equal(find('REVIEW_GRANT_PUBKEY vs live relay').status, 'WARN');
   assert.ok(!JSON.stringify(res).includes('svc\\n'));
+});
+
+test('doctor: receipts disabled on either service is FAIL', async (t) => {
+  const root = scratch();
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const site = JSON.parse(fs.readFileSync(path.join(root, 'config', 'identity.json'))).current.site_base;
+  const res = await runDoctor({
+    root, gh: noGh,
+    fetchImpl: fakeFetch(site, {
+      'roster-production-12c1.up.railway.app/health': () => json(200, { ok: true, receipts: { enabled: false, pubkey: null } }),
+      'curriculumrender-production.up.railway.app/health': () => json(200, { status: 'healthy', receipts: { enabled: false, pubkey: null } })
+    })
+  });
+  assert.equal(res.ok, false);
+  assert.equal(res.rows.find((r) => r.check === 'roster receipts').status, 'FAIL');
+  assert.equal(res.rows.find((r) => r.check === 'relay receipts').status, 'FAIL');
+});
+
+test('doctor: buckets WARN without --env, FAIL when missing with --env; realtime listed', async (t) => {
+  const root = scratch();
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const site = JSON.parse(fs.readFileSync(path.join(root, 'config', 'identity.json'))).current.site_base;
+  fs.mkdirSync(path.join(root, 'supabase'));
+  fs.writeFileSync(path.join(root, 'supabase', 'expected-tables.json'), JSON.stringify({
+    core: [], content: [], buckets: { core: ['pc-figures', 'worksheet-diagnostics'], content: ['ti84-trainer-assets'] }, realtime: { core: ['answers'] }
+  }));
+  const fetchImpl = fakeFetch(site, {
+    '/storage/v1/bucket/pc-figures': () => json(200, { id: 'pc-figures', public: false }),
+    '/storage/v1/bucket/worksheet-diagnostics': () => json(400, { statusCode: '404', error: 'Bucket not found', message: 'Bucket not found' })
+  });
+
+  const plain = await runDoctor({ root, gh: noGh, fetchImpl });
+  assert.match(plain.rows.find((r) => r.check === 'supabase core buckets').note, /not checked/);
+  assert.equal(plain.rows.find((r) => r.check === 'supabase core buckets').status, 'WARN');
+
+  fs.mkdirSync(path.join(root, 'services', 'roster'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'services', 'roster', '.env'), 'ROSTER_SUPABASE_SERVICE_KEY=svc\n');
+  const withEnv = await runDoctor({ root, gh: noGh, fetchImpl, withEnv: true });
+  const find = (s) => withEnv.rows.find((r) => r.check === s);
+  assert.equal(find('supabase core bucket pc-figures').status, 'PASS');
+  assert.equal(find('supabase core bucket worksheet-diagnostics').status, 'FAIL');
+  assert.match(find('supabase core bucket worksheet-diagnostics').note, /bucket missing/);
+  assert.equal(find('supabase content buckets').status, 'WARN');
+  assert.equal(find('supabase core realtime').status, 'INFO');
+});
+
+test('doctor: placeholder Railway URLs in the identity are FAIL, not probed', async (t) => {
+  const root = scratch();
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const idFile = path.join(root, 'config', 'identity.json');
+  const id = JSON.parse(fs.readFileSync(idFile, 'utf8'));
+  id.current.roster_url = 'https://TODO-roster.up.railway.app';
+  fs.writeFileSync(idFile, JSON.stringify(id));
+  const probed = [];
+  const base = fakeFetch(id.current.site_base);
+  const res = await runDoctor({ root, gh: noGh, fetchImpl: (url) => { probed.push(url); return base(url); } });
+  const row = res.rows.find((r) => r.check.startsWith('roster https://TODO-'));
+  assert.equal(row.status, 'FAIL');
+  assert.match(row.note, /placeholder/);
+  assert.ok(!probed.some((u) => u.includes('TODO-')));
 });

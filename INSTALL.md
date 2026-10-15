@@ -23,15 +23,26 @@ On your machine: git, Node 22, and the GitHub CLI `gh` (optional but used by the
 ```bash
 gh repo fork robjohncolson/apstat-park --clone     # or: git clone <your copy>
 cd apstat-park
-npm run test                                       # proves the code works before you change anything
+npm run install:all                                # installs site/, site/quiz/, services/roster/, services/relay/
+npm test                                           # proves the code works before you change anything
 ```
+
+`install:all` runs `npm ci` in the three parts that have a lockfile and `npm install --no-package-lock` in
+`services/relay/` (its parent repo has no lockfile). It prints each step and stops at the first failure.
+
+Check: the last line of `npm test` is `all suites passed`.
 
 ## 2. Create the two Supabase projects
 
-Follow `supabase/README.md`. Order matters: baselines, then the relay migrations, then the roster
-migrations. You will come back with, per project: the URL, the anon key, the service_role key.
+Follow `supabase/README.md`. Order matters: baselines and the realtime publication, then the relay
+migrations, then the roster migrations, then the storage buckets. With `psql` installed,
+`bash supabase/apply.sh core "$CORE_DB_URL"` and `bash supabase/apply.sh content "$CONTENT_DB_URL"` run
+exactly that order and record what ran, so re-running them later only applies new files. You will come
+back with, per project: the URL, the anon key, the service_role key.
 
-Check: in each project's Table Editor you see the tables listed in `supabase/expected-tables.json`.
+Check: in each project's Table Editor you see the tables listed in `supabase/expected-tables.json`, and
+under Storage the buckets listed under its `buckets` key. (`node scripts/doctor.mjs --env` checks both for
+you at step 7.)
 
 ## 3. Run the setup wizard
 
@@ -39,13 +50,22 @@ Check: in each project's Table Editor you see the tables listed in `supabase/exp
 node scripts/setup.mjs
 ```
 
-It asks for your GitHub user, your two Railway URLs (you can leave them blank now and re-run later), the
-Supabase values from step 2, your AI keys, your name and your class sections. It then:
+It asks for your GitHub user, your two Railway URLs, the Supabase values from step 2, your AI keys, your
+name and your class sections.
+
+You do not have Railway URLs yet (they appear in step 4). Answer `later` to both Railway questions. The
+wizard never offers the original teacher's URLs as a default for a new GitHub user, so you must type either
+a URL or `later`. `later` writes placeholders, `https://TODO-roster.up.railway.app` and
+`https://TODO-relay.up.railway.app`, and the summary's manual-steps list starts with a reminder to re-run
+setup with the real URLs. `check-env` and `doctor` FAIL on any value containing `TODO-` until you do.
+
+The wizard then:
 
 - generates every secret the services need (token secret, teacher secret, issuer keypairs, wallet key),
 - writes `services/roster/.env` and `services/relay/.env` (gitignored, never commit them),
 - writes `config/identity.next.json`, the identity this repo should carry from now on,
-- prints the Railway variable commands and the GitHub secret command for later steps.
+- prints the Railway variable commands and the GitHub secret command for later steps. These lines contain
+  your secrets in plain text: do not paste that output into chat, issues or screenshots.
 
 Then retarget every file in the repo to your identity:
 
@@ -67,10 +87,15 @@ service's Settings:
 | relay | `services/relay` | `node server.js` | identity `relay_url`, roster vars `PARK_RELAY_URL` and `FRQ_GRADER_URL` |
 
 Paste the variables the wizard printed (Variables tab, or `railway variables --set ...` from each
-service directory after `railway link`). Then put the two public URLs back into the identity: re-run
-`node scripts/setup.mjs` (it keeps every earlier answer), rebrand again, commit.
+service directory after `railway link`). Then replace the `later` placeholders with the two public URLs:
+re-run `node scripts/setup.mjs` and type the real roster and relay URLs (it keeps every other earlier answer
+and every secret), rebrand again (`node scripts/rebrand.mjs --to config/identity.next.json` rewrites the
+`TODO-` URLs to the real ones), update `ROSTER_SERVICE_URL`, `PARK_RELAY_URL` and `FRQ_GRADER_URL` on
+Railway, commit.
 
-Check: `curl https://<roster-url>/health` and `curl https://<relay-url>/health` both return `ok`.
+Check: `curl https://<roster-url>/health` returns `"ok":true` and `curl https://<relay-url>/health` returns
+`"status":"healthy"`; in both, `receipts.enabled` is `true` (false means `RECEIPT_ISSUER_PRIVATE_KEY` is
+missing or not a base64 PKCS8 Ed25519 key, and the doctor reports it as FAIL).
 
 ## 5. Publish the site on GitHub Pages
 
@@ -102,7 +127,8 @@ reads these two tables at runtime; without them it shows the baked registry, whi
 node scripts/doctor.mjs --env
 ```
 
-Every line should be PASS. WARN lines name what is optional. A FAIL names the step to redo.
+Every line should be PASS. WARN lines name what is optional. INFO lines name something the doctor cannot
+see over HTTP (the realtime publication) and give the SQL to check it by hand. A FAIL names the step to redo.
 
 ## 8. Optional subsystems
 

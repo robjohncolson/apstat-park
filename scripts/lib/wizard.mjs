@@ -1,6 +1,6 @@
 // Pure planning logic for scripts/setup.mjs (no prompts, no file I/O, no network).
 import path from 'node:path';
-import { SERVICES, GROUPS, serviceKeys, identityValue, isSet } from './env.mjs';
+import { SERVICES, GROUPS, serviceKeys, identityValue, isSet, isPlaceholder } from './env.mjs';
 import { generate, ed25519PublicFromPrivate } from './secrets.mjs';
 
 // Local-only operator keys that no service reads (doctor.mjs uses them). Gitignored by `.env`.
@@ -14,20 +14,67 @@ export function supabaseRef(url) {
   return m ? m[1] : '';
 }
 
-// The questions, in order. `def(ctx)` gives the default shown to the teacher (current value).
+// The answer `later` for a Railway URL writes this placeholder. check-env and doctor FAIL on it.
+export const LATER = 'later';
+export const PLACEHOLDER_URLS = {
+  roster_url: 'https://TODO-roster.up.railway.app',
+  relay_url: 'https://TODO-relay.up.railway.app'
+};
+
+// A teacher other than the original one (identity.parents.github_user) is setting up their own copy.
+export function isNewTeacher(ctx, answers) {
+  const user = String(answers.github_user || '').toLowerCase();
+  return user !== String(ctx.originalUser).toLowerCase();
+}
+
+// Default for a Railway URL: the teacher's previous answer (.env) or identity.json, but NEVER the
+// original teacher's live deployment for a new teacher. Empty means they must type a URL or `later`.
+function railwayDefault(ctx, answers, id) {
+  const candidates = id === 'roster_url'
+    ? [ctx.env.relay.ROSTER_SERVICE_URL, ctx.cur.roster_url]
+    : [ctx.env.roster.PARK_RELAY_URL, ctx.cur.relay_url];
+  for (const raw of candidates) {
+    const url = trimUrl(raw);
+    if (!url) continue;
+    if (isNewTeacher(ctx, answers) && url === trimUrl(ctx.originalUrls[id])) continue;
+    return url;
+  }
+  return '';
+}
+
+// Default for a Supabase value: identity.json's current value, but NEVER the original teacher's
+// project for a new teacher (their students' data must not land in the original database).
+function supabaseDefault(ctx, answers, id) {
+  for (const raw of [ctx.next[id], ctx.cur[id]]) {
+    const value = String(raw || '').trim();
+    if (!value) continue;
+    if (isNewTeacher(ctx, answers) && value === ctx.originalSupabase[id]) continue;
+    return value;
+  }
+  return '';
+}
+
+// `later` (any case) becomes the placeholder URL; everything else is returned unchanged.
+export function expandLater(question, value) {
+  if (!question.deferrable) return value;
+  if (String(value).trim().toLowerCase() !== LATER) return value;
+  return PLACEHOLDER_URLS[question.id];
+}
+
+// The questions, in order. `def(ctx, answersSoFar)` gives the default shown to the teacher.
 export function questions() {
   return [
     { id: 'github_user', q: 'GitHub user (owner of the repo)', def: (c) => c.cur.github_user || '' },
     { id: 'repo', q: 'Repo name', def: (c) => c.cur.site_repo || 'apstat-park' },
     { id: 'site_base', q: 'GitHub Pages base URL (derived; confirm or replace)', def: (c, a) => pagesBase(a.github_user, a.repo), url: true },
-    { id: 'roster_url', q: 'Roster Railway URL (services/roster)', def: (c) => c.cur.roster_url || '', url: true },
-    { id: 'relay_url', q: 'Relay Railway URL (services/relay)', def: (c) => c.cur.relay_url || '', url: true },
-    { id: 'supabase_url', q: 'Core Supabase URL', def: (c) => c.cur.supabase_url || '', url: true },
-    { id: 'supabase_anon_key', q: 'Core Supabase anon key (public)', def: (c) => c.cur.supabase_anon_key || '' },
+    { id: 'roster_url', q: 'Roster Railway URL (services/roster), or "later"', def: (c, a) => railwayDefault(c, a, 'roster_url'), url: true, deferrable: true },
+    { id: 'relay_url', q: 'Relay Railway URL (services/relay), or "later"', def: (c, a) => railwayDefault(c, a, 'relay_url'), url: true, deferrable: true },
+    { id: 'supabase_url', q: 'Core Supabase URL', def: (c, a) => supabaseDefault(c, a, 'supabase_url'), url: true },
+    { id: 'supabase_anon_key', q: 'Core Supabase anon key (public)', def: (c, a) => supabaseDefault(c, a, 'supabase_anon_key') },
     { id: 'supabase_service_key', q: 'Core Supabase service_role key', secret: true,
       def: (c) => c.env.roster.ROSTER_SUPABASE_SERVICE_KEY || c.env.relay.SUPABASE_SERVICE_KEY || '' },
-    { id: 'content_supabase_url', q: 'Content (Desk) Supabase URL', def: (c) => c.cur.content_supabase_url || '', url: true },
-    { id: 'content_supabase_anon_key', q: 'Content Supabase anon key (public)', def: (c) => c.cur.content_supabase_anon_key || '' },
+    { id: 'content_supabase_url', q: 'Content (Desk) Supabase URL', def: (c, a) => supabaseDefault(c, a, 'content_supabase_url'), url: true },
+    { id: 'content_supabase_anon_key', q: 'Content Supabase anon key (public)', def: (c, a) => supabaseDefault(c, a, 'content_supabase_anon_key') },
     { id: 'content_supabase_service_key', q: 'Content Supabase service_role key (optional; only used locally by doctor.mjs)', secret: true, optional: true,
       def: (c) => c.env.operator.CONTENT_SUPABASE_SERVICE_KEY || '' },
     { id: 'groq_api_key', q: 'Groq API key (Groq and/or DeepSeek; at least one)', secret: true, optional: true, def: (c) => c.env.relay.GROQ_API_KEY || '' },
@@ -38,9 +85,17 @@ export function questions() {
 }
 
 export function makeContext(schema, identity, existing) {
+  const parents = identity.parents || {};
   return {
     cur: identity.current || {},
+    originalUser: parents.github_user || 'robjohncolson',
+    originalUrls: { roster_url: parents.roster_url || '', relay_url: parents.relay_url || '' },
+    originalSupabase: {
+      supabase_url: parents.supabase_url || '', supabase_anon_key: parents.supabase_anon_key || '',
+      content_supabase_url: parents.content_supabase_url || '', content_supabase_anon_key: parents.content_supabase_anon_key || ''
+    },
     env: { roster: existing.roster || {}, relay: existing.relay || {}, operator: existing.operator || {} },
+    next: existing.next || {},
     sectionsDefault: schema.roster?.recommended?.OPEN_SIGNUP_SECTIONS?.default || ''
   };
 }
@@ -48,6 +103,9 @@ export function makeContext(schema, identity, existing) {
 // Returns an error string or '' for one answer.
 export function checkAnswer(question, value, answers) {
   const v = String(value ?? '').trim();
+  if (!v && question.deferrable) {
+    return `${question.id} is required: enter your own Railway URL, or "${LATER}" to write the placeholder ${PLACEHOLDER_URLS[question.id]} and re-run setup once the service exists`;
+  }
   if (!v && !question.optional) return `${question.id} is required`;
   if (v && question.url && !/^https?:\/\/[^\s]+$/.test(v)) return `${question.id} must be an http(s) URL`;
   if (question.id === 'sections' && v && !SECTIONS_RE.test(v)) return 'sections must look like PeriodB:Period B;PeriodE:Period E';
@@ -59,7 +117,8 @@ export function checkAnswer(question, value, answers) {
 export function resolveAnswers(ctx, given = {}) {
   const a = {};
   for (const q of questions()) {
-    const v = given[q.id] !== undefined && given[q.id] !== null ? String(given[q.id]) : q.def(ctx, a);
+    const raw = given[q.id] !== undefined && given[q.id] !== null ? String(given[q.id]) : q.def(ctx, a);
+    const v = expandLater(q, raw);
     a[q.id] = q.url ? trimUrl(v) : String(v).trim();
     const err = checkAnswer(q, a[q.id], a);
     if (err) throw new Error(err);
@@ -103,6 +162,7 @@ export function planSetup({ schema, identity, answers: a, existing, rotate = new
   };
   if (a.teacher_name) cur.teacher_name = a.teacher_name;
   else delete cur.teacher_name;
+  for (const id of deferredUrls(a)) warnings.push(`${id} deferred: wrote placeholder ${a[id]}; re-run setup with the real URL before going live`);
   if (!cur.supabase_project_ref) warnings.push(`core Supabase URL ${a.supabase_url} is not https://<ref>.supabase.co; supabase_project_ref left empty`);
   if (!cur.content_supabase_project_ref) warnings.push(`content Supabase URL ${a.content_supabase_url} is not https://<ref>.supabase.co; content_supabase_project_ref left empty`);
 
@@ -194,13 +254,24 @@ export function ghCommands(schema, envs, answers) {
   return lines;
 }
 
+// Which Railway URLs were deferred with `later`.
+export function deferredUrls(answers) {
+  return ['roster_url', 'relay_url'].filter((id) => isPlaceholder(answers[id]));
+}
+
 export function checklist(schema, answers) {
   const repo = `${answers.github_user}/${answers.repo}`;
+  const deferred = deferredUrls(answers);
+  const first = [];
+  if (deferred.length) {
+    first.push(`Railway URLs deferred (${deferred.join(', ')} are TODO placeholders; check-env and doctor FAIL until fixed): once both services have public URLs, re-run node scripts/setup.mjs with the real URLs, then rebrand again and update the Railway variables.`);
+  }
   return [
+    ...first,
     `Railway: create two services from GitHub repo ${repo}: "roster" with Root Directory ${schema.roster.railway_root_directory}, "relay" with Root Directory ${schema.relay.railway_root_directory}. Health check path /health on both. (Names must match the --service flags above, or edit them.)`,
     'Railway: paste the variables above, then confirm each service\'s public URL matches what you entered (roster_url / relay_url).',
     `GitHub: Settings > Pages > Build and deployment > Source = "GitHub Actions" for ${repo}.`,
-    'Supabase: run the SQL for both projects in the order given by supabase/README.md (core project first, then content).',
+    'Supabase: run the SQL for both projects in the order given by supabase/README.md (core project first, then content), or with psql: bash supabase/apply.sh core <db-url> and bash supabase/apply.sh content <db-url>.',
     `Supabase (content project): update the lesson_urls rows so worksheet_url points at ${answers.site_base}/... (doctor.mjs warns while they still point at an old site).`,
     'Then: node scripts/rebrand.mjs --to config/identity.next.json, review the diff, commit, push.',
     'Finally: node scripts/doctor.mjs --env'
