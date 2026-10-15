@@ -19,6 +19,23 @@ const { TEAM_BLOCK, CALCULATOR_PROTOCOL } = await import('./calculator-lobby.mjs
 const { createPeerMotion } = await import('./peer-motion.mjs' + V);
 const { createUpdateGate } = await import('./update-gate.mjs' + V);
 const { createPoseSmoothing } = await import('./pose-smoothing.mjs' + V);
+// Solo room deep links (APSTAT_PARK_TRAINER_ABSORB_SPEC §3, protocol 12):
+//   #room=calc-solo&skill=<skillId>   one catalogue skill, new data every round
+//   #room=calc-solo&topic=<topic>     the topic's first skill in data/ti84-lesson-map.json
+//   #room=calc-solo                   the section's rotation (Phase 3: the first due skill)
+// Anything else is the team room. Exported pure, so the Desk and tests share the parse.
+export function parseRoomLink(hash) {
+  const params = new URLSearchParams(String(hash || '').replace(/^#/, ''));
+  if (params.get('room') !== 'calc-solo') return { mode: 'team', skill: null, topic: null };
+  return { mode: 'solo', skill: params.get('skill') || null, topic: params.get('topic') || null };
+}
+// The lesson map's first skill for a topic: `lessons` first, then the bonus-only topics (teacher
+// decision 4, 2026-10-15: bonus skills are reachable by deep link only). null = unknown topic.
+export function skillForTopic(lessonMap, topic) {
+  if (!lessonMap || !topic) return null;
+  const skills = lessonMap.lessons?.[topic] || lessonMap.bonus?.[topic] || [];
+  return skills[0] || null;
+}
 const ENTRY_WIDTH = 720;
 const LEVEL_WIDTH = ENTRY_WIDTH + WORLD.width;
 const RESET_DOOR = { x: 650, y: WORLD.floor - 48, w: 48, h: 48 };
@@ -56,9 +73,26 @@ const RUNG_TAGS = ['HINTS: FULL', 'HINTS: GOALS', 'NO HINTS'];
 const RUNG_SPEECH = ['Hints: full.', 'Hints: goals only.', 'No hints: read the calculator screen.'];
 const WRONG_RED = '#b4442c';
 
-export function mountParkPanel({ container, getSocket, board, onClose, onPark = () => {} }) {
+// link: the parsed deep link ({ mode, skill, topic }); defaults to the page's own hash.
+// lessonMap: the lesson map (topic -> skill ids) or a promise of it; defaults to fetching
+// data/ti84-lesson-map.json beside the park. Only read when the link names a topic.
+// reload: what the student's click or Enter does once the relay has said this page is too old.
+export function mountParkPanel({ container, getSocket, board, onClose, onPark = () => {}, link = null, lessonMap = null, reload = null }) {
   const doc = container.ownerDocument, win = doc.defaultView;
   const { engine, input, api } = board;
+  link ||= parseRoomLink(win.location?.hash);
+  reload ||= () => win.location.reload();
+  // §3: 'solo' hides everything team-specific (the block, the roster, the navigator round, "ask
+  // your team") behind one switch. One keypad renderer, one status column.
+  const solo = link.mode === 'solo';
+  let soloSkill = solo ? link.skill : null;
+  // A topic link resolves through the lesson map before the first join; nothing joins until then.
+  let soloReady = !solo || !link.topic || !!soloSkill;
+  if (solo && !soloReady) {
+    const map = lessonMap ? Promise.resolve(lessonMap)
+      : win.fetch(new URL('../data/ti84-lesson-map.json', import.meta.url) + V).then(response => response.json());
+    map.then(data => { soloSkill = skillForTopic(data, link.topic); }).catch(() => {}).finally(() => { soloReady = true; });
+  }
   const art = createPicoArt(doc);
   const audio = createPicoAudio(win, { classMode: () => !!(board.classroom?.isLive?.() && !board.classroom?.soundAllowed?.()) });
   art.load(board.atlas?.());
@@ -93,6 +127,9 @@ export function mountParkPanel({ container, getSocket, board, onClose, onPark = 
   const keyQueue = [];
   let pendingPress = null, pressAt = 0;
   let participating = false, cameraX = 0;
+  // Codex P2 (2026-10-15): the relay answered a join with its protocol error. Terminal for this
+  // page: no more joins (a 50 ms retry loop before), one drawn line, click or Enter reloads.
+  let reloadNeeded = false;
   const peerMotion = createPeerMotion({ name: board.username,
     enabled: new URL(win.location.href).searchParams.get('parkRtc') !== '0',
     PeerConnection: win.RTCPeerConnection,
@@ -105,7 +142,7 @@ export function mountParkPanel({ container, getSocket, board, onClose, onPark = 
   const status = doc.createElement('span');
   status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
   status.style.cssText = 'flex:1 1 240px;font:14px system-ui';
-  status.textContent = 'Connecting the calculator team…';
+  status.textContent = solo ? 'Starting your calculator round…' : 'Connecting the calculator team…';
   // §3: the navigator steps and their goals, for screen readers, for the whole round.
   const navigatorList = doc.createElement('ul');
   navigatorList.setAttribute('aria-label', 'Your navigator steps');
@@ -119,7 +156,7 @@ export function mountParkPanel({ container, getSocket, board, onClose, onPark = 
 
   const terrain = () => [
     { x: 0, y: WORLD.floor, w: LEVEL_WIDTH, h: 50 },
-    ...(lobby?.phase === 'gathering' && player.vy >= 0 && player.y + 24 <= TEAM_BLOCK.y + 1
+    ...(!solo && lobby?.phase === 'gathering' && player.vy >= 0 && player.y + 24 <= TEAM_BLOCK.y + 1
       ? [{ x: lobby.blockX, y: TEAM_BLOCK.y, w: TEAM_BLOCK.w, h: TEAM_BLOCK.h }] : []),
     // Key platforms are one-way: jump through from below, land from above.
     // A dense physical keypad must not trap cats underneath a row of keys.
@@ -311,6 +348,8 @@ export function mountParkPanel({ container, getSocket, board, onClose, onPark = 
     pump();
   }
   function connected() { return socket?.readyState === 1 && performance.now() - receivedAt < 3000; }
+  // Protocol 13: a solo page the relay answered with 'waiting' (no playable skill; the join retries quietly).
+  function soloWaiting() { return solo && !state && lobby?.phase === 'waiting'; }
   function besideResetDoor() {
     return Math.abs(localPose().x + 10 - (RESET_DOOR.x + RESET_DOOR.w / 2)) < 34
       && player.y + 24 >= RESET_DOOR.y;
@@ -349,12 +388,31 @@ export function mountParkPanel({ container, getSocket, board, onClose, onPark = 
       send('calculator_press', pendingPress); pressAt = performance.now();
     }
   }
+  // Forgets the round: a team reset back to gathering, or a solo 'waiting' answer.
+  function clearRound() {
+    state = null; peers.clear(); epoch = null; applied = 0; lastRevision = -1; computedSummary = null;
+    wrongStep = null; wrongPress = null; announcedMode = null; rewardShownAt = null;
+    keyQueue.length = 0; pendingPress = null;
+    // Back to the catalogue level: the last round's random data must not leak into the next preview.
+    level = levelById(level.id) || DEFAULT_LEVEL; challenge = challengeFor(level);
+    calculator = freshCalculator(null);
+    readings.textContent = ''; updateNavigatorList();
+  }
   function onMessage(event) {
     let packet;
     try { packet = JSON.parse(event.data); } catch { return; }
     if (packet.type === 'calculator_rtc_signal') { peerMotion.receive(packet); return; }
     if (packet.type === 'calculator_lobby_state') {
       if (packet.protocol !== CALCULATOR_PROTOCOL) return;
+      // Protocol 13: 'waiting' (solo, no playable skill) is a terminal reset of the round: the relay
+      // kept nothing, so neither does this page; the student stays on the keypad and the join is
+      // retried quietly (pump) until the section has a skill.
+      if (packet.phase === 'waiting') {
+        lobby = packet;
+        if (state) clearRound();
+        status.textContent = 'No calculator skills are scheduled yet for this class.';
+        return;
+      }
       const reset = lobby && lobby.epoch !== packet.epoch && packet.phase === 'gathering';
       lobby = packet;
       peerMotion.sync(packet.epoch, packet.rtcPeers);
@@ -375,15 +433,7 @@ export function mountParkPanel({ container, getSocket, board, onClose, onPark = 
         Object.assign(lobbyPeers.get(member.name), member.pose);
       }
       for (const name of lobbyPeers.keys()) if (!packet.members.some(member => member.name === name)) lobbyPeers.delete(name);
-      if (reset) {
-        state = null; peers.clear(); epoch = null; applied = 0; lastRevision = -1; computedSummary = null;
-        wrongStep = null; wrongPress = null; announcedMode = null;
-        // Back to the catalogue level: the last round's random data must not leak into the next preview.
-        level = levelById(level.id) || DEFAULT_LEVEL; challenge = challengeFor(level);
-        calculator = freshCalculator(null);
-        readings.textContent = ''; updateNavigatorList();
-        returnToStart();
-      }
+      if (reset) { clearRound(); returnToStart(); }
       const preview = levelById(packet.missionId);
       if (!state && preview && preview.id !== level.id) {
         level = preview; challenge = challengeFor(level);
@@ -397,7 +447,11 @@ export function mountParkPanel({ container, getSocket, board, onClose, onPark = 
     }
     if (!participating) return;
     if (packet.type === 'calculator_error') {
-      status.textContent = packet.message; joinedAt = 0; return;
+      status.textContent = packet.message;
+      // The protocol error ('Reload the page ...'): stop joining; the drawn line says what to do.
+      if (/reload/i.test(packet.message)) { reloadNeeded = true; keyQueue.length = 0; pendingPress = null; return; }
+      // Any other refusal: the next join waits the usual 1.5 s instead of going out at once.
+      joinedAt = performance.now(); receivedAt = 0; return;
     }
     if (packet.type !== 'calculator_state') return;
     if (packet.protocol !== CALCULATOR_PROTOCOL) { status.textContent = 'Waiting for the team-block server update.'; return; }
@@ -417,6 +471,8 @@ export function mountParkPanel({ container, getSocket, board, onClose, onPark = 
       else if ((packet.keys?.length || 0) > (state.keys?.length || 0)) audio.play('switch');
     }
     const restarted = state?.complete && epoch !== packet.epoch;
+    // Solo: the door's next round starts where the student stands; the team walks back to the block.
+    const soloRestarted = restarted && solo;
     const teamReset = state && epoch !== packet.epoch && packet.resetReason?.type === 'timeout';
     if (packet.failure && !state?.failure) {
       keyQueue.length = 0; pendingPress = null;
@@ -433,9 +489,10 @@ export function mountParkPanel({ container, getSocket, board, onClose, onPark = 
     const keys = packet.keys || level.route.slice(0, Math.min(packet.step, level.route.length));
     while (applied < keys.length) calculator.pressKey(keys[applied++]);
     if (packet.step >= level.route.length) computedSummary = challenge.answers;
-    if (timedOut || teamReset) {
+    if (timedOut || teamReset || soloRestarted) {
       Object.assign(player, { x: ENTRY_WIDTH + 65, y: WORLD.floor - 24, vx: 0, vy: 0, standingOn: null });
       for (const key in input) input[key] = false;
+      if (soloRestarted) rewardShownAt = null;
     } else if (answering(packet.step) && !(state && answering(state.step) && state.epoch === packet.epoch)) {
       // The keypad just turned into answer choices: start on the floor so nobody
       // lands on a choice by accident (choices are climbed on purpose, from the ledges).
@@ -458,7 +515,7 @@ export function mountParkPanel({ container, getSocket, board, onClose, onPark = 
     }
     for (const name of peers.keys()) if (!state.members.some(member => member.name === name)) peers.delete(name);
     const answerIndex = state.step - level.route.length;
-    const hint = state.solved ? 'Your result is ready. Help your teammates finish.'
+    const hint = state.solved ? (solo ? 'Your result is ready.' : 'Your result is ready. Help your teammates finish.')
       : state.step < level.route.length ? hintFor(state.step, keyboardLayer(calculator.save()))
       : challenge.prompts ? challenge.prompts[answerIndex] + ' Click a choice, press its number key, or stand on it.'
       : 'Choose ' + challenge.labels[answerIndex] + '. Click its value.';
@@ -475,14 +532,16 @@ export function mountParkPanel({ container, getSocket, board, onClose, onPark = 
     const text = state.failure ? (state.step >= level.route.length
       ? 'Time is up. Returning to your result checkpoint with a fresh timer.'
       : 'Time is up. Restarting the calculator portion.')
-      : state.complete ? 'Together! ' + level.title + ' complete. +1 key for everyone on the team.'
+      : state.complete ? (solo ? 'Cleared! ' + level.title + ' complete. Walk to the door for the next round.'
+        : 'Together! ' + level.title + ' complete. +1 key for everyone on the team.')
       : state.solved ? hint + ' ' + state.readyCount + '/' + state.teamSize + ' ready.'
-      : modeNote + 'Step ' + (state.step + 1) + '/' + (level.route.length + challenge.answers.length) + ' · ' + state.teamSize + ' on the team. ' + hint
+      : modeNote + 'Step ' + (state.step + 1) + '/' + (level.route.length + challenge.answers.length)
+        + (solo ? ' · solo. ' : ' · ' + state.teamSize + ' on the team. ') + hint
         + pressNote
         + (state.hintKeys?.length ? ' Hint: choose ' + state.hintKeys.join(' or ') + '. Step reset—30 seconds to try again.' : '')
         + (feedback ? ' Not yet: ' + feedback : '');
     if (status.textContent !== text) status.textContent = text;
-    if (restarted) returnToStart();
+    if (restarted && !solo) returnToStart();
   }
   function bind() {
     const next = getSocket();
@@ -496,25 +555,33 @@ export function mountParkPanel({ container, getSocket, board, onClose, onPark = 
   function pump() {
     if (disposed || doc.hidden) return;
     bind();
+    if (reloadNeeded) return;
     peerMotion.publish({ x: player.x, y: player.y });
     const missionCamera = Math.max(0, Math.min(ENTRY_WIDTH, LEVEL_WIDTH - board.viewportW() / scale()));
     // Teacher decision 2026-10-06: the teacher can push the team block.
     const pushing = !!input.right && !input.left;
-    updates.publish('lobby', { protocol: CALCULATOR_PROTOCOL, epoch: lobby?.epoch, rtc: peerMotion.supported ? 2 : false,
+    // Solo never sends a lobby packet: on the relay a lobby packet means the team block.
+    if (!solo) updates.publish('lobby', { protocol: CALCULATOR_PROTOCOL, epoch: lobby?.epoch, rtc: peerMotion.supported ? 2 : false,
       rtcGeneration: peerMotion.connectionGeneration(),
       pose: { x: player.x, y: player.y }, pushing,
       ready: player.x >= ENTRY_WIDTH + 20 && cameraX >= missionCamera - 0.5 },
     value => send('calculator_lobby', value), pushing);
-    if (!participating) return;
+    if (!participating || !soloReady) return;
     if (socket?.readyState !== 1) { status.textContent = 'Reconnecting—your team progress is saved.'; return; }
+    // Protocol 12: the relay answers a solo join with phase 'waiting' while the section has no
+    // playable skill (the join is retried below; nothing is kept for it on the relay).
+    if (soloWaiting()) status.textContent = 'No calculator skills are scheduled yet for this class.';
     if (!joinedAt || performance.now() - receivedAt > 3000) {
-      if (!state && performance.now() - openedAt > 8000) {
+      if (soloWaiting()) {
+        // Said above; keep retrying the join quietly.
+      } else if (!state && performance.now() - openedAt > 8000) {
         status.textContent = 'The calculator room is waiting for the classroom server update. You can return to the room and try again.';
       } else if (state) {
         status.textContent = 'Reconnecting—your team progress is saved.';
       }
       if (performance.now() - joinedAt > 1500 || !joinedAt) {
-        send('calculator_join', { protocol: CALCULATOR_PROTOCOL }); joinedAt = performance.now();
+        send('calculator_join', { protocol: CALCULATOR_PROTOCOL, ...(solo ? { mode: 'solo', skill: soloSkill } : {}) });
+        joinedAt = performance.now();
       }
     }
     if (!state || !connected() || doc.hidden) return;
@@ -540,6 +607,8 @@ export function mountParkPanel({ container, getSocket, board, onClose, onPark = 
     }
     if (player.y > WORLD.floor) Object.assign(player, { x: 65, y: WORLD.floor - 24, vx: 0, vy: 0 });
     if (player.x < ENTRY_WIDTH) setParticipating(false);
+    // Solo: walking into the calculator zone is the whole start; no block to push.
+    else if (solo && !participating && player.x >= ENTRY_WIDTH + 20) setParticipating(true);
     if (!tileAt(localPose(), state?.step || 0, level)) needsRelease = false;
     selected = needsRelease ? null : tileAt(localPose(), state?.step || 0, level);
     const viewport = board.viewportW() / scale();
@@ -613,20 +682,20 @@ export function mountParkPanel({ container, getSocket, board, onClose, onPark = 
       const paint = scenery.getContext('2d');
       paint.imageSmoothingEnabled = false;
       art.block(paint, { x: 0, y: WORLD.floor, w: LEVEL_WIDTH, h: 50 });
-      text(paint, 'CALCULATOR TOGETHER', 85, 365, 21);
-      text(paint, 'PUSH THE TEAM BLOCK RIGHT >', 85, 410, 19);
+      text(paint, solo ? 'CALCULATOR SOLO' : 'CALCULATOR TOGETHER', 85, 365, 21);
+      text(paint, solo ? 'WALK RIGHT TO YOUR CALCULATOR >' : 'PUSH THE TEAM BLOCK RIGHT >', 85, 410, 19);
       text(paint, 'CLICK A KEY TO CHOOSE IT', 85, 451, 14);
       text(paint, 'PRACTICE THE SKILLS YOU HAVE LEARNED', 85, 485, 14);
-      text(paint, 'RANDOM SKILLS. ONE TEAM GOAL.', 85, 513, 14);
+      text(paint, solo ? 'YOUR OWN ROUND. YOUR OWN CLOCK.' : 'RANDOM SKILLS. ONE TEAM GOAL.', 85, 513, 14);
       text(paint, 'ARROWS MOVE . UP ENTERS DOORS', 85, 545, 14);
       text(paint, 'HOLD SHIFT TO RUN', 85, 573, 14);
-      text(paint, 'THE PUSHERS BECOME YOUR TEAM', 85, 604, 14);
+      text(paint, solo ? 'NEW DATA EVERY ROUND' : 'THE PUSHERS BECOME YOUR TEAM', 85, 604, 14);
       if (atlas) paint.drawImage(atlas, unlocked ? 96 : 48, 0, 48, 48, 30, WORLD.floor - 40, 40, 40);
       else { paint.fillStyle = '#493d48'; paint.fillRect(30, WORLD.floor - 40, 40, 40); }
       text(paint, 'PICO PARK', 24, WORLD.floor - 70, 14);
       text(paint, !unlocked ? 'FINISH A CALCULATOR ACTIVITY TO EARN A KEY'
         : unlocked === 'count' ? 'UP TO ENTER . KEYS OPEN NEW STAGES' : 'KEY EARNED - UP TO ENTER', 24, WORLD.floor - 49, 7);
-      text(paint, 'TEAM START', TEAM_BLOCK.dock + 16, WORLD.floor + 32, 10, ink, 'center');
+      text(paint, solo ? 'YOUR CALCULATOR' : 'TEAM START', TEAM_BLOCK.dock + 16, WORLD.floor + 32, 10, ink, 'center');
       sceneryInk = ink; sceneryAtlas = atlas; sceneryReady = art.ready; sceneryUnlocked = unlocked;
     }
     ctx.drawImage(scenery, 0, 0);
@@ -645,13 +714,7 @@ export function mountParkPanel({ container, getSocket, board, onClose, onPark = 
     const atlas = board.atlas?.();
     drawScenery(ctx, atlas);
     smoothing.retain(new Set(participating ? peers.keys() : lobbyPeers.keys()));
-    const blockX = lobby?.blockX ?? TEAM_BLOCK.start;
-    const block = ATLAS.pushBox;
-    if (atlas && block) ctx.drawImage(atlas, block.x, block.y, block.w, block.h, blockX, TEAM_BLOCK.y, TEAM_BLOCK.w, TEAM_BLOCK.h);
-    else art.block(ctx, { x: blockX, y: TEAM_BLOCK.y, w: TEAM_BLOCK.w, h: TEAM_BLOCK.h });
-    const count = lobby?.phase === 'gathering' ? lobby.pushers.length : lobby?.roster.length || 0;
-    text(ctx, String(count), blockX + 16, TEAM_BLOCK.y + 21, 14, ink, 'center');
-    text(ctx, count + (count === 1 ? ' PUSHER' : ' PUSHERS'), blockX + 16, TEAM_BLOCK.y - 9, 10, ink, 'center');
+    if (!solo) drawTeamBlock(ctx, atlas);
     // Teacher report 2026-10-06: room classmates stay visible while participating (team members are drawn below).
     for (const [name, peer] of lobbyPeers) if (!participating || !peers.has(name)) {
       const original = { x: peer.x, y: peer.y };
@@ -663,11 +726,12 @@ export function mountParkPanel({ container, getSocket, board, onClose, onPark = 
       Object.assign(peer, original);
     }
     ctx.save(); ctx.translate(ENTRY_WIDTH, 0);
-    text(ctx, 'CALCULATOR TOGETHER', 28, 30, 20);
+    text(ctx, solo ? 'CALCULATOR SOLO' : 'CALCULATOR TOGETHER', 28, 30, 20);
     const hasMission = !!state || !!lobby?.missionId;
     text(ctx, hasMission ? level.title.toUpperCase() : 'RANDOM SKILL ROUND', 28, 53, 14);
-    const caption = hasMission ? inputCaption() : lobby?.eligibleCount === 0
-      ? 'No calculator skills are scheduled yet for this class.' : 'Connecting to your class curriculum...';
+    const caption = reloadNeeded ? 'This page is an older version. Click or press Enter to reload it.'
+      : hasMission ? inputCaption() : lobby?.eligibleCount === 0
+        ? 'No calculator skills are scheduled yet for this class.' : 'Connecting to your class curriculum...';
     text(ctx, caption.slice(0, 106), 28, 76, 10);
     if (caption.length > 106) text(ctx, caption.slice(106), 28, 89, 10);
     if (showingBoxplot) text(ctx, 'CALCULATOR RESULT', 28, 103, 10);
@@ -676,7 +740,7 @@ export function mountParkPanel({ container, getSocket, board, onClose, onPark = 
       const label = (line.selected ? '> ' : '  ') + line.text;
       text(ctx, label, 28, (showingBoxplot ? 123 : 106) + i * 18, label.length > 25 ? 7 : 14, ink);
     }
-    text(ctx, state?.complete ? 'MISSION COMPLETE!' : 'ONE TEAM · ONE GOAL', 350, 112, 17);
+    text(ctx, state?.complete ? 'MISSION COMPLETE!' : solo ? 'SOLO PRACTICE' : 'ONE TEAM · ONE GOAL', 350, 112, 17);
     if (state?.complete) drawKeyReward(ctx, atlas);
     const plan = navigator();
     const coaching = state && !state.solved && !state.failure && !showingBoxplot;
@@ -686,15 +750,17 @@ export function mountParkPanel({ container, getSocket, board, onClose, onPark = 
     else if (coaching) text(ctx, RUNG_TAGS[hintRung()], 665, 112, 7, ink, 'right');
     const elapsed = state ? clock() - state.startedAt : 0;
     const remain = Math.max(0, Math.ceil((timeLimitFor(state || { step: 0 }) - elapsed) / 1000));
-    text(ctx, state?.failure ? 'TIME UP! TEAM RESTART.'
+    text(ctx, state?.failure ? (solo ? 'TIME UP! RESTART.' : 'TIME UP! TEAM RESTART.')
       : state ? (state.solved ? 'Your result is ready.'
         : remain + (showingBoxplot ? 's · finish the whole answer' : 's · reach the next step'))
         : lobby?.eligibleCount === 0 ? 'NO SKILLS TAUGHT YET'
+        : solo ? 'WALK IN TO START'
         : lobby?.phase === 'assembling' ? 'TEAM FORMING · NO TIMER'
         : lobby?.phase === 'active' ? 'TEAM ROUND IN PROGRESS' : 'PUSH THE BLOCK HERE TO START', 350, 143, 12);
     text(ctx, state?.failure ? (showingBoxplot ? 'Return to the checkpoint.' : 'Restart the calculator.') : state?.complete ? 'Walk to the door. Press UP.' : state?.solved ? 'Help your teammates finish.'
       : showingBoxplot ? 'Click a value for the result.' : 'Click to press your own keys.', 350, 175, 12);
-    text(ctx, state ? state.readyCount + '/' + state.teamSize + ' matching results ready' : 'Everyone solves independently.', 350, 197, 12);
+    text(ctx, solo ? (state ? 'Clear it to open the next-round door.' : 'Your own round. Your own clock.')
+      : state ? state.readyCount + '/' + state.teamSize + ' matching results ready' : 'Everyone solves independently.', 350, 197, 12);
     text(ctx, state?.solved ? 'All values matched.'
       : showingBoxplot ? 'Checked after the whole answer.'
       : layer === 'second' ? '2ND ACTIVE - CHOOSE A FUNCTION'
@@ -764,7 +830,7 @@ export function mountParkPanel({ container, getSocket, board, onClose, onPark = 
       const { x, y, w, h } = RESET_DOOR;
       if (atlas) ctx.drawImage(atlas, 96, 0, 48, 48, x, y, w, h);
       else { ctx.fillStyle = '#493d48'; ctx.fillRect(x, y, w, h); }
-      text(ctx, 'NEXT SKILL', x + w / 2, y - 24, 10, ink, 'center');
+      text(ctx, solo && state.pinnedSkill ? 'NEXT ROUND' : 'NEXT SKILL', x + w / 2, y - 24, 10, ink, 'center');
       text(ctx, 'UP TO ENTER', x + w / 2, y - 9, 7, ink, 'center');
     }
     if (participating) for (const [name, peer] of peers) {
@@ -780,7 +846,9 @@ export function mountParkPanel({ container, getSocket, board, onClose, onPark = 
       drawKeyCount(ctx, name, peer.x + 10, peer.y - 20);
       Object.assign(peer, original);
     }
-    if (participating && !connected()) text(ctx, 'CONNECTING TO YOUR TEAM...', 360, 280, 14, ink, 'center');
+    if (reloadNeeded) text(ctx, 'NEW VERSION - RELOAD THE PAGE', 360, 280, 14, ink, 'center');
+    // The waiting answer is authoritative and never refreshes receivedAt: no reconnect line over it.
+    else if (participating && !connected() && !soloWaiting()) text(ctx, 'CONNECTING TO YOUR TEAM...', 360, 280, 14, ink, 'center');
     ctx.restore();
     drawCharacter(ctx, player, board.username);
     // An older relay has no counts: keep its key sprite for a holder.
@@ -796,12 +864,24 @@ export function mountParkPanel({ container, getSocket, board, onClose, onPark = 
   // relay decides completion (state.complete), so the celebration never runs on a local guess;
   // the gold counts above every cat come from the relay's own key counts.
   function drawKeyReward(ctx, atlas) {
+    // ABSORB_SPEC §6 (Phase 4) pays the solo clear its key; until then the clear itself is the prize.
+    if (solo) { text(ctx, 'SKILL CLEARED · NEXT ROUND AT THE DOOR', 350, 272, 12, KEY_GOLD); return; }
     const key = ATLAS.key;
     // Row 269 holds hold/retry messages, which never show once the team is complete.
     if (atlas && key) ctx.drawImage(atlas, key.x, key.y, key.w, key.h, 350, 258, key.w, key.h);
     text(ctx, '+1 KEY FOR EVERY TEAMMATE', 350 + (atlas && key ? key.w + 8 : 0), 272, 12, KEY_GOLD);
     const age = rewardShownAt == null ? Infinity : (performance.now() - rewardShownAt) / 1000;
     if (age < 3) text(ctx, '+1', player.x - ENTRY_WIDTH + 10, player.y - 36 - age * 12, 14, KEY_GOLD, 'center');
+  }
+  // The pushable team block with its live pusher count (team room only).
+  function drawTeamBlock(ctx, atlas) {
+    const blockX = lobby?.blockX ?? TEAM_BLOCK.start;
+    const block = ATLAS.pushBox;
+    if (atlas && block) ctx.drawImage(atlas, block.x, block.y, block.w, block.h, blockX, TEAM_BLOCK.y, TEAM_BLOCK.w, TEAM_BLOCK.h);
+    else art.block(ctx, { x: blockX, y: TEAM_BLOCK.y, w: TEAM_BLOCK.w, h: TEAM_BLOCK.h });
+    const count = lobby?.phase === 'gathering' ? lobby.pushers.length : lobby?.roster.length || 0;
+    text(ctx, String(count), blockX + 16, TEAM_BLOCK.y + 21, 14, ink, 'center');
+    text(ctx, count + (count === 1 ? ' PUSHER' : ' PUSHERS'), blockX + 16, TEAM_BLOCK.y - 9, 10, ink, 'center');
   }
   // §3 navigator card. Two small rows in the status column's free gaps (between the title at y 112
   // and the timer at 143, and between 143 and 175), then the window of my steps the team still
@@ -874,6 +954,7 @@ export function mountParkPanel({ container, getSocket, board, onClose, onPark = 
     return Object.entries(level.values).map(([key, value]) => key + '=' + JSON.stringify(value)).join('  ');
   }
   function pointer(event) {
+    if (reloadNeeded) { event.preventDefault(); event.stopImmediatePropagation(); reload(); return; }
     if (state?.solved) { event.preventDefault(); event.stopImmediatePropagation(); return; }
     const rect = engine.canvas.getBoundingClientRect();
     const worldX = (event.clientX - rect.left) / scale() + Math.round(cameraX);
@@ -888,6 +969,7 @@ export function mountParkPanel({ container, getSocket, board, onClose, onPark = 
       return;
     }
     if (event.type === 'keyup') return;
+    if (event.key === 'Enter' && reloadNeeded && !event.repeat) { event.preventDefault(); reload(); return; }
     if (event.key === 'Escape') { event.preventDefault(); returnToStart(); }
     // Number keys choose answer tiles (keyboard equivalent of clicking or standing on one).
     if (/^[1-9]$/.test(event.key) && !event.repeat && participating && state && answering() && !state.solved
@@ -947,10 +1029,20 @@ export function mountParkPanel({ container, getSocket, board, onClose, onPark = 
   engine.canvas.addEventListener('click', pointer, true); doc.addEventListener('keydown', key);
   doc.addEventListener('keyup', key);
   doc.addEventListener('visibilitychange', visibility);
-  const timer = setInterval(pump, peerMotion.supported ? 50 : 100); pump();
-  return { kind: 'calculator', dispose, startMission, returnToStart, getState: () => state,
+  const timer = setInterval(pump, peerMotion.supported ? 50 : 100);
+  // A solo deep link is the intent to practise: open on the keypad and join at once.
+  if (solo) { startMission(); setParticipating(true); }
+  pump();
+  // The board calls this on hashchange: true when the page's hash now asks for a different room
+  // (team <-> solo, another skill, another topic). The board then leaves this panel and mounts
+  // the requested one, which parses the new hash itself (a fragment-only navigation never reloads).
+  function linkChanged(hash) {
+    const next = parseRoomLink(hash);
+    return next.mode !== link.mode || next.skill !== link.skill || next.topic !== link.topic;
+  }
+  return { kind: 'calculator', dispose, startMission, returnToStart, linkChanged, getState: () => state,
     getNetworkStats: () => peerMotion.stats(),
-    getView: () => ({ keyReward: !!state?.complete, cameraX, playerX: player.x, playerY: player.y, participating, campaignUnlocked: campaignUnlocked(), entranceX: ENTRY_WIDTH, lobby, missionId: level.id, challenge,
+    getView: () => ({ mode: solo ? 'solo' : 'team', skill: soloSkill, link: { ...link }, keyReward: !!state?.complete, reloadNeeded, cameraX, playerX: player.x, playerY: player.y, participating, campaignUnlocked: campaignUnlocked(), entranceX: ENTRY_WIDTH, lobby, missionId: level.id, challenge,
       keyCounts: Object.fromEntries([board.username, ...lobbyPeers.keys(), ...peers.keys()].map(name => [name, keyCount(name)])),
       resetDoor: state?.complete ? { ...RESET_DOOR } : null, lines: display.getLines(), ...coachingView() }),
     getCalculatorScreen: () => calculator.getScreen(),

@@ -55,6 +55,28 @@ all 48 transitions and wraparound, retry, reconnect, and membership. These are
 integration checks, not proof that every puzzle has been manually completed or
 that the recovered engine has exact native-game parity.
 
+## Calculator Solo (deep link, protocol 13)
+
+The same room with `mode: 'solo'` (`calculator-room.mjs`, one switch, no second file):
+`#room=calc-solo&skill=<skillId>` opens the student's own round on that skill at once,
+`#room=calc-solo&topic=<topic>` resolves the topic's first skill through
+`data/ti84-lesson-map.json`, and `#room=calc-solo` plays the section's rotation. No
+team block, no roster, no navigator round; the relay (`createSoloRound` beside the team
+round in `calculator-service.mjs`) keeps one room per student with the same clock, press
+judgement, random data and `park_calc_clears` count. The door at the end starts the next
+round on the same pinned skill with new data, where the student stands. Changing the hash on
+the same document (team to solo, another skill or topic) is routed by `classroom-board.js`:
+it leaves the mounted room and mounts the requested one. A solo clear
+pays no key yet (APSTAT_PARK_TRAINER_ABSORB_SPEC §6 is Phase 4). Bonus-only skills
+(geometpdf, geometcdf, chi-square-gof-test, linreg-ttest, linreg-tint) are reachable by
+deep link only. A page whose protocol the relay refuses stops joining, draws
+NEW VERSION - RELOAD THE PAGE (click or Enter reloads) and keeps the relay's message in the
+screen-reader status; the relay answers such a page once, then drops its mismatched packets
+for 10 s (the Desk's version.json nudge is what refreshes it). Any other refusal retries the
+join at the usual 1.5 s. Tests: `calculator-room-solo.test.mjs` (client, with a recording
+canvas that decodes the pixel font), `calculator-solo.test.mjs` (relay); browser smoke
+`calculator-solo-browser-smoke.mjs`.
+
 ## Calculator Together (main room)
 
 The student room is one continuous scrolling world with an orange floor. Walk

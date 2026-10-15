@@ -31,8 +31,8 @@ const randIntProblems = CALCULATOR_PROBLEMS.filter(problem => RANDINT_SKILLS.has
 const drawOf = level => level.finalView.at(-1).replace(/[{}]/g, '').split(' ').map(Number);
 const digits = value => String(value).length;
 
-test('protocol 11: the round packet carries the templated route', () => {
-  assert.equal(CALCULATOR_PROTOCOL, 11);
+test('protocol 13: the round packet carries the templated route (11), the solo mode (12), the waiting reset (13)', () => {
+  assert.equal(CALCULATOR_PROTOCOL, 13);
 });
 
 test('the catalogue has the five randIntNoRep problems, all varied', () => {

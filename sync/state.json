@@ -1,15 +1,15 @@
 {
-  "synced_at": "2026-10-15T02:10:27.665Z",
+  "synced_at": "2026-10-15T23:09:37.923Z",
   "parents": {
     "fa": {
       "path": "../follow-alongs",
-      "head": "8f395e818a4fc177eeef32a496ea0f8774cbfcc6",
+      "head": "a8c1e0c45cf1a275b18e0fa7f92b3871aa510db8",
       "branch": "master",
       "dirty": true
     },
     "cr": {
       "path": "../curriculum_render",
-      "head": "a705abe8012fa2ddb015319a060e9573f7bdebad",
+      "head": "12f12c0574f8975c06ac1f7848dcdfe529b850e9",
       "branch": "main",
       "dirty": false
     }
