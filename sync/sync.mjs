@@ -2,6 +2,8 @@
 // Rebuild every mirror in sync/manifest.json from the parent repos' HEAD.
 //   node sync/sync.mjs           sync, transform, identity-rewrite, write sync/state.json
 //   node sync/sync.mjs --check   read-only: exit 1 if a parent has commits not yet synced
+//   --parents-root <dir>         look for the parent checkouts in <dir> (by the folder name in
+//                                manifest.json) instead of next to this repo; for worktrees
 // See sync/README.md. Node builtins only.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -19,7 +21,23 @@ const manifest = JSON.parse(fs.readFileSync(path.join(SYNC, 'manifest.json'), 'u
 const NATIVE = manifest.native.map((g) => (g.startsWith('/') ? g : `/${g}`));
 const identity = JSON.parse(fs.readFileSync(path.join(ROOT, 'config', 'identity.json'), 'utf8'));
 const CHECK = process.argv.includes('--check');
+const PARENTS_ROOT = readParentsRoot();
 const prevState = fs.existsSync(STATE) ? JSON.parse(fs.readFileSync(STATE, 'utf8')) : null;
+
+function readParentsRoot() {
+  const i = process.argv.indexOf('--parents-root');
+  if (i === -1) return null;
+  const dir = process.argv[i + 1];
+  if (!dir) throw new Error('--parents-root needs a directory');
+  return path.resolve(dir);
+}
+
+// Manifest paths are relative to the repo root ("../follow-alongs"). With --parents-root the
+// checkout is found by its folder name in that directory instead (for a worktree elsewhere).
+function parentDir(p) {
+  if (!PARENTS_ROOT) return path.resolve(ROOT, p.path);
+  return path.join(PARENTS_ROOT, path.basename(p.path));
+}
 
 function git(cwd, args, opts = {}) {
   const r = spawnSync('git', ['-C', cwd, ...args], { maxBuffer: 2 ** 31 - 1, encoding: opts.binary ? 'buffer' : 'utf8' });
@@ -32,7 +50,7 @@ const warn = (m) => { warnings.push(m); console.log(`  WARN ${m}`); };
 // ---- parents ------------------------------------------------------------------------------
 const parents = {};
 for (const [id, p] of Object.entries(manifest.parents)) {
-  const dir = path.resolve(ROOT, p.path);
+  const dir = parentDir(p);
   const head = git(dir, ['rev-parse', 'HEAD']);
   const branch = git(dir, ['rev-parse', '--abbrev-ref', 'HEAD']);
   const dirtyFiles = git(dir, ['status', '--porcelain', '--untracked-files=no'], { raw: true }).split('\n').filter(Boolean).map((l) => l.slice(3));
@@ -186,13 +204,20 @@ for (const t of targets) {
   if (t.endsWith('/')) for (const rel of walk(ROOT, t.slice(0, -1))) existing.add(rel);
   else if (fs.existsSync(path.join(ROOT, t))) existing.add(t);
 }
+// The paths in `list` that a .gitignore pattern matches, tracked or not. check-ignore exits 0
+// when some path is ignored and 1 when none is; anything else is an error, and it must stop the
+// sync before anything is deleted.
 const checkIgnored = (list) => {
   if (!list.length) return new Set();
-  const r = spawnSync('git', ['-C', ROOT, 'check-ignore', '--no-index', '--stdin'], { input: list.join('\n'), encoding: 'utf8', maxBuffer: 2 ** 28 });
-  return new Set(r.stdout.split('\n').map((l) => l.trim()).filter(Boolean));
+  const r = spawnSync('git', ['-C', ROOT, 'check-ignore', '--no-index', '-z', '--stdin'], { input: list.join('\0'), encoding: 'utf8', maxBuffer: 2 ** 28 });
+  if (r.status !== 0 && r.status !== 1) throw new Error(`git check-ignore failed: ${r.error?.message || r.stderr}`);
+  return new Set(r.stdout.split('\0').filter(Boolean));
 };
+const tracked = new Set(git(ROOT, ['ls-files', '-z'], { raw: true }).split('\0').filter(Boolean));
 const stale = [...existing].filter((rel) => !plan.has(rel) && !matchesAny(rel, NATIVE));
-const ignoredStale = checkIgnored(stale);
+// Untracked + gitignored = a local file (.env, tool state, media cache): leave it alone.
+// Tracked = a mirror file the parent no longer has (even a force-added, gitignored one): delete it.
+const ignoredStale = checkIgnored(stale.filter((rel) => !tracked.has(rel)));
 let deleted = 0, written = 0;
 for (const rel of stale) {
   if (ignoredStale.has(rel)) continue;
@@ -212,7 +237,6 @@ for (const [rel, buf] of plan) {
 }
 // Parents force-add a few files their own .gitignore matches (site/.gitignore mirrors that
 // .gitignore). Tracked here already = fine; otherwise they need `git add -f` once.
-const tracked = new Set(git(ROOT, ['ls-files', '-z'], { raw: true }).split('\0'));
 const ignoredMirrored = new Set([...checkIgnored([...plan.keys()])].filter((rel) => !tracked.has(rel)));
 
 // ---- state ----------------------------------------------------------------------------------

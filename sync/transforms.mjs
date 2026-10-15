@@ -21,7 +21,6 @@ import fs from 'node:fs';
 const identity = JSON.parse(fs.readFileSync(new URL('../config/identity.json', import.meta.url), 'utf8'));
 const sitePath = new URL(identity.current.site_base + '/').pathname;          // "/apstat-park/"
 const quizPath = new URL(identity.current.quiz_base).pathname.slice(1);      // "apstat-park/quiz"
-const regexEscapedUrl = (url) => url.replace(/[/.]/g, (c) => '\\' + c);       // as written in a JS regex literal
 
 export default [
   // ---------------------------------------------------------------- relay (services/relay)
@@ -248,10 +247,7 @@ export default [
       ["'curriculum_render/verify.html'", `'${quizPath}/verify.html'`],
     ],
   },
-  {
-    id: 'site-dok-url-regex',
-    why: 'desk-dok-ladder-row.test.js and desk-teacher-dok-app.test.js pin the DOK app URL with a regex literal; the identity rewrite changes the URL in the Desk, so the regex must follow (derived from config/identity.json).',
-    files: ['site/tests/desk-dok-ladder-row.test.js', 'site/tests/desk-teacher-dok-app.test.js'],
-    replace: [[regexEscapedUrl(identity.parents.site_base), regexEscapedUrl(identity.current.site_base)]],
-  },
+  // desk-dok-ladder-row / desk-teacher-dok-app pin the DOK URL as a regex literal
+  // (https:\/\/...\.io\/...): no transform needed, the identity rewrite's derived
+  // "site_base (regex)" pair (sync/rewrite.mjs) covers it in sync and in rebrand alike.
 ];

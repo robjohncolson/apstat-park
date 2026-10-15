@@ -63,17 +63,63 @@ export function rewriteBuffer(buf, pairs) {
 }
 
 // Build [key, from, to] pairs from two identity maps, in rewrite_order, skipping equal values.
+// The explicit keys come first; then the shorter forms derived from them (see derivedForms),
+// so a longer literal is always replaced before a shorter literal it contains.
 export function identityPairs(fromMap, toMap, order) {
   const pairs = [];
   for (const key of order) {
     const a = fromMap[key], b = toMap[key];
     if (a === undefined || b === undefined) throw new Error(`identity key ${key} missing`);
-    if (a !== b) {
-      if (b.includes(a)) throw new Error(`identity ${key}: new value contains old value; rewrite would not be idempotent`);
-      pairs.push([key, a, b]);
-    }
+    addPair(pairs, key, a, b);
+  }
+  for (const key of order) {
+    const fromForms = derivedForms(key, fromMap[key]);
+    const toForms = derivedForms(key, toMap[key]);
+    for (const [label, a] of Object.entries(fromForms)) addPair(pairs, label, a, toForms[label]);
   }
   return pairs;
+}
+
+function addPair(pairs, key, from, to) {
+  if (from === to) return;
+  if (from === undefined || to === undefined) throw new Error(`identity ${key}: old and new values must have the same form`);
+  if (to.includes(from)) throw new Error(`identity ${key}: new value contains old value; rewrite would not be idempotent`);
+  pairs.push([key, from, to]);
+}
+
+// Forms of an identity value that files also contain on their own, longest first:
+//   roster_url, relay_url  the WebSocket URL (https -> wss, http -> ws), e.g. the relay socket
+//   site_base              as a JS regex literal (tests pin URLs with /https:\/\/...\.io\/.../),
+//                          the origin (CORS allow-lists), the host as a regex literal, the bare
+//                          host (hostname checks)
+// quiz_base needs nothing: its origin is site_base's. Returns { "key (form)": value }.
+function derivedForms(key, value) {
+  if (key === 'roster_url' || key === 'relay_url') {
+    const ws = webSocketUrl(value);
+    if (!ws) return {};
+    return { [`${key} (wss)`]: ws };
+  }
+  if (key === 'site_base') {
+    const url = new URL(value);
+    return {
+      [`${key} (regex)`]: regexEscaped(value),
+      [`${key} (origin)`]: url.origin,
+      [`${key} (host regex)`]: regexEscaped(url.host),
+      [`${key} (host)`]: url.host,
+    };
+  }
+  return {};
+}
+
+function webSocketUrl(url) {
+  if (url.startsWith('https://')) return 'wss://' + url.slice('https://'.length);
+  if (url.startsWith('http://')) return 'ws://' + url.slice('http://'.length);
+  return null;
+}
+
+// "https://a.b/c" -> "https:\/\/a\.b\/c", as the URL is written inside a JS regex literal.
+function regexEscaped(text) {
+  return text.replace(/[/.]/g, (c) => '\\' + c);
 }
 
 export const inRewriteScope = (rel, identity) =>

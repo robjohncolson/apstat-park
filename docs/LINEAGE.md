@@ -52,3 +52,16 @@ retired, this repo is **derived**: run `node sync/sync.mjs` after any parent com
   CI checked out the second repo. These are rewritten by `sync/transforms.mjs` and listed there with their reasons.
 - **Supabase migrations have one home.** `supabase/` carries both chains in the order a fresh project must run them.
 - **Secrets are documented, never stored.** `services/*/.env.example` lists every variable each service reads.
+
+## Known gaps
+
+- **`site/scripts/build-work-manifest-ced.mjs --deploy` still writes to `site/roster-server/`.** Left
+  untransformed on purpose: `work-manifest-ced-regression.test.js` runs `--deploy` against a temp root laid
+  out like the old repo. Copy the result to `services/roster/data/` by hand until the parent fixes the path.
+- **`site/u3_random_block_review.html` links to `../curriculum_render/worksheets/u3l5.html` and
+  `../curriculum_render/pdf/u3l5_worksheet.pdf`.** The quiz's `worksheets/` and `pdf/` are mirrored to
+  `content/quiz/` (not published), so these links only work while the old curriculum_render Pages site is up.
+- **`site/tests/frq-rubric-transparency.test.js` fails here.** It reads `git show 72766e65:u1_lesson1_live.html`,
+  a commit that exists only in the follow-alongs history (this repo starts fresh).
+- **One parent test is excluded: `tests/secure-key-plugin.test.js`.** It tests `android-app/`, which was
+  dropped (see the table above).

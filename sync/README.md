@@ -10,6 +10,7 @@ parent and sync, or, if the change is only true here, add a transform.
 ```bash
 node sync/sync.mjs           # rebuild all mirrors, apply transforms + identity rewrite, update state.json
 node sync/sync.mjs --check   # read-only: lists parent commits not yet synced; exit 1 if any
+node sync/sync.mjs --parents-root <dir>   # find the parent checkouts in <dir> (by folder name), e.g. from a worktree
 ```
 
 A sync:
@@ -20,9 +21,12 @@ A sync:
    relative to the mirror's `from`), plus the single `files`. Paths in `native` are never written or
    deleted. Two mirrors writing the same path is an error.
 3. Applies `transforms.mjs`, then the identity rewrite (`config/identity.json`: `parents` -> `current`,
-   in `rewrite_order`, text files under `rewrite_scope` only).
-4. Deletes files under the targets that the parents no longer have (gitignored local files such as
-   `.env` and `node_modules/` are left alone) and writes only files whose bytes changed. Line endings
+   in `rewrite_order`, text files under `rewrite_scope` only). After the explicit keys come forms
+   derived from them (`sync/rewrite.mjs` `derivedForms`): the `wss://` form of `roster_url` and
+   `relay_url`, and for `site_base` its JS-regex-escaped form, origin, and host (plain and escaped).
+4. Deletes files under the targets that the parents no longer have, including tracked files that a
+   .gitignore matches (untracked gitignored local files such as `.env` and `node_modules/` are left
+   alone), and writes only files whose bytes changed. Line endings
    are preserved byte for byte.
 5. Writes `state.json` (parent shas, branches, dirty flags, time) only if something changed, so a
    second sync with no parent change leaves `git status` clean.

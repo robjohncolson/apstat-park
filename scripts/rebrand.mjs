@@ -6,7 +6,8 @@
 // new-identity.json is either a full identity file (its `current` block is used) or a flat
 // { key: value } map with any subset of the keys in config/identity.json `current`.
 // Every literal `current[key]` in the rewrite scope becomes the new value (same engine and
-// order as sync/sync.mjs), then config/identity.json `current` is updated.
+// order as sync/sync.mjs, including the derived wss/origin/host/regex forms that
+// sync/rewrite.mjs adds), then config/identity.json `current` is updated.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -83,4 +84,5 @@ Rebrand cannot do these; do them by hand:
   - Schoology (or any LMS): links posted to students still point at the old URLs.
   - While this repo is still derived from the parents, run \`node sync/sync.mjs\` afterwards: it
     re-applies parents -> current from config/identity.json, including the identity-derived
-    transforms in sync/transforms.mjs (test regexes, path prefixes) that a literal rewrite misses.`);
+    transforms in sync/transforms.mjs (Pages path prefixes in tests) that a literal rewrite misses
+    when the repo name in site_base changes.`);
