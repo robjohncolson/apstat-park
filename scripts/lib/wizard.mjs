@@ -27,12 +27,37 @@ export function isNewTeacher(ctx, answers) {
   return user !== String(ctx.originalUser).toLowerCase();
 }
 
-// Default for a Railway URL: the teacher's previous answer (.env) or identity.json, but NEVER the
-// original teacher's live deployment for a new teacher. Empty means they must type a URL or `later`.
+// The teacher's previous answers as one identity: identity.json's current block overlaid with a
+// previous setup run's identity.next.json (next wins). Every default reads from this, so a re-run
+// before rebrand keeps one coherent identity instead of mixing two teachers.
+export function previousIdentity(cur, next) {
+  const hasNext = Object.keys(next).length > 0;
+  if (!hasNext) return { ...cur };
+  const prev = { ...cur, ...next };
+  // setup drops teacher_name from identity.next.json when it was left blank; keep it blank.
+  if (!('teacher_name' in next)) delete prev.teacher_name;
+  return prev;
+}
+
+// Default for site_base: the previous value while owner and repo are unchanged (it may be a custom
+// domain); otherwise the GitHub Pages URL derived from the new owner/repo.
+function siteBaseDefault(ctx, answers) {
+  const prev = ctx.prev;
+  const derived = pagesBase(answers.github_user, answers.repo);
+  if (!prev.site_base) return derived;
+  const sameUser = String(answers.github_user).toLowerCase() === String(prev.github_user || '').toLowerCase();
+  const sameRepo = answers.repo === prev.site_repo;
+  if (!sameUser || !sameRepo) return derived;
+  return trimUrl(prev.site_base);
+}
+
+// Default for a Railway URL: the teacher's previous answer (.env, then the previous identity), but
+// NEVER the original teacher's live deployment for a new teacher. Empty means they must type a URL or
+// `later`.
 function railwayDefault(ctx, answers, id) {
   const candidates = id === 'roster_url'
-    ? [ctx.env.relay.ROSTER_SERVICE_URL, ctx.cur.roster_url]
-    : [ctx.env.roster.PARK_RELAY_URL, ctx.cur.relay_url];
+    ? [ctx.env.relay.ROSTER_SERVICE_URL, ctx.prev.roster_url]
+    : [ctx.env.roster.PARK_RELAY_URL, ctx.prev.relay_url];
   for (const raw of candidates) {
     const url = trimUrl(raw);
     if (!url) continue;
@@ -42,16 +67,13 @@ function railwayDefault(ctx, answers, id) {
   return '';
 }
 
-// Default for a Supabase value: identity.json's current value, but NEVER the original teacher's
+// Default for a Supabase value: the previous identity's value, but NEVER the original teacher's
 // project for a new teacher (their students' data must not land in the original database).
 function supabaseDefault(ctx, answers, id) {
-  for (const raw of [ctx.next[id], ctx.cur[id]]) {
-    const value = String(raw || '').trim();
-    if (!value) continue;
-    if (isNewTeacher(ctx, answers) && value === ctx.originalSupabase[id]) continue;
-    return value;
-  }
-  return '';
+  const value = String(ctx.prev[id] || '').trim();
+  if (!value) return '';
+  if (isNewTeacher(ctx, answers) && value === ctx.originalSupabase[id]) return '';
+  return value;
 }
 
 // `later` (any case) becomes the placeholder URL; everything else is returned unchanged.
@@ -64,9 +86,9 @@ export function expandLater(question, value) {
 // The questions, in order. `def(ctx, answersSoFar)` gives the default shown to the teacher.
 export function questions() {
   return [
-    { id: 'github_user', q: 'GitHub user (owner of the repo)', def: (c) => c.cur.github_user || '' },
-    { id: 'repo', q: 'Repo name', def: (c) => c.cur.site_repo || 'apstat-park' },
-    { id: 'site_base', q: 'GitHub Pages base URL (derived; confirm or replace)', def: (c, a) => pagesBase(a.github_user, a.repo), url: true },
+    { id: 'github_user', q: 'GitHub user (owner of the repo)', def: (c) => c.prev.github_user || '' },
+    { id: 'repo', q: 'Repo name', def: (c) => c.prev.site_repo || 'apstat-park' },
+    { id: 'site_base', q: 'GitHub Pages base URL (derived; confirm or replace)', def: (c, a) => siteBaseDefault(c, a), url: true },
     { id: 'roster_url', q: 'Roster Railway URL (services/roster), or "later"', def: (c, a) => railwayDefault(c, a, 'roster_url'), url: true, deferrable: true },
     { id: 'relay_url', q: 'Relay Railway URL (services/relay), or "later"', def: (c, a) => railwayDefault(c, a, 'relay_url'), url: true, deferrable: true },
     { id: 'supabase_url', q: 'Core Supabase URL', def: (c, a) => supabaseDefault(c, a, 'supabase_url'), url: true },
@@ -79,15 +101,19 @@ export function questions() {
       def: (c) => c.env.operator.CONTENT_SUPABASE_SERVICE_KEY || '' },
     { id: 'groq_api_key', q: 'Groq API key (Groq and/or DeepSeek; at least one)', secret: true, optional: true, def: (c) => c.env.relay.GROQ_API_KEY || '' },
     { id: 'deepseek_api_key', q: 'DeepSeek API key', secret: true, optional: true, def: (c) => c.env.relay.DEEPSEEK_API_KEY || '' },
-    { id: 'teacher_name', q: 'Teacher display name', optional: true, def: (c) => c.cur.teacher_name || '' },
+    { id: 'teacher_name', q: 'Teacher display name', optional: true, def: (c) => c.prev.teacher_name || '' },
     { id: 'sections', q: 'Sections (Key:Label;Key:Label)', def: (c) => c.env.roster.OPEN_SIGNUP_SECTIONS || c.sectionsDefault }
   ];
 }
 
 export function makeContext(schema, identity, existing) {
   const parents = identity.parents || {};
+  const cur = identity.current || {};
+  const next = existing.next || {};
   return {
-    cur: identity.current || {},
+    cur,
+    next,
+    prev: previousIdentity(cur, next),
     originalUser: parents.github_user || 'robjohncolson',
     originalUrls: { roster_url: parents.roster_url || '', relay_url: parents.relay_url || '' },
     originalSupabase: {
@@ -95,7 +121,6 @@ export function makeContext(schema, identity, existing) {
       content_supabase_url: parents.content_supabase_url || '', content_supabase_anon_key: parents.content_supabase_anon_key || ''
     },
     env: { roster: existing.roster || {}, relay: existing.relay || {}, operator: existing.operator || {} },
-    next: existing.next || {},
     sectionsDefault: schema.roster?.recommended?.OPEN_SIGNUP_SECTIONS?.default || ''
   };
 }

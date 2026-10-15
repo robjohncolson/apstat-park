@@ -71,6 +71,13 @@ if (!dryRun) {
   identity.current = next;
   fs.writeFileSync(IDENTITY, JSON.stringify(identity, null, 2) + '\n');
   console.log('config/identity.json `current` updated.');
+  // The wizard's identity.next.json is consumed: its content now lives in identity.json, and a
+  // stale copy would otherwise win over identity.json on the next setup re-run.
+  const toFile = path.resolve(args[toIndex + 1]);
+  if (toFile === path.join(ROOT, 'config', 'identity.next.json')) {
+    fs.unlinkSync(toFile);
+    console.log('config/identity.next.json removed (applied).');
+  }
 }
 
 console.log(`

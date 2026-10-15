@@ -20,7 +20,7 @@ const json = (status, body) => new Response(JSON.stringify(body), { status, head
 function fakeFetch(site, overrides = {}) {
   return async (url) => {
     for (const [frag, res] of Object.entries(overrides)) if (url.includes(frag)) return res();
-    if (url.endsWith('/health') && url.includes('roster')) return json(200, { ok: true, service: 'roster', commit: 'abc123' });
+    if (url.endsWith('/health') && url.includes('roster')) return json(200, { ok: true, service: 'roster', commit: 'abc123', receipts: { enabled: true, pubkey: 'RPUB', persistFailures: 0 } });
     if (url.endsWith('/health')) return json(200, { status: 'healthy', receipts: { enabled: true, pubkey: 'PUB' } });
     if (url.endsWith('/rest/v1/')) return json(401, { message: 'Invalid API key', hint: 'Only the `service_role` API key can be used for this endpoint.' });
     if (url.includes('lesson_urls')) return json(200, [{ topic: '1.1', worksheet_url: `${site}/u1_lesson1_live.html` }]);
@@ -131,4 +131,78 @@ test('doctor: placeholder Railway URLs in the identity are FAIL, not probed', as
   assert.equal(row.status, 'FAIL');
   assert.match(row.note, /placeholder/);
   assert.ok(!probed.some((u) => u.includes('TODO-')));
+});
+
+const ROSTER_HEALTH = 'roster-production-12c1.up.railway.app/health';
+const RELAY_HEALTH = 'curriculumrender-production.up.railway.app/health';
+
+async function doctorWith(t, overrides) {
+  const root = scratch();
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const site = JSON.parse(fs.readFileSync(path.join(root, 'config', 'identity.json'))).current.site_base;
+  const res = await runDoctor({ root, gh: noGh, fetchImpl: fakeFetch(site, overrides) });
+  const row = (check) => res.rows.find((r) => r.check === check || r.check.startsWith(`${check} `));
+  return { res, row };
+}
+
+test('doctor: healthy services PASS both the status field and receipts', async (t) => {
+  const { res, row } = await doctorWith(t, {});
+  assert.equal(res.ok, true, JSON.stringify(res.rows));
+  assert.equal(row('roster receipts').status, 'PASS');
+  assert.equal(row('relay receipts').status, 'PASS');
+  assert.match(row('relay').note, /status:healthy/);
+});
+
+test('doctor: a 200 HTML page on /health is FAIL (wrong endpoint)', async (t) => {
+  const { res, row } = await doctorWith(t, { [RELAY_HEALTH]: () => new Response('<html>Railway</html>', { status: 200 }) });
+  assert.equal(res.ok, false);
+  assert.equal(row('relay').status, 'FAIL');
+  assert.match(row('relay').note, /not a JSON object/);
+  assert.equal(row('relay receipts'), undefined, 'receipts not judged on a bad body');
+});
+
+test('doctor: relay status other than healthy is FAIL and names the field', async (t) => {
+  const { row } = await doctorWith(t, { [RELAY_HEALTH]: () => json(200, { status: 'unhealthy', receipts: { enabled: true, pubkey: 'PUB' } }) });
+  assert.equal(row('relay').status, 'FAIL');
+  assert.match(row('relay').note, /"status" is "unhealthy", expected "healthy"/);
+});
+
+test('doctor: roster body without ok is FAIL and names the field', async (t) => {
+  const { row } = await doctorWith(t, { [ROSTER_HEALTH]: () => json(200, { service: 'roster' }) });
+  assert.equal(row('roster').status, 'FAIL');
+  assert.match(row('roster').note, /no "ok" field/);
+});
+
+test('doctor: missing receipts object or receipts.enabled is FAIL (old deployment)', async (t) => {
+  const { row } = await doctorWith(t, {
+    [ROSTER_HEALTH]: () => json(200, { ok: true }),
+    [RELAY_HEALTH]: () => json(200, { status: 'healthy', receipts: { pubkey: 'PUB' } })
+  });
+  assert.equal(row('roster').status, 'PASS');
+  assert.equal(row('roster receipts').status, 'FAIL');
+  assert.match(row('roster receipts').note, /no "receipts" object/);
+  assert.equal(row('relay receipts').status, 'FAIL');
+  assert.match(row('relay receipts').note, /no "receipts\.enabled" field/);
+});
+
+test('doctor: non-boolean receipts.enabled is FAIL', async (t) => {
+  const { row } = await doctorWith(t, { [RELAY_HEALTH]: () => json(200, { status: 'healthy', receipts: { enabled: 'yes', pubkey: 'PUB' } }) });
+  assert.equal(row('relay receipts').status, 'FAIL');
+  assert.match(row('relay receipts').note, /receipts\.enabled is "yes", expected true/);
+});
+
+test('doctor --env: REVIEW_GRANT_PUBKEY matching the live relay pubkey is PASS', async (t) => {
+  const root = scratch();
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const site = JSON.parse(fs.readFileSync(path.join(root, 'config', 'identity.json'))).current.site_base;
+  const { publicKey } = ed25519();
+  fs.mkdirSync(path.join(root, 'services', 'roster'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'services', 'roster', '.env'), `REVIEW_GRANT_PUBKEY=${publicKey}\n`);
+  const res = await runDoctor({
+    root, withEnv: true, gh: noGh,
+    fetchImpl: fakeFetch(site, { [RELAY_HEALTH]: () => json(200, { status: 'healthy', receipts: { enabled: true, pubkey: publicKey } }) })
+  });
+  const row = res.rows.find((r) => r.check === 'roster REVIEW_GRANT_PUBKEY vs live relay issuer');
+  assert.equal(row.status, 'PASS');
+  assert.equal(row.note, 'match');
 });

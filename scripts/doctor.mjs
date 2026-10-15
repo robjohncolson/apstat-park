@@ -51,35 +51,64 @@ function placeholderFail(add, label, url) {
   return true;
 }
 
-// Both /health bodies carry receipts: { enabled, pubkey }. Disabled receipts mean the issuer key is
-// missing or unparseable, which silently stops ledger receipts (roster) or AI review grants (relay).
-function receiptsFail(add, label, url, json) {
-  if (json?.receipts?.enabled !== false) return;
-  add('FAIL', `${label} receipts`, `${url}/health reports receipts.enabled=false: RECEIPT_ISSUER_PRIVATE_KEY is unset or not a base64 PKCS8 Ed25519 key`);
+// The /health JSON contract of each service, read from the handlers in services/roster/server.js and
+// services/relay/server.js:
+//   roster: { ok: true, service: 'roster', receipts: { enabled, pubkey, persistFailures }, commit, ... }
+//   relay:  { status: 'healthy', receipts: { enabled, pubkey }, ... }
+// A 200 that does not match (an HTML page, a different service, an old deployment) is a FAIL.
+const HEALTH_CONTRACT = {
+  roster: { field: 'ok', value: true },
+  relay: { field: 'status', value: 'healthy' }
+};
+
+function isJsonObject(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
-async function checkRoster(fetchImpl, url, add) {
-  if (placeholderFail(add, 'roster', url)) return null;
-  const r = await get(fetchImpl, `${url}/health`);
-  if (r.status !== 200 || r.json?.ok !== true) {
-    add('FAIL', `roster ${url}/health`, r.status === 200 ? 'body is not {"ok":true,...}' : why(r));
-    return r;
-  }
-  add('PASS', `roster ${url}/health`, `ok:true${r.json.commit ? `, commit ${r.json.commit}` : ', no commit reported (not on Railway?)'}`);
-  receiptsFail(add, 'roster', url, r.json);
-  return r;
+// Returns '' when the response matches the service's status field, or why it does not.
+function healthProblem(svc, r) {
+  if (r.status !== 200) return why(r);
+  if (!isJsonObject(r.json)) return 'body is not a JSON object (wrong URL, or not this service?)';
+  const { field, value } = HEALTH_CONTRACT[svc];
+  if (!(field in r.json)) return `body has no "${field}" field (expected ${JSON.stringify(value)})`;
+  if (r.json[field] !== value) return `"${field}" is ${JSON.stringify(r.json[field])}, expected ${JSON.stringify(value)}`;
+  return '';
 }
 
-async function checkRelay(fetchImpl, url, add) {
-  if (placeholderFail(add, 'relay', url)) return null;
-  const r = await get(fetchImpl, `${url}/health`);
-  if (r.status !== 200) {
-    add('FAIL', `relay ${url}/health`, why(r));
-    return r;
+// Returns '' when receipts are enabled, or why not. Disabled receipts mean the issuer key is missing
+// or unparseable, which silently stops ledger receipts (roster) or AI review grants (relay).
+function receiptsProblem(json) {
+  if (!isJsonObject(json.receipts)) return 'body has no "receipts" object (old deployment?)';
+  if (!('enabled' in json.receipts)) return 'body has no "receipts.enabled" field (old deployment?)';
+  if (json.receipts.enabled !== true) {
+    return `receipts.enabled is ${JSON.stringify(json.receipts.enabled)}, expected true: RECEIPT_ISSUER_PRIVATE_KEY is unset or not a base64 PKCS8 Ed25519 key`;
   }
-  add('PASS', `relay ${url}/health`, `200${r.json?.status ? `, ${r.json.status}` : ''}`);
-  receiptsFail(add, 'relay', url, r.json);
-  return r;
+  return '';
+}
+
+function healthNote(svc, json) {
+  if (svc === 'relay') return 'status:healthy';
+  if (json.commit) return `ok:true, commit ${json.commit}`;
+  return 'ok:true, no commit reported (not on Railway?)';
+}
+
+// Probes <url>/health. Returns the parsed body when it matches the contract, otherwise null.
+async function checkHealth(fetchImpl, svc, url, add) {
+  if (placeholderFail(add, svc, url)) return null;
+  const r = await get(fetchImpl, `${url}/health`);
+  const problem = healthProblem(svc, r);
+  if (problem) {
+    add('FAIL', `${svc} ${url}/health`, problem);
+    return null;
+  }
+  add('PASS', `${svc} ${url}/health`, healthNote(svc, r.json));
+  const receipts = receiptsProblem(r.json);
+  if (receipts) {
+    add('FAIL', `${svc} receipts`, `${url}/health: ${receipts}`);
+    return r.json;
+  }
+  add('PASS', `${svc} receipts`, 'enabled');
+  return r.json;
 }
 
 // Storage buckets: GET /storage/v1/bucket/<name> with the project's service key.
@@ -124,9 +153,9 @@ export async function runDoctor({ root, identityPath = 'config/identity.json', w
   });
 
   // ---- Railway services ----
-  const roster = await checkRoster(fetchImpl, cur.roster_url, add);
-  const relay = await checkRelay(fetchImpl, cur.relay_url, add);
-  const relayPub = relay?.json?.receipts?.pubkey || null;
+  await checkHealth(fetchImpl, 'roster', cur.roster_url, add);
+  const relayHealth = await checkHealth(fetchImpl, 'relay', cur.relay_url, add);
+  const relayPub = relayHealth?.receipts?.pubkey || null;
 
   // ---- Supabase REST (anon) ----
   for (const [label, url, key] of [['core', cur.supabase_url, cur.supabase_anon_key], ['content', cur.content_supabase_url, cur.content_supabase_anon_key]]) {

@@ -9,8 +9,10 @@
 // --answers keys: github_user, repo, site_base, roster_url, relay_url, supabase_url, supabase_anon_key,
 // supabase_service_key, content_supabase_url, content_supabase_anon_key, content_supabase_service_key,
 // groq_api_key, deepseek_api_key, teacher_name, sections, rotate (array of "KEY" or "svc:KEY").
-// Missing answers take the current value (identity.json / existing .env). Existing secrets are kept
-// unless listed in `rotate`. roster_url / relay_url never default to the ORIGINAL teacher's deployment
+// Missing answers take the previous value: existing .env files, then a previous run's
+// config/identity.next.json, then identity.json. site_base keeps its previous value while github_user
+// and repo are unchanged and is re-derived when either changes. Existing secrets are kept unless
+// listed in `rotate`. roster_url / relay_url never default to the ORIGINAL teacher's deployment
 // for a new github_user: give a URL or "later" (writes https://TODO-roster.up.railway.app /
 // https://TODO-relay.up.railway.app, which check-env and doctor FAIL on until setup is re-run).
 import fs from 'node:fs';

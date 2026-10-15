@@ -187,3 +187,61 @@ test('setup: a new teacher never inherits the original Supabase projects', (t) =
   assert.match(r.stderr, /supabase_url is required/);
   assert.doesNotMatch(r.stdout, /bzqbhtrurzzavhqbgqrs|hgvnytaqmuybzbotosyj/);
 });
+
+// Alice (a new teacher) runs setup, then re-runs it before rebrand. identity.json still names the
+// original teacher; her previous answers live in config/identity.next.json.
+const readNext = (root) => JSON.parse(fs.readFileSync(path.join(root, 'config', 'identity.next.json'), 'utf8')).current;
+const ALICE = { ...ANSWERS, github_user: 'alice', repo: 'alice-stats', teacher_name: 'Ms. Alice', site_base: 'https://stats.alice.example' };
+
+test('setup re-run: omitted github_user, repo, teacher_name, site_base keep the previous answers', (t) => {
+  const root = scratch();
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  assert.equal(node('setup.mjs', ['--answers', JSON.stringify(ALICE)], root).status, 0);
+
+  const { github_user, repo, teacher_name, site_base, ...rest } = ALICE;
+  const again = node('setup.mjs', ['--answers', JSON.stringify(rest)], root);
+  assert.equal(again.status, 0, again.stderr);
+  const next = readNext(root);
+  assert.equal(next.github_user, 'alice');
+  assert.equal(next.site_repo, 'alice-stats');
+  assert.equal(next.teacher_name, 'Ms. Alice');
+  assert.equal(next.site_base, 'https://stats.alice.example');
+  assert.equal(next.supabase_url, ALICE.supabase_url);
+  assert.equal(next.roster_url, 'https://roster-new.up.railway.app');
+});
+
+test('setup re-run: a custom site_base survives an answer-free re-run (URLs and Supabase too)', (t) => {
+  const root = scratch();
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  assert.equal(node('setup.mjs', ['--answers', JSON.stringify(ALICE)], root).status, 0);
+
+  const again = node('setup.mjs', ['--answers', '{}'], root);
+  assert.equal(again.status, 0, again.stderr);
+  const next = readNext(root);
+  assert.equal(next.site_base, 'https://stats.alice.example');
+  assert.equal(next.quiz_base, 'https://stats.alice.example/quiz');
+  assert.equal(next.github_user, 'alice');
+  assert.equal(next.content_supabase_anon_key, 'anon-content');
+  assert.equal(next.relay_url, 'https://relay-new.up.railway.app');
+});
+
+test('setup re-run: changing repo re-derives site_base from the new owner/repo', (t) => {
+  const root = scratch();
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  assert.equal(node('setup.mjs', ['--answers', JSON.stringify(ALICE)], root).status, 0);
+
+  const again = node('setup.mjs', ['--answers', JSON.stringify({ repo: 'renamed-park' })], root);
+  assert.equal(again.status, 0, again.stderr);
+  const next = readNext(root);
+  assert.equal(next.site_repo, 'renamed-park');
+  assert.equal(next.site_base, 'https://alice.github.io/renamed-park');
+  assert.equal(next.teacher_name, 'Ms. Alice');
+});
+
+test('setup: a new teacher with no previous run still gets the derived site_base, not the original one', (t) => {
+  const root = scratch();
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const r = node('setup.mjs', ['--dry-run', '--answers', JSON.stringify(ANSWERS)], root);
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /"site_base": "https:\/\/newteacher\.github\.io\/stats-park"/);
+});

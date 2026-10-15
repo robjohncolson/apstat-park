@@ -28,6 +28,7 @@ then `npm test` at the root runs every suite.
 | Command | Does |
 |---|---|
 | `npm run install:all` | Installs every part's dependencies (`npm ci` in `site/`, `site/quiz/`, `services/roster/`; `npm install --no-package-lock` in `services/relay/`, which has no lockfile) |
+| `npm run test:scripts` | Unit tests for `scripts/` (setup wizard, check-env, doctor, and the audit that keeps `config/env-schema.json` true to the service code); no network |
 | `node scripts/setup.mjs` | Teacher-switch wizard: asks for your accounts (answer `later` for Railway URLs you do not have yet), generates secrets, writes the `.env` files, prints the Railway and GitHub commands |
 | `node scripts/rebrand.mjs --to <identity.json>` | Rewrites every baked URL and key in the repo to a new identity |
 | `node scripts/doctor.mjs [--env]` | Checks the live site, both services (including signed receipts), both databases; `--env` adds tables and storage buckets |
