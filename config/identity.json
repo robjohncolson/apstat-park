@@ -44,7 +44,8 @@
   ],
   "rewrite_scope": [
     "site/**",
-    "services/**"
+    "services/**",
+    ".github/**"
   ],
   "rewrite_skip": [
     "**/node_modules/**",

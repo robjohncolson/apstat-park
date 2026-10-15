@@ -27,14 +27,16 @@ const identity = JSON.parse(fs.readFileSync(IDENTITY, 'utf8'));
 const input = JSON.parse(fs.readFileSync(path.resolve(args[toIndex + 1]), 'utf8'));
 const requested = input.current ?? input;
 
-const unknown = Object.keys(requested).filter((k) => !(k in identity.current) && !k.startsWith('$'));
-if (unknown.length) {
-  console.error(`unknown identity key(s): ${unknown.join(', ')}`);
-  process.exit(2);
-}
+// Keys in rewrite_order are rewritten in files. Any other key (github_user, site_repo, the wizard's
+// teacher_name, ...) is informational: recorded in `current`, never searched for in files.
 const next = { ...identity.current };
-for (const key of Object.keys(identity.current)) {
-  if (key in requested) next[key] = requested[key];
+for (const [key, value] of Object.entries(requested)) {
+  if (key.startsWith('$')) continue;
+  if (typeof value !== 'string') {
+    console.error(`identity key ${key}: value must be a string`);
+    process.exit(2);
+  }
+  next[key] = value;
 }
 
 const pairs = identityPairs(identity.current, next, identity.rewrite_order);

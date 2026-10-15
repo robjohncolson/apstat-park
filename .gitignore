@@ -32,3 +32,6 @@ site/syllabus/*.aux
 site/syllabus/*.log
 site/syllabus/*.out
 __pycache__/
+
+# cross-agent.py (Codex reviews) writes its request/result log here
+/state/
