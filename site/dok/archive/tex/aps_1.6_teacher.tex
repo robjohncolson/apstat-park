@@ -1,0 +1,121 @@
+\documentclass[11pt]{article}
+\usepackage{preamble}
+\setlength{\parskip}{4pt}
+
+\begin{document}
+
+\daybanner{AP Statistics \textperiodcentered\ Unit 1 \textperiodcentered\ Topic 1.6 \textperiodcentered\ TEACHER KEY}{Describing a Distribution}
+
+\sectionbanner{CED TETHER}
+
+{\small
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item \textbf{Skill 2.A} --- Describe data presented numerically or graphically.
+  \item \textbf{Enduring Understanding UNC-1} --- Graphical representations and statistics allow us to identify and represent key features of data.
+  \item \textbf{LO UNC-1.H} --- Describe the characteristics of quantitative data distributions. [Skill 2.A]
+  \item \textbf{EK UNC-1.H.1} --- Descriptions of the distribution of quantitative data include shape, center, and variability (spread), as well as any unusual features such as outliers, gaps, clusters, or multiple peaks.
+  \item \textbf{EK UNC-1.H.2} --- Outliers for one-variable data are data points that are unusually small or large relative to the rest of the data.
+  \item \textbf{EK UNC-1.H.3} --- A distribution is skewed to the right (positive skew) if the right tail is longer than the left. A distribution is skewed to the left (negative skew) if the left tail is longer than the right. A distribution is symmetric if the left half is the mirror image of the right half.
+  \item \textbf{EK UNC-1.H.4} --- Univariate graphs with one main peak are known as unimodal. Graphs with two prominent peaks are bimodal. A graph where each bar height is approximately the same (no prominent peaks) is approximately uniform.
+  \item \textbf{EK UNC-1.H.5} --- A gap is a region of a distribution between two data values where there are no observed data.
+  \item \textbf{EK UNC-1.H.6} --- Clusters are concentrations of data usually separated by gaps.
+  \item \textbf{EK UNC-1.H.7} --- Descriptive statistics does not attribute properties of a data set to a larger population, but may provide the basis for conjectures for subsequent testing.
+\end{itemize}
+}
+\textbf{Essential question:} What does a reader need from a description of a distribution before they can trust a summary statistic?\par
+\textbf{DOK-3 skill:} 4.B \textperiodcentered\ \textbf{FRQ pattern:} {\small\texttt{two-\allowbreak{}descriptions-\allowbreak{}adjudicate-\allowbreak{}then-\allowbreak{}choose-\allowbreak{}center}}\par
+\textbf{DOK rationale:} Part (c) weighs competing descriptions using two graph features and explains why a typical value alone cannot represent the full distribution.\par
+
+\textbf{Self-paced bonus sheet.} Students take it when they choose and turn it in when they finish. Everything they need is printed on the sheet. Score part (c) only, E / P / I, by hand --- never AI-graded or auto-scored. (a) and (b) are the ladder up; use them to see where a thin (c) came from.\par
+
+\textbf{Questions to ask}
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item Which side extends farther beyond the peak?
+  \item What does the empty interval tell you?
+  \item Can the graph tell you the exact longest time?
+  \item What would a reader miss if you gave only a typical time?
+\end{itemize}
+
+\begin{callout}{\IconWarn\ LOOK FOR}{calloutred}
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item Treating the isolated long commute as typical
+  \item Naming right skew without locating the tail
+  \item Reading exact endpoints or a mean from grouped data
+\end{itemize}
+\end{callout}
+
+\sectionbanner{SCORING PART (c) --- E / P / I}
+
+\textbf{Expected elements}
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item \textbf{chooses-with-first-feature} (required) --- Chooses Ben and links one graph feature to the disagreement (tail, actual spread, peak, or fraction under 30)
+  \item \textbf{uses-second-feature} (required) --- Uses a second distinct, relevant feature to support Ben or contradict Ana; e.g. isolated high bin, gap, or spread beyond 45
+  \item \textbf{bounds-center-summary} (required) --- Explains that a typical time alone hides the long commutes or overall spread
+\end{itemize}
+
+{\small\renewcommand{\arraystretch}{1.25}
+\noindent\begin{tabular}{|p{0.5in}|p{5.9in}|}
+\hline
+\textbf{E} & All three elements are correct and linked to this problem. Accept equivalent plain-language reasoning. \\ \hline
+\textbf{P} & At least one element includes a correct evidence-to-reason link, but another is missing or incorrect. \\ \hline
+\textbf{I} & No correct evidence-to-reason link; only a choice, copied numbers, or unsupported statements. \\ \hline
+\end{tabular}}
+
+\textbf{Common mistakes}
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item Treating the isolated long commute as typical
+  \item Naming right skew without locating the tail
+  \item Reading exact endpoints or a mean from grouped data
+\end{itemize}
+
+\bankitem{Optional \#1 --- not collected}{\dokbadge{2}~Sketch a dotplot of 15 quiz scores (0--10) that is skewed LEFT, unimodal, and has one low outlier. Then write the one sentence a reader would need in order to describe it in context.}{}
+\answer{Any dotplot with a cluster near 8--10, a thin tail to the left, and an isolated dot near 1--2. Sentence names the variable (quiz score), the shape, the center region, and the outlier.}
+
+\clearpage
+\focusbanner{THE PROBLEM --- annotated}
+
+The histogram shows how long it took 40 students to get to school one morning, in minutes. Two students described the distribution.\par\smallskip \textbf{Ana:} ``Roughly symmetric, centered near 20 minutes, spread from 5 to 45 minutes.''\par \textbf{Ben:} ``Skewed right with a peak in the 10--20 minute interval; most students take under 30 minutes; one student at about 70 minutes is an outlier.''\par
+\begin{center}
+\begin{tikzpicture}
+\begin{axis}[
+  width=0.68\linewidth,
+  height=1.84in,
+  ybar interval, ymin=0, ymax=15,
+  xmin=0, xmax=80, xtick={0,10,20,30,40,50,60,70,80},
+  xlabel={Commute time (minutes)}, ylabel={Number of students},
+  ymajorgrids, tick label style={font=\small}, label style={font=\small},
+  bar shift=0pt, x tick label as interval=false
+]
+\addplot[fill=calloutblue, draw=dayblue] coordinates {
+  (0,3)
+  (10,13)
+  (20,10)
+  (30,7)
+  (40,4)
+  (50,2)
+  (60,0)
+  (70,1)
+  (80,0)
+};
+\end{axis}
+\end{tikzpicture}
+\end{center}
+\begin{firsttakebox}{FIRST TAKE --- one sentence before you work the parts}
+Whose description do you trust more, Ana's or Ben's? One sentence. No wrong answers yet.\par
+\answer{Ungraded commitment; accept any evidence-based first impression.}
+\end{firsttakebox}
+
+\begin{callout}{\IconBook\ DESCRIBING A DISTRIBUTION (keep on the page)}{calloutgreen}
+Describe \textbf{shape, center, variability, and unusual features} in context, with units. Center describes a typical response; variability describes how spread out values are. A longer right tail means skewed right; a longer left tail means skewed left. An outlier is unusually far from the rest. A gap has no observations. A histogram identifies intervals, not exact individual values.
+\end{callout}
+
+\dokbadge{1}~\textbf{(a)} Which interval has the tallest bar?\par
+\answer{The 10--20-minute interval, with 13 students.}
+
+\dokbadge{2}~\textbf{(b)} In two or three sentences, describe the commute times: shape, a typical value, overall spread, and one unusual feature. Use minutes.\par
+\answer{One peak and a longer right tail. A typical commute is around 20--30 minutes; values extend from the 0--10 bin to the 70--80 bin. There are no times in 60--70 and one time in 70--80 minutes. Exact minimum, maximum, and mean cannot be read from these bins.}
+
+\dokbadge{3}~\textbf{(c)} Whose description is better supported? Use two graph features to defend your choice. Explain why reporting only a typical commute time would leave a reader with an incomplete picture.\par
+\answer{Ben's description is better supported by the longer right tail and the isolated observation in 70--80 minutes after an empty interval. His `about 70' is only a rough location; the exact time is unknown. A typical time around 20--30 minutes leaves out the students with much longer commutes, so the spread and unusual value belong in the report too. Accept other pairs of distinct relevant features, including the spread beyond 45 that contradicts Ana.}
+
+\end{document}

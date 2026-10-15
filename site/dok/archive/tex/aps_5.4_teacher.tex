@@ -1,0 +1,106 @@
+\documentclass[11pt]{article}
+\usepackage{preamble}
+\setlength{\parskip}{4pt}
+
+\begin{document}
+
+\daybanner{AP Statistics \textperiodcentered\ Unit 3 \textperiodcentered\ Topic 3.1 \textperiodcentered\ TEACHER KEY}{Centered or Close?}
+
+\sectionbanner{CED TETHER}
+
+{\small
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item Enduring Understanding: UNC-3 Probabilistic reasoning allows us to anticipate patterns in data.
+  \item Skills:
+  \item \textbf{Skill 4.B} --- Interpret statistical calculations and findings to assign meaning or assess a claim.
+  \item \textbf{Skill 3.B} --- Determine parameters for probability distributions.
+  \item Learning Objectives and Essential Knowledge:
+  \item LO UNC-3.I Explain why an estimator is or is not unbiased. [Skill 4.B]
+  \item EK UNC-3.I.1 When estimating a population parameter, an estimator is unbiased if, on average, the value of the estimator is equal to the population parameter.
+  \item LO UNC-3.J Calculate estimates for a population parameter. [Skill 3.B]
+  \item EK UNC-3.J.1 When estimating a population parameter, an estimator exhibits variability that can be modeled using probability.
+  \item EK UNC-3.J.2 A sample statistic is a point estimator of the corresponding population parameter.
+\end{itemize}
+}
+\textbf{Essential question:} How should purpose change the way we weigh an estimator's bias and variability?\par
+\textbf{DOK-3 skill:} 4.B \textperiodcentered\ \textbf{FRQ pattern:} {\small\texttt{unbiased-\allowbreak{}vs-\allowbreak{}low-\allowbreak{}variability-\allowbreak{}which-\allowbreak{}estimator-\allowbreak{}for-\allowbreak{}the-\allowbreak{}purpose}}\par
+\textbf{DOK rationale:} Part (c) uses center, spread, and a stated accuracy goal to choose between estimators and explain why neither unbiasedness nor small variability guarantees a universally better choice.\par
+
+\textbf{Self-paced bonus sheet.} Students take it when they choose and turn it in when they finish. Everything they need is printed on the sheet. Score part (c) only, E / P / I, by hand --- never AI-graded or auto-scored. (a) and (b) are the ladder up; use them to see where a thin (c) came from.\par
+
+\textbf{Questions to ask}
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item Does Rule B landing exactly on 0.40 once tell you where it centers over all samples?
+  \item Which table column measures systematic direction, and which measures sample-to-sample spread?
+  \item What does the phrase within 0.06 make the team's loss function reward?
+  \item How could a 2.9-point upward bias matter in a threshold decision?
+\end{itemize}
+
+\begin{callout}{\IconWarn\ LOOK FOR}{calloutred}
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item Using the $X=9$ sample to classify long-run bias.
+  \item Treating smaller standard deviation as proof that Rule B is unbiased.
+  \item Choosing the unbiased rule without using the within-0.06 criterion.
+\end{itemize}
+\end{callout}
+
+\sectionbanner{SCORING PART (c) --- E / P / I}
+
+\textbf{Expected elements}
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item \textbf{judgment-1} (required) --- Chooses B for the within-0.06 goal using 0.659 versus 0.459.
+  \item \textbf{judgment-2} (required) --- Uses centers and spreads to distinguish A being unbiased from B being less variable and upward biased.
+  \item \textbf{judgment-3} (required) --- Explains why neither unbiasedness nor lower variability makes one rule always best.
+\end{itemize}
+
+{\small\renewcommand{\arraystretch}{1.25}
+\noindent\begin{tabular}{|p{0.5in}|p{5.9in}|}
+\hline
+\textbf{E} & Meets all three checks with correct contextual reasoning; equivalent wording is acceptable. \\ \hline
+\textbf{P} & Shows at least one substantive correct check, but has an omission or error that prevents E. \\ \hline
+\textbf{I} & Shows none of the three checks with substantive correct reasoning; a choice alone is insufficient. \\ \hline
+\end{tabular}}
+
+\textbf{Common mistakes}
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item Judging bias from the single sample with $X=9$ instead of the long-run mean
+  \item Comparing 0.070 and 0.098 as centers rather than standard deviations
+  \item Calling Rule A always better solely because it is unbiased
+  \item Calling Rule B unbiased because its bias is smaller than the 0.06 tolerance
+\end{itemize}
+
+\clearpage
+\focusbanner{THE PROBLEM --- annotated}
+
+Suppose a research team tests two rules for estimating a support proportion in a validation population where the true proportion is $p=0.40$. For a random sample of 25 people, let $X$ be the number who support the proposal.\par\smallskip Rule A reports $\widehat p_A=X/25$. Rule B reports $\widehat p_B=(X+5)/35$. Exact summaries of the two sampling distributions are shown.\par\smallskip \textbf{Lena:} ``A is unbiased, so it is always the more trustworthy estimator.''\par \textbf{Omar:} ``B varies less and is more likely to land within 0.06 of the truth, so its bias does not matter.''\par
+\begin{center}
+\textbf{Sampling distributions when $p=0.40$}\par\smallskip
+\begin{tabular}{|l|c|c|c|}
+\hline
+\textbf{Rule} & \textbf{Mean} & \textbf{SD} & \textbf{Within 0.06} \\ \hline
+\textbf{A} & 0.400 & 0.098 & 0.459 \\ \hline
+\textbf{B} & 0.429 & 0.070 & 0.659 \\ \hline
+\end{tabular}
+\end{center}
+\begin{firsttakebox}{FIRST TAKE --- one sentence before you work the parts}
+Which rule looks more useful for getting close to 0.40? Use one entry in the table.\par
+\answer{Not graded. Each claim names a real strength, then overgeneralizes it.}
+\end{firsttakebox}
+
+\begin{callout}{\IconBook\ BIAS AND VARIABILITY ANSWER DIFFERENT QUESTIONS (keep on the page)}{calloutgreen}
+A \textbf{point estimator} is a statistic used to estimate a population parameter; its observed value is a
+\textbf{point estimate}. An estimator is \textbf{unbiased} when the mean of its sampling distribution equals the
+parameter. \textbf{Bias} is long-run center minus the parameter; \textbf{variability} is sampling-distribution spread.
+Unbiased does not mean exact in one sample, and smaller spread does not erase bias. Judge the tradeoff against the stated goal.
+\end{callout}
+
+\dokbadge{1}~\textbf{(a)} If one sample has $X=9$ supporters, calculate the point estimate from Rule A and from Rule B. State the population parameter both rules estimate.\par
+\answer{For $X=9$, Rule A gives $9/25=0.36$ and Rule B gives $(9+5)/35=14/35=0.40$. Both statistics are point estimators of the population support proportion $p$.}
+
+\dokbadge{2}~\textbf{(b)} Use the table to classify each rule as biased or unbiased. For any biased rule, give the direction and amount of bias; then compare the rules' sampling variability.\par
+\answer{Rule A is unbiased because its long-run mean, 0.400, equals $p=0.40$. Rule B is biased upward because its long-run mean is $15/35=0.428571\ldots$, so its bias is $0.428571-0.40=0.028571$, about 2.9 percentage points. Rule B is less variable because its standard deviation is about 0.070 compared with about 0.098 for Rule A.}
+
+\dokbadge{3}~\textbf{(c)} In 3--4 sentences, choose a rule for getting within 0.06 of $p$ and use the table to defend it. Explain what Lena and Omar each overlook about bias and variability.\par
+\answer{For the within-0.06 goal, choose B: its probability is 0.659 versus 0.459 for A. B has a smaller SD, 0.070 versus 0.098, but its center is about 0.429 instead of 0.400. Lena overlooks that an unbiased rule can still vary enough to miss in one sample. Omar overlooks that B systematically overstates support by about 2.9 percentage points, so its advantage for this goal does not make bias irrelevant.}
+
+\end{document}

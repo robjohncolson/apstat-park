@@ -1,0 +1,70 @@
+topic: "2.1"
+ced2026:
+  unit: 2
+  topic: '2.1'
+  label: 'Two Categorical Variables: Tables & Graphs'
+title: Counts or Conditional Percents?
+essential_question: When group sizes differ, which comparison reveals whether two categorical variables
+  are related?
+worksheet: u2_lesson1_live.html
+rules_callout:
+  title: COMPARE WITHIN GROUPS (keep on the page)
+  body: 'A \textbf{two-way table} records combinations of two categorical variables. A raw count
+    answers
+
+    \emph{how many}; it does not by itself answer \emph{how likely within a group}. To compare groups
+    of
+
+    different sizes, compute a \textbf{conditional relative frequency}:
+
+    $\text{cell count}\div\text{total for that row or column}$. If the conditional distributions
+    differ,
+
+    the variables appear associated. Association from observed data does not by itself establish
+    cause.
+
+    '
+focus: aps-2.1-d3-1
+reinforcement: []
+space:
+  first_take: 0.9in
+  a: 0.7in
+  b: 1.4in
+  c: 2.0in
+teacher:
+  questions_to_ask:
+  - Which number or visible feature supports your claim?
+  - Why does the other claim go beyond that evidence?
+  - What would you tell someone who chose the other claim?
+  watch_for:
+  - A choice with copied numbers but no explanation of how they support it.
+  - Treating a model or average as a guaranteed individual outcome.
+  first_take_note: Not graded. Expect the 75-to-35 count comparison to attract students before they
+    normalize for group size.
+tether:
+- \textbf{VAR-1.D} Identify questions to be answered about possible relationships in data. \textbf{[Skill
+  1.A]}
+- \textbf{VAR-1.D.1} Apparent patterns and associations in data may be random or not.
+visuals:
+  sport_sleep_table:
+    kind: two_way_table
+    col_label: Usual sleep on a school night
+    row_label: Sport?
+    cols:
+    - $\geq 8$ h
+    - $<8$ h
+    - Total
+    rows:
+    - Plays
+    - Does not
+    - Total
+    cells:
+    - - '35'
+      - '15'
+      - '50'
+    - - '75'
+      - '75'
+      - '150'
+    - - '110'
+      - '90'
+      - '200'

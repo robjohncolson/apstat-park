@@ -1,0 +1,134 @@
+\documentclass[11pt]{article}
+\usepackage{preamble}
+\setlength{\parskip}{4pt}
+
+\begin{document}
+
+\daybanner{AP Statistics \textperiodcentered\ Unit 1 \textperiodcentered\ Topic 1.5 \textperiodcentered\ TEACHER KEY}{Same Data, Different Bins}
+
+\sectionbanner{CED TETHER}
+
+{\small
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item \textbf{Skill 2.A} --- Describe data presented numerically or graphically.
+  \item \textbf{Skill 2.B} --- Construct numerical or graphical representations of distributions.
+  \item \textbf{EU UNC-1} --- Graphical representations and statistics allow us to identify and represent key features of data.
+  \item UNC-1.F Classify types of quantitative variables. [Skill 2.A]
+  \item UNC-1.F.1 A discrete variable can take on a countable number of values. The number of values may be finite or countably infinite, as with the counting numbers.  UNC-1.F.2 A continuous variable can take on infinitely many values, but those values cannot be counted. No matter how small the interval between two values of a continuous variable, it is always possible to determine another value between them.
+  \item UNC-1.G Represent quantitative data graphically. [Skill 2.B]
+  \item UNC-1.G.1 In a histogram, the height of each bar shows the number or proportion of observations that fall within the interval corresponding to that bar. Altering the interval widths can change the appearance of the histogram.  UNC-1.G.2 In a stem and leaf plot, each data value is split into a "stem" (the first digit or digits) and a "leaf" (usually the last digit).  UNC-1.G.3 A dotplot represents each observation by a dot, with the position on the horizontal axis corresponding to the data value of that observation, with nearly identical values stacked on top of each other.  UNC-1.G.4 A cumulative graph represents the number or proportion of a data set less than or equal to a given number.  UNC-1.G.5 There are many additional ways to graphically represent distributions of quantitative data.
+\end{itemize}
+}
+\textbf{Essential question:} How can the same quantitative data tell a different visual story when the histogram bins change?\par
+\textbf{DOK-3 skill:} 4.B \textperiodcentered\ \textbf{FRQ pattern:} {\small\texttt{bin-\allowbreak{}width-\allowbreak{}which-\allowbreak{}display-\allowbreak{}answers-\allowbreak{}the-\allowbreak{}question-\allowbreak{}and-\allowbreak{}what-\allowbreak{}it-\allowbreak{}hides}}\par
+\textbf{DOK rationale:} Part (c) selects a bin width for the coach's question, explains how grouping changes the reader's impression, and bounds conclusions from unlabeled observations.\par
+
+\textbf{Self-paced bonus sheet.} Students take it when they choose and turn it in when they finish. Everything they need is printed on the sheet. Score part (c) only, E / P / I, by hand --- never AI-graded or auto-scored. (a) and (b) are the ladder up; use them to see where a thin (c) came from.\par
+
+\textbf{Questions to ask}
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item Which observations changed when the bin width changed?
+  \item Point to the feature Leo can see in F that Priya cannot see in C.
+  \item Where in either histogram is the school-day label stored?
+  \item Name a question for which adding five narrow-bin counts is less useful than reading one broad bar.
+\end{itemize}
+
+\begin{callout}{\IconWarn\ LOOK FOR}{calloutred}
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item Treating the two histograms as different samples rather than two bin choices for the same 30 days.
+  \item Assigning the lower cluster to school days and the upper cluster to weekends without checking date labels.
+  \item Claiming that narrow bins are automatically more honest for every question.
+\end{itemize}
+\end{callout}
+
+\sectionbanner{SCORING PART (c) --- E / P / I}
+
+\textbf{Expected elements}
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item \textbf{selects-with-feature} (required) --- Chooses F and cites the 9--11-thousand gap or separated groups
+  \item \textbf{explains-hidden-structure} (required) --- Explains how C's broad bins can hide two possible routines
+  \item \textbf{requires-day-labels} (required) --- Requires school-day/weekend labels before attributing groups to day types
+\end{itemize}
+
+{\small\renewcommand{\arraystretch}{1.25}
+\noindent\begin{tabular}{|p{0.5in}|p{5.9in}|}
+\hline
+\textbf{E} & All three elements are correct and linked to this problem. Accept equivalent plain-language reasoning. \\ \hline
+\textbf{P} & At least one element includes a correct evidence-to-reason link, but another is missing or incorrect. \\ \hline
+\textbf{I} & No correct evidence-to-reason link; only a choice, copied numbers, or unsupported statements. \\ \hline
+\end{tabular}}
+
+\textbf{Common mistakes}
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item Saying F contains more observations although both show the same 30 days
+  \item Assigning a cluster to weekends without day labels
+  \item Saying narrower bins are always better instead of matching the question
+\end{itemize}
+
+\clearpage
+\focusbanner{THE PROBLEM --- annotated}
+
+Suppose a student recorded steps for 30 days. Histograms F and C show the same data with 1-thousand- and 5-thousand-step bins. A coach asks, ``Does this student move differently on school days and weekends?''\par\smallskip \textbf{Priya:} ``Use C. F has too many short and empty bars; C gives the clearer summary.''\par \textbf{Leo:} ``Use F. C combines values that should not be treated as one group.''\par
+\begin{center}
+\def\auditplotheight{1.4in}\ifdim\linewidth<5in\def\auditplotheight{1.15in}\fi
+\def\auditplotwidth{0.46\linewidth}\ifdim\linewidth<5in\def\auditplotwidth{0.98\linewidth}\fi
+\noindent
+\begin{minipage}[t]{\auditplotwidth}
+\centering
+\textbf{F: 1-thousand-step bins}\par\smallskip
+\begin{tikzpicture}
+\begin{axis}[
+  width=\linewidth, height=\auditplotheight,
+  ybar interval, bar shift=0pt,
+  xmin=4, xmax=20, ymin=0, ymax=8,
+  xtick={4,6,8,10,12,14,16,18,20}, ytick={0,4,8},
+  xlabel={Daily steps (thousands)}, ylabel={Days},
+  tick label style={font=\scriptsize}, label style={font=\scriptsize},
+  ymajorgrids, x tick label as interval=false
+]
+\addplot[fill=calloutblue, draw=dayblue] coordinates {
+  (4,0) (5,5) (6,6) (7,7) (8,3) (9,0) (10,0) (11,3)
+  (12,3) (13,2) (14,0) (15,0) (16,0) (17,0) (18,0) (19,1) (20,0)
+};
+\end{axis}
+\end{tikzpicture}
+\end{minipage}\ifdim\linewidth<5in\par\smallskip\else\hfill\fi
+\begin{minipage}[t]{\auditplotwidth}
+\centering
+\textbf{C: 5-thousand-step bins}\par\smallskip
+\begin{tikzpicture}
+\begin{axis}[
+  width=\linewidth, height=\auditplotheight,
+  ybar interval, bar shift=0pt,
+  xmin=0, xmax=20, ymin=0, ymax=23,
+  xtick={0,5,10,15,20}, ytick={0,10,20},
+  xlabel={Daily steps (thousands)}, ylabel={Days},
+  tick label style={font=\scriptsize}, label style={font=\scriptsize},
+  ymajorgrids, x tick label as interval=false
+]
+\addplot[fill=calloutblue, draw=dayblue] coordinates {
+  (0,0) (5,21) (10,8) (15,1) (20,0)
+};
+\end{axis}
+\end{tikzpicture}
+\end{minipage}
+\end{center}
+\begin{firsttakebox}{FIRST TAKE --- one sentence before you work the parts}
+Which histogram is more useful to the coach, F or C? Name one visible feature.\par
+\answer{Not graded. Expect a split between visual simplicity and retained detail.}
+\end{firsttakebox}
+
+\begin{callout}{\IconBook\ READING HISTOGRAMS (keep on the page)}{calloutgreen}
+A histogram groups observations into intervals; each bar gives the count in its interval. Values at a boundary go in the interval that starts there. Changing interval widths changes the appearance, not the observations. Narrow intervals can reveal separated groups and empty intervals; wide intervals summarize broad counts. A histogram does not show each exact value or attach a group label to each observation.
+\end{callout}
+
+\dokbadge{1}~\textbf{(a)} State each bin width and the number of days in F's 19--20-thousand interval.\par
+\answer{F uses 1-thousand-step bins; C uses 5-thousand-step bins. F has 1 day in 19--20 thousand.}
+
+\dokbadge{2}~\textbf{(b)} In two sentences, describe where F's days are grouped and where its empty intervals are. Use thousands of steps.\par
+\answer{There are 21 days in the 5--9-thousand-step intervals and 8 in the 11--14-thousand intervals. No days fall in 9--11 or 14--19 thousand; one day falls in 19--20 thousand. The histogram does not show exact individual values.}
+
+\dokbadge{3}~\textbf{(c)} Choose Priya's or Leo's display for a first look at the coach's question. Cite one feature that the other display hides and explain how that changes the impression. What information would you still need to tell school days from weekends?\par
+\answer{Leo's F preserves the empty 9--11-thousand interval between two groups. C merges the groups into adjacent broad bars, which could hide two possible routines. Neither graph labels the days; the coach needs the school-day/weekend label for each observation before identifying either group.}
+
+\end{document}

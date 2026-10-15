@@ -1,0 +1,39 @@
+\documentclass[14pt]{extarticle}
+\usepackage{preamble}
+\geometry{letterpaper, landscape, margin=0.5in}
+\renewcommand{\answer}[1]{}
+\setlength{\parskip}{4pt}
+
+\begin{document}
+\pagestyle{empty}
+
+\daybanner{Unit 2 \textperiodcentered\ Topic 2.1 \textperiodcentered\ THE PROBLEM}{Same Responses, Different Questions}
+
+\noindent\begin{minipage}[t]{0.57\linewidth}
+\vspace{0pt}
+Suppose a student council asks 120 ninth graders and 60 twelfth graders whether they prefer Field Day or a Talent Show for the spring celebration. The same responses are shown in two graphs.\par\smallskip \textbf{Andre:} \emph{Graph B hides how many people there are because both bars reach 100\%.}\par \textbf{Leila:} \emph{Graph A hides the relationship because the grade totals are different.}\par
+\end{minipage}\hfill
+\begin{minipage}[t]{0.40\linewidth}
+\vspace{0pt}
+\begin{center}
+\begin{tikzpicture}\begin{axis}[width=0.95\linewidth,height=1.05in,ybar stacked,bar width=18pt,ymin=0,ymax=135,ytick={0,60,120},symbolic x coords={9th,12th},xtick=data,enlarge x limits=0.4,title={Graph A},ylabel={Students},tick label style={font=\small},label style={font=\small},title style={font=\small\bfseries},nodes near coords,every node near coord/.append style={font=\small},ymajorgrids]\addplot[fill=calloutblue,draw=dayblue] coordinates {(9th,72) (12th,18)};\addplot[fill=calloutgreen,draw=dayblue] coordinates {(9th,48) (12th,42)};\end{axis}\end{tikzpicture}
+\par\smallskip
+\begin{tikzpicture}\begin{axis}[width=0.95\linewidth,height=1.05in,ybar stacked,bar width=18pt,ymin=0,ymax=112,ytick={0,50,100},symbolic x coords={9th,12th},xtick=data,enlarge x limits=0.4,title={Graph B},ylabel={Percent},tick label style={font=\small},label style={font=\small},title style={font=\small\bfseries},nodes near coords,every node near coord/.append style={font=\small},ymajorgrids]\addplot[fill=calloutblue,draw=dayblue] coordinates {(9th,60) (12th,30)};\addplot[fill=calloutgreen,draw=dayblue] coordinates {(9th,40) (12th,70)};\end{axis}\end{tikzpicture}
+\par{\small Lower: Field Day\quad Upper: Talent Show}
+\end{center}
+\end{minipage}
+
+\begin{firsttakebox}{FIRST TAKE --- one sentence before you work the parts}
+For the question \emph{Is celebration preference related to grade level?}, which graph would you use first? Name one visible feature.
+\end{firsttakebox}
+
+\begin{description}[leftmargin=1.15in, labelwidth=1in, itemsep=2pt, topsep=2pt]
+  \item[\dokbadge{1}~(a)] From Graph A, state the total surveyed in each grade.
+  \item[\dokbadge{2}~(b)] Find the percent who prefer Field Day in each grade. Show the fractions and compare the results.
+  \item[\dokbadge{3}~(c)] Which graph better shows whether grade and preference are related? Use both Field Day percentages and explain how the bar heights help. Then explain what Andre is right about and one question Graph A answers more directly. Write 3--4 sentences.
+\end{description}
+
+\vfill
+\textbf{Self-paced bonus problem. Work (a)--(c) from this sheet; turn it in whenever you finish.}
+
+\end{document}

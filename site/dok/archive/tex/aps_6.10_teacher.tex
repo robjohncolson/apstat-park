@@ -1,0 +1,104 @@
+\documentclass[11pt]{article}
+\usepackage{preamble}
+\setlength{\parskip}{4pt}
+
+\begin{document}
+
+\daybanner{AP Statistics \textperiodcentered\ Unit 3 \textperiodcentered\ Topic 3.12 \textperiodcentered\ TEACHER KEY}{Two Analysts, One Planned Test}
+
+\sectionbanner{CED TETHER}
+
+{\small
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item \textbf{Enduring Understanding VAR-6} --- The normal distribution may be used to model variation.
+  \item \textbf{Skill 1.F} --- Identify null and alternative hypotheses.
+  \item \textbf{Skill 1.E} --- Identify an appropriate inference method for significance tests.
+  \item \textbf{Skill 4.C} --- Verify that inference procedures apply in a given situation.
+  \item \textbf{LO VAR-6.H} --- Identify the null and alternative hypotheses for a difference of two population proportions. [Skill 1.F]
+  \item \textbf{EK VAR-6.H.1} --- For a two-sample test for a difference of two proportions, the null hypothesis specifies a value of 0 for the difference in population proportions, indicating no difference or effect.
+  \item \textbf{EK VAR-6.H.2} --- The null hypothesis for a difference in proportions is: $H_0$: $p_1$ = $p_2$, or $H_0$: $p_1$ - $p_2$ = 0.
+  \item \textbf{EK VAR-6.H.3} --- A one-sided alternative hypothesis for a difference in proportions is $H_a$: $p_1$ < $p_2$ or $H_a$: $p_1$ > $p_2$. A two-sided alternative hypothesis is $H_a$: $p_1$ $\neq$ $p_2$.
+  \item \textbf{LO VAR-6.I} --- Identify an appropriate testing method for the difference of two population proportions. [Skill 1.E]
+  \item \textbf{EK VAR-6.I.1} --- For a single categorical variable, the appropriate testing method for the difference of two population proportions is a two-sample z-test for a difference between two population proportions.
+  \item \textbf{LO VAR-6.J} --- Verify the conditions for making statistical inferences when testing a difference of two population proportions. [Skill 4.C]
+  \item \textbf{EK VAR-6.J.1} --- To make statistical inferences when testing a difference between population proportions, check for independence and approximately normal sampling distribution:
+  \item Independence: data collected using two independent, random samples or a randomized experiment; when sampling without replacement, check $n_1$ $\leq$ 10\%$N_1$ and $n_2$ $\leq$ 10\%$N_2$.
+  \item Shape (approximate normality): compute the combined (pooled) proportion $\widehat p_c$ = ($n_1$$\widehat p_1$ + $n_2$$\widehat p_2$) / ($n_1$ + $n_2$); assuming $H_0$ is true, check that $n_1$$\widehat p_c$, $n_1$(1 - $\widehat p_c$), $n_2$$\widehat p_c$, and $n_2$(1 - $\widehat p_c$) are all $\geq$ 5 (or 10, per the predetermined value used).
+\end{itemize}
+}
+\textbf{Essential question:} How do the original research question and study design determine a defensible two-proportion test setup?\par
+\textbf{DOK-3 skill:} 4.C \textperiodcentered\ \textbf{FRQ pattern:} {\small\texttt{predata-\allowbreak{}question-\allowbreak{}vs-\allowbreak{}postdata-\allowbreak{}tail-\allowbreak{}switch}}\par
+\textbf{DOK rationale:} Part (c) uses the original research question and the timing of the tail choice to adjudicate competing test setups and explain how choosing a direction after observing results overstates evidence.\par
+
+\textbf{Self-paced bonus sheet.} Students take it when they choose and turn it in when they finish. Everything they need is printed on the sheet. Score part (c) only, E / P / I, by hand --- never AI-graded or auto-scored. (a) and (b) are the ladder up; use them to see where a thin (c) came from.\par
+
+\textbf{Questions to ask}
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item What result would matter if the meter actually lowered completion?
+  \item When was the direction of Omar's alternative chosen?
+  \item Why are pooled expected counts appropriate under equality?
+  \item What do random selection and random assignment each allow the team to claim?
+\end{itemize}
+
+\begin{callout}{\IconWarn\ LOOK FOR}{calloutred}
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item Writing hypotheses with sample proportions instead of population parameters.
+  \item Choosing a greater-than alternative only because the observed meter proportion is larger.
+  \item Checking observed rather than pooled expected counts for the test.
+\end{itemize}
+\end{callout}
+
+\sectionbanner{SCORING PART (c) --- E / P / I}
+
+\textbf{Expected elements}
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item \textbf{judgment-1} (required) --- Chooses Nia and states equality null and two-sided alternative with population parameters.
+  \item \textbf{judgment-2} (required) --- Ties either direction to the pre-data word change rather than the observed positive gap.
+  \item \textbf{judgment-3} (required) --- Explains that selecting a tail after observing the result changes the question and overstates evidence.
+\end{itemize}
+
+{\small\renewcommand{\arraystretch}{1.25}
+\noindent\begin{tabular}{|p{0.5in}|p{5.9in}|}
+\hline
+\textbf{E} & Meets all three checks with correct contextual reasoning; equivalent wording is acceptable. \\ \hline
+\textbf{P} & Shows at least one substantive correct check, but has an omission or error that prevents E. \\ \hline
+\textbf{I} & Shows none of the three checks with substantive correct reasoning; a choice alone is insufficient. \\ \hline
+\end{tabular}}
+
+\clearpage
+\focusbanner{THE PROBLEM --- annotated}
+
+Suppose an online retailer has 50,000 active accounts. Before collecting data, its team asks, ``Does a progress meter change the proportion of active accounts completing checkout?'' It randomly selects 360 accounts and randomly assigns 180 to each screen. The table shows the outcomes. Let $p_M$ and $p_S$ be the corresponding population completion proportions.\par\smallskip \textbf{Nia:} ``Use $H_0:p_M-p_S=0$ versus $H_a:p_M-p_S\ne0$ because either direction is a change.''\par \textbf{Omar:} ``Because $\hat p_M$ is larger, use $H_a:p_M-p_S>0$.''\par
+\begin{center}
+\textbf{Checkout outcomes}\par\smallskip
+\begin{tabular}{|l|c|c|c|}
+\hline
+\textbf{Screen} & \textbf{n} & \textbf{Complete} & \textbf{Other} \\ \hline
+\textbf{Meter} & 180 & 126 & 54 \\ \hline
+\textbf{Standard} & 180 & 108 & 72 \\ \hline
+\end{tabular}
+\end{center}
+\begin{firsttakebox}{FIRST TAKE --- one sentence before you work the parts}
+When the team asks whether checkout changes, should a decrease count too? Use the original question to explain.\par
+\answer{Not graded. The positive observed difference is intentionally tempting; the research question must control the tail.}
+\end{firsttakebox}
+
+\begin{callout}{\IconBook\ SET THE QUESTION, PARAMETERS, AND CONDITIONS (keep on the page)}{calloutgreen}
+Define population proportions before writing hypotheses. For no difference,
+$H_0:p_1-p_2=0$. Choose $H_a:p_1-p_2>0$, $<0$, or $\ne0$ from the research
+question set \textbf{before} viewing results; do not choose a tail because of the observed sign.
+Use a two-sample $z$-test for a difference of proportions with independent random samples
+or randomized groups. Check each 10 percent condition when sampling without replacement.
+Under $H_0$, pool: $\hat p_c=(x_1+x_2)/(n_1+n_2)$; all four pooled expected counts must be at least 10.
+\end{callout}
+
+\dokbadge{1}~\textbf{(a)} Define $p_M$ and $p_S$ in context. Calculate $\hat p_M$, $\hat p_S$, and the observed difference $\hat p_M-\hat p_S$.\par
+\answer{Here $p_M$ and $p_S$ are the completion proportions for all active accounts under the meter and standard screens. Thus $\hat p_M=126/180=0.70$, $\hat p_S=108/180=0.60$, and the difference is $0.10$.}
+
+\dokbadge{2}~\textbf{(b)} Name the test procedure. Calculate the pooled proportion and verify randomization, the 10 percent condition, and all four pooled expected counts.\par
+\answer{The appropriate procedure is a two-sample $z$-test for a difference of proportions. The 360 accounts were randomly selected and assigned; $360\le0.10(50{,}000)=5{,}000$. Under $H_0$, $\hat p_c=234/360=0.65$, so each group has pooled expected counts $117$ and $63$, all at least 10.}
+
+\dokbadge{3}~\textbf{(c)} In 3--4 sentences, choose and state the hypotheses. Use the original word change and when the direction was chosen. Explain how Omar's choice after seeing the result changes the question and could overstate the evidence.\par
+\answer{Nia is defensible: $H_0:p_M-p_S=0$ versus $H_a:p_M-p_S\ne0$. The question asked about change before data were collected, so either an increase or a decrease counts. The observed difference 0.10 cannot decide the research direction afterward. Omar's right-tail switch omits decreases and makes the observed increase look stronger than it is for the original question.}
+
+\end{document}

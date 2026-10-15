@@ -1,0 +1,49 @@
+topic: "4.11"
+ced2026:
+  unit: 2
+  topic: '2.10'
+  label: The Binomial Distribution
+title: Unusual Does Not Mean Impossible
+essential_question: How do binomial parameters help distinguish an unusual count from an impossible
+  one?
+worksheet: u4_lesson10-12_live.html
+rules_callout:
+  title: CENTER, SPREAD, AND UNUSUAL COUNTS (keep on the page)
+  body: 'For a binomial count, $\mu_X=np$ and $\sigma_X=\sqrt{np(1-p)}$, both in count units. The
+    mean is an average over many comparable sets of trials. The standard deviation describes a typical
+    distance from that mean. A result far from the mean may be unusual, but a small positive probability
+    does not mean impossible or prove that the model changed.
+
+    '
+focus: aps-4.11-d3-1
+reinforcement: []
+space:
+  first_take: 0.9in
+  a: 0.8in
+  b: 1.3in
+  c: 2.0in
+teacher:
+  questions_to_ask:
+  - Which number or visible feature supports your claim?
+  - Why does the other claim go beyond that evidence?
+  - What would you tell someone who chose the other claim?
+  watch_for:
+  - A choice with copied numbers but no explanation of how they support it.
+  - Treating a model or average as a guaranteed individual outcome.
+  first_take_note: Not graded. Listen for whether students use impossible to mean unlikely; the calculation
+    should sharpen that language.
+visuals:
+  hundred_shots_table:
+    kind: two_way_table
+    col_label: Career-rate model
+    row_label: Set
+    cols:
+    - Attempts
+    - Rate
+    - Makes
+    rows:
+    - Tonight
+    cells:
+    - - '100'
+      - '0.70'
+      - '58'

@@ -1,0 +1,39 @@
+# Topic 7.9 — Carrying Out a Test for the Difference of Two Population Means
+topic: "7.9"
+ced2026: { unit: 4, topic: "4.10", label: "Carrying Out a Test (difference of two means)" }
+title: "What Does This Test Support?"
+essential_question: "How can one test support a mean difference without settling size, individuals, or cause?"
+worksheet: "u7_lesson9_live.html"
+
+rules_callout:
+  title: "CARRY OUT THE TEST, THEN BOUND THE CONCLUSION (keep on the page)"
+  body: |
+    For independent samples, $SE=\sqrt{s_1^2/n_1+s_2^2/n_2}$ and
+    $t=((\bar x_1-\bar x_2)-0)/SE$. A $p$-value is the probability, assuming $H_0$,
+    of a statistic at least as extreme in the direction of $H_a$. If $p\leq\alpha$, reject
+    $H_0$ and state evidence for $H_a$ in context. Significance against 0 does not establish
+    practical size or an individual guarantee. Random sampling supports population scope;
+    random assignment, not self-selection, supports causation.
+
+focus: aps-7.9-d3-1
+reinforcement: []
+space: { first_take: 0.7in, a: 0.6in, b: 1.25in, c: 1.65in }
+
+teacher:
+  questions_to_ask:
+  - Which specific number or study detail supports your choice?
+  - What claim would go beyond the evidence, and why?
+  watch_for:
+  - Choosing a speaker without a reason.
+  - Copying numbers without explaining what they support.
+  first_take_note: Ungraded commitment; accept any evidence-based first impression.
+visuals:
+  mode_samples:
+    kind: two_way_table
+    col_label: "Practice time summaries (minutes)"
+    row_label: "Mode"
+    cols: ["$N$", "$n$", '$\bar x$', "$s$"]
+    rows: ["Focus", "Guided"]
+    cells:
+      - ["4{,}000", "100", "42.8", "4.2"]
+      - ["3{,}600", "100", "41.6", "4.5"]

@@ -1,0 +1,359 @@
+{
+  "$comment": "apstat-park is DERIVED from two parent repos until the teacher retires them. `node sync/sync.mjs` rebuilds every mirror target from the parents' HEAD. Never hand-edit a file under a mirror target: encode the change as a transform in sync/transforms.mjs, or make it in the parent. Paths in `exclude` are relative to the mirror's `from` root and are gitignore-style globs.",
+  "parents": {
+    "fa": {
+      "path": "../follow-alongs",
+      "remote": "https://github.com/robjohncolson/apstats-live-worksheet.git",
+      "branch": "master",
+      "label": "apstats-live-worksheet (follow-alongs)"
+    },
+    "cr": {
+      "path": "../curriculum_render",
+      "remote": "https://github.com/robjohncolson/curriculum_render.git",
+      "branch": "main",
+      "label": "curriculum_render"
+    }
+  },
+  "mirrors": [
+    {
+      "id": "site",
+      "from": "fa:/",
+      "to": "site/",
+      "why": "GitHub Pages root. Worksheets, the Desk, teacher tools, the park, the trainer, data, dok, ai-tutor, tests, scripts, tools. Kept as one unit so every relative link inside it keeps working.",
+      "exclude": [
+        "roster-server/**",
+        "u1/**",
+        "u2/**",
+        "u3/**",
+        "u5/**",
+        "u6/**",
+        "u7/**",
+        "u8/**",
+        "u9/**",
+        "u4_l1_l2/**",
+        "u4_l3_l4_l5/**",
+        "u4_l6/**",
+        "u4_l7_l8/**",
+        "u4_l9/**",
+        "u4_l10_l11_l12/**",
+        "unit4guide/**",
+        "mit_python_vid2/**",
+        "a2_3-3/**",
+        "formal/**",
+        "docs/**",
+        "design/**",
+        "probe-signal-reports/**",
+        "ti84-cemu-screenshots/**",
+        "android-app/**",
+        "state/**",
+        "handoff/**",
+        "gitnexus-shadow/**",
+        "logs/**",
+        "test-results/**",
+        ".gitnexus/**",
+        ".claude/settings.local.json",
+        ".github/**",
+        "ti84_trainer.html",
+        "ti84-verify.html",
+        "cemu_*.png",
+        "verify_boot.png",
+        "resized_screen.png",
+        "ti84.png",
+        "84plusCE.webp",
+        "DOGE6.png",
+        "week_*_calendar.html",
+        "week21_calendar.html",
+        "unit4_schedule_v*.html",
+        "unit4_5_schedule_v*.html",
+        "postbreak_calendar.html",
+        "*.xlsx",
+        "*.PDF",
+        "cullen_freti_screen_time.pdf",
+        "screen_time_grading.pdf",
+        "screen_time_grading.tex",
+        "..gitignore.un~",
+        ".gitignore~",
+        ".dispatch-codex.py",
+        ".batch-*",
+        ".codex-*",
+        ".focused-*",
+        ".frq-*",
+        ".phase*",
+        ".plan-*",
+        ".session*",
+        ".study-guide-*",
+        ".v4-batch-*",
+        ".v5-batch-*",
+        "*_SPEC.md",
+        "*_BUILD.md",
+        "*_PLAN.md",
+        "*_AUDIT.md",
+        "*_FINDINGS.md",
+        "*_PROMPT.md",
+        "*_QUEUE.md",
+        "*_PROPOSAL.md",
+        "*_BRAINSTORM.md",
+        "*_REVIEW*.md",
+        "*_HANDOFF.md",
+        "*_RESULT.md",
+        "*_NOTES.md",
+        "*_INTAKE.md",
+        "*_REPORT.md",
+        "*_DECISIONS.md",
+        "codex-*.md",
+        "ti84-*-spec.md",
+        "ti84-*-prompt.md",
+        "ti84-*-results.md",
+        "ti84-rom-*.md",
+        "CONTINUATION_PROMPT.md",
+        "SCHEDULE_HANDOFF.md",
+        "package-lock.json",
+        "/tests/schedule.test.js",
+        "/tests/secure-key-plugin.test.js"
+      ],
+      "keep": [
+        "/CLAUDE.md",
+        "/AGENTS.md",
+        "/README.md",
+        "/AI_GRADING_INTEGRATION.md",
+        "/DATA_LINEAGE.md",
+        "/STATE_MACHINES.md",
+        "/BLOOKET_BACKFILL_CHECKLIST.md",
+        "/FRQ_GRADE_TICKETS_RUNBOOK.md",
+        "/PROGRESS_RESET_DEPLOYMENT_RUNBOOK.md",
+        "/SY2627_ACTIVATION_RUNBOOK.md",
+        "/roadmap-apps-spec.md",
+        "/apstat_5_framework.md",
+        "/lynn-public-schools-2026-2027.md",
+        "/sy2627-calendar-intake.md",
+        "/package-lock.json",
+        "/handoff/audio/**",
+        "/gitnexus-shadow/**",
+        "/state/rubric-slim/**",
+        "/GRADEBOOK_FEEDER_ID_AUDIT.md",
+        "/GRADEBOOK_TAGGING_AUDIT.md",
+        "/GRADEBOOK_TAGGING_T3_QUEUE.md",
+        "/.session90-question-audit.md",
+        "/.session90-missing-pictures.md",
+        "/apstat-park/CALCULATOR_GOALS_REVIEW.md"
+      ]
+    },
+    {
+      "id": "roster",
+      "from": "fa:roster-server/",
+      "to": "services/roster/",
+      "why": "Railway service 1: auth, ledger, gradebook, Doge economy. Root Directory on Railway = services/roster.",
+      "exclude": [
+        "tests/fixtures/golden-local/**",
+        "node_modules/**"
+      ]
+    },
+    {
+      "id": "quiz",
+      "from": "cr:/",
+      "to": "site/quiz/",
+      "why": "The consensus quiz app, iframed by the Desk. Served at <pages>/quiz/.",
+      "exclude": [
+        "railway-server/**",
+        "docs/**",
+        "pdf/**",
+        "csv/**",
+        "assets/**",
+        "worksheets/**",
+        "state/**",
+        ".claude/**",
+        ".gitnexus/**",
+        "test_*.html",
+        "map.tex",
+        "*_SPEC.md",
+        "*_BUILD.md",
+        "PLAN_*.md",
+        "TIGHTEN_PLAN.md",
+        "STATE_MACHINES.md",
+        "package-lock.json"
+      ],
+      "keep": [
+        "/CLAUDE.md",
+        "/AGENTS.md",
+        "/package-lock.json"
+      ]
+    },
+    {
+      "id": "relay",
+      "from": "cr:railway-server/",
+      "to": "services/relay/",
+      "why": "Railway service 2: worksheet answer sync, AI grading, Live Classroom, APStat Park relay. Root Directory on Railway = services/relay.",
+      "exclude": [
+        "*.log",
+        "state/**",
+        "node_modules/**"
+      ]
+    },
+    {
+      "id": "content-u1",
+      "from": "fa:u1/",
+      "to": "content/source/u1/"
+    },
+    {
+      "id": "content-u2",
+      "from": "fa:u2/",
+      "to": "content/source/u2/"
+    },
+    {
+      "id": "content-u3",
+      "from": "fa:u3/",
+      "to": "content/source/u3/"
+    },
+    {
+      "id": "content-u4a",
+      "from": "fa:u4_l1_l2/",
+      "to": "content/source/u4_l1_l2/"
+    },
+    {
+      "id": "content-u4b",
+      "from": "fa:u4_l3_l4_l5/",
+      "to": "content/source/u4_l3_l4_l5/"
+    },
+    {
+      "id": "content-u4c",
+      "from": "fa:u4_l6/",
+      "to": "content/source/u4_l6/"
+    },
+    {
+      "id": "content-u4d",
+      "from": "fa:u4_l7_l8/",
+      "to": "content/source/u4_l7_l8/"
+    },
+    {
+      "id": "content-u4e",
+      "from": "fa:u4_l9/",
+      "to": "content/source/u4_l9/"
+    },
+    {
+      "id": "content-u4f",
+      "from": "fa:u4_l10_l11_l12/",
+      "to": "content/source/u4_l10_l11_l12/"
+    },
+    {
+      "id": "content-u4g",
+      "from": "fa:unit4guide/",
+      "to": "content/source/unit4guide/"
+    },
+    {
+      "id": "content-u5",
+      "from": "fa:u5/",
+      "to": "content/source/u5/"
+    },
+    {
+      "id": "content-u6",
+      "from": "fa:u6/",
+      "to": "content/source/u6/"
+    },
+    {
+      "id": "content-u7",
+      "from": "fa:u7/",
+      "to": "content/source/u7/"
+    },
+    {
+      "id": "content-u8",
+      "from": "fa:u8/",
+      "to": "content/source/u8/"
+    },
+    {
+      "id": "content-u9",
+      "from": "fa:u9/",
+      "to": "content/source/u9/",
+      "exclude": [
+        "**/__pycache__/**"
+      ]
+    },
+    {
+      "id": "content-mit",
+      "from": "fa:mit_python_vid2/",
+      "to": "content/source/mit_python_vid2/"
+    },
+    {
+      "id": "content-a2",
+      "from": "fa:a2_3-3/",
+      "to": "content/source/a2_3-3/"
+    },
+    {
+      "id": "content-formal",
+      "from": "fa:formal/",
+      "to": "content/formal/"
+    },
+    {
+      "id": "docs-fa",
+      "from": "fa:docs/",
+      "to": "docs/follow-alongs/"
+    },
+    {
+      "id": "docs-quiz",
+      "from": "cr:docs/",
+      "to": "docs/quiz/"
+    },
+    {
+      "id": "content-quiz-pdf",
+      "from": "cr:pdf/",
+      "to": "content/quiz/pdf/"
+    },
+    {
+      "id": "content-quiz-csv",
+      "from": "cr:csv/",
+      "to": "content/quiz/csv/"
+    },
+    {
+      "id": "content-quiz-assets",
+      "from": "cr:assets/",
+      "to": "content/quiz/assets/"
+    },
+    {
+      "id": "content-quiz-worksheets",
+      "from": "cr:worksheets/",
+      "to": "content/quiz/worksheets/"
+    }
+  ],
+  "files": [
+    {
+      "from": "fa:LEHS_SY2627_Schedule_and_Calendar.xlsx",
+      "to": "content/schedule/LEHS_SY2627_Schedule_and_Calendar.xlsx"
+    },
+    {
+      "from": "fa:ap_stats_pacing_mar23_may7.xlsx",
+      "to": "content/schedule/ap_stats_pacing_mar23_may7.xlsx"
+    },
+    {
+      "from": "fa:screen_time_grading.tex",
+      "to": "content/misc/screen_time_grading.tex"
+    },
+    {
+      "from": "fa:screen_time_grading.pdf",
+      "to": "content/misc/screen_time_grading.pdf"
+    },
+    {
+      "from": "cr:map.tex",
+      "to": "content/quiz/map.tex"
+    }
+  ],
+  "native": [
+    "README.md",
+    "INSTALL.md",
+    "CLAUDE.md",
+    "AGENTS.md",
+    ".gitignore",
+    "package.json",
+    "docs/LINEAGE.md",
+    "docs/specs/**",
+    "docs/runbooks/**",
+    "config/**",
+    "sync/**",
+    "supabase/**",
+    "scripts/**",
+    ".github/**",
+    ".claude/**",
+    "services/roster/.env.example",
+    "services/relay/.env.example",
+    "services/roster/railway.json",
+    "services/relay/railway.json"
+  ]
+}

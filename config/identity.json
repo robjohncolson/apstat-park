@@ -1,0 +1,62 @@
+{
+  "$comment": "Every identity literal baked into the parents files. parents = what the parent repos contain; current = what THIS repo should contain. sync/sync.mjs rewrites parents -> current on every sync; scripts/rebrand.mjs rewrites current -> new for a teacher switch and updates current. Anon keys are public by design; service-role keys live only in Railway variables and .env files. Two Supabase projects: supabase_* is the core project (quiz answers, roster, ledger, relay tables, the private pc-figures bucket); content_supabase_* is the Desk content project (lesson_urls, topic_schedule, students, student_progress, and the private ti84-trainer-assets bucket that holds the teacher-supplied ROM).",
+  "parents": {
+    "site_base": "https://robjohncolson.github.io/apstats-live-worksheet",
+    "quiz_base": "https://robjohncolson.github.io/curriculum_render",
+    "roster_url": "https://roster-production-12c1.up.railway.app",
+    "relay_url": "https://curriculumrender-production.up.railway.app",
+    "supabase_url": "https://bzqbhtrurzzavhqbgqrs.supabase.co",
+    "supabase_project_ref": "bzqbhtrurzzavhqbgqrs",
+    "supabase_anon_key": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ6cWJodHJ1cnp6YXZocWJncXJzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkxOTc1NDMsImV4cCI6MjA3NDc3MzU0M30.xDHsAxOlv0uprE9epz-M_Emn6q3mRegtTpFt0sl9uBo",
+    "github_user": "robjohncolson",
+    "site_repo": "apstats-live-worksheet",
+    "quiz_repo": "curriculum_render",
+    "content_supabase_url": "https://hgvnytaqmuybzbotosyj.supabase.co",
+    "content_supabase_project_ref": "hgvnytaqmuybzbotosyj",
+    "content_supabase_anon_key": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhndm55dGFxbXV5Ynpib3Rvc3lqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUxNTE5MTMsImV4cCI6MjA4MDcyNzkxM30.-LcH_zly4pXoX_2Vra-RbH9twPvUj6xAJp66xPi02tU"
+  },
+  "current": {
+    "site_base": "https://robjohncolson.github.io/apstat-park",
+    "quiz_base": "https://robjohncolson.github.io/apstat-park/quiz",
+    "roster_url": "https://roster-production-12c1.up.railway.app",
+    "relay_url": "https://curriculumrender-production.up.railway.app",
+    "supabase_url": "https://bzqbhtrurzzavhqbgqrs.supabase.co",
+    "supabase_project_ref": "bzqbhtrurzzavhqbgqrs",
+    "supabase_anon_key": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ6cWJodHJ1cnp6YXZocWJncXJzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkxOTc1NDMsImV4cCI6MjA3NDc3MzU0M30.xDHsAxOlv0uprE9epz-M_Emn6q3mRegtTpFt0sl9uBo",
+    "github_user": "robjohncolson",
+    "site_repo": "apstat-park",
+    "quiz_repo": "apstat-park",
+    "content_supabase_url": "https://hgvnytaqmuybzbotosyj.supabase.co",
+    "content_supabase_project_ref": "hgvnytaqmuybzbotosyj",
+    "content_supabase_anon_key": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhndm55dGFxbXV5Ynpib3Rvc3lqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUxNTE5MTMsImV4cCI6MjA4MDcyNzkxM30.-LcH_zly4pXoX_2Vra-RbH9twPvUj6xAJp66xPi02tU"
+  },
+  "rewrite_order": [
+    "quiz_base",
+    "site_base",
+    "roster_url",
+    "relay_url",
+    "supabase_anon_key",
+    "content_supabase_anon_key",
+    "supabase_url",
+    "content_supabase_url",
+    "supabase_project_ref",
+    "content_supabase_project_ref"
+  ],
+  "rewrite_scope": [
+    "site/**",
+    "services/**"
+  ],
+  "rewrite_skip": [
+    "**/node_modules/**",
+    "**/*.png",
+    "**/*.jpg",
+    "**/*.pdf",
+    "**/*.wav",
+    "**/*.ogg",
+    "**/*.webp",
+    "**/*.wasm",
+    "**/*.mp4",
+    "**/*.woff*",
+    "**/*.ttf"
+  ]
+}

@@ -1,0 +1,39 @@
+# Topic 7.7 — Justifying a Claim About the Difference of Two Means Based on a Confidence Interval
+topic: "7.7"
+ced2026: { unit: 4, topic: "4.8", label: "Justifying a Claim (CI, 2 means)" }
+title: "A Controller Comparison"
+essential_question: "How can one interval support a population difference while leaving a practical threshold and causal explanation unresolved?"
+worksheet: "u7_lesson7_live.html"
+
+rules_callout:
+  title: "CHECK ZERO, THE CLAIM'S THRESHOLD, AND THE DESIGN (keep on the page)"
+  body: |
+    A confidence interval for $\mu_1-\mu_2$ describes plausible values for a difference in
+    population means in the stated subtraction order, not a range containing a percent of individual
+    observations. If 0 is excluded, the interval supports a population mean difference; a practical
+    claim such as $\mu_1-\mu_2\geq c$ requires the entire interval to lie at or beyond $c$.
+    For a fixed interval, say ``we are confident,'' not ``there is a probability.'' Random sampling
+    supports population scope, while random assignment is needed to isolate a causal treatment effect.
+
+focus: aps-7.7-d3-1
+reinforcement: []
+space: { first_take: 0.9in, a: 0.7in, b: 1.4in, c: 2.0in }
+
+teacher:
+  questions_to_ask:
+  - Which specific number or study detail supports your choice?
+  - What claim would go beyond the evidence, and why?
+  watch_for:
+  - Choosing a speaker without a reason.
+  - Copying numbers without explaining what they support.
+  first_take_note: Ungraded commitment; accept any evidence-based first impression.
+visuals:
+  controller_summary:
+    kind: two_way_table
+    col_label: "Daily kWh samples"
+    row_label: "Controller"
+    cols: ["$N$", "$n$", "$\\bar x$", "$s$"]
+    rows: ["Conv.", "Adaptive"]
+    cells:
+      - ["1,200", "40", "18.6", "4.0"]
+      - ["900", "40", "15.6", "4.0"]

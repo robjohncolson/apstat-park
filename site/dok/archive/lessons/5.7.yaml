@@ -1,0 +1,44 @@
+# Topic 5.7 — Sampling Distributions for Sample Means (B: 2027-01-11)
+topic: "5.7"
+ced2026: { unit: 4, topic: "4.1", label: "Sampling Distributions for Sample Means" }
+title: "Two Production Lines, Two Sampling Plans"
+essential_question: "How do population shape, sample size, and sampling variability determine whether a normal probability for a sample mean is trustworthy?"
+worksheet: "u5_lesson7_live.html"
+
+rules_callout:
+  title: "MODEL SAMPLE MEANS, NOT INDIVIDUAL VALUES (keep on the page)"
+  body: |
+    For an SRS of size $n$, $\mu_{\bar X}=\mu$ and $\sigma_{\bar X}=\sigma/\sqrt n$ when
+    $n\leq0.10N$ for sampling without replacement. The sampling distribution of $\bar X$ is
+    approximately normal if the population is approximately normal (for any $n$)
+    \textbf{or} if the population is not normal but $n\geq30$ (Central Limit Theorem).
+    A normal tail probability describes the mean of an entire random sample, not one individual value.
+    For a normal probability, standardize with $z=(\text{value}-\text{mean})/\text{SD}$ and use the appropriate normal tail.
+    Printed normal table: $P(Z\leq1.5000)=0.933193$ and $P(Z\leq3.0000)=0.998650$. A right-tail area is 1 minus the left area.
+
+focus: aps-5.7-d3-1
+reinforcement: []
+space: { first_take: 0.9in, a: 0.7in, b: 1.4in, c: 2.0in }
+
+teacher:
+  questions_to_ask:
+    - "Is 30 the only route to a normal sampling distribution?"
+    - "Does the Central Limit Theorem change the original population or the distribution of sample means?"
+    - "Why are both sampling distributions centered at 40 despite different sample sizes?"
+    - "How do standard deviations 4 and 2 change where 46 falls on each model?"
+  watch_for:
+    - "Using n at least 30 as a universal requirement even for a normal population."
+    - "Claiming a skewed population prevents the CLT from applying at n equals 36."
+    - "Using the population standard deviation of 12 for both distributions of sample means."
+  first_take_note: "Not graded. Each student is correct about one line and wrong about the other; the finish should replace either-or reasoning with the two separate normality pathways."
+
+visuals:
+  cycle_time_plans:
+    kind: two_way_table
+    col_label: "Sampling plans"
+    row_label: "Line"
+    cols: ["Shape", "$N$", "$n$", '$\mu$', '$\sigma$']
+    rows: ["A", "B"]
+    cells:
+      - ["Normal", "1000", "9", "40", "12"]
+      - ["Right-skewed", "1000", "36", "40", "12"]

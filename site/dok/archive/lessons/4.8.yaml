@@ -1,0 +1,49 @@
+topic: "4.8"
+ced2026:
+  unit: 2
+  topic: '2.9'
+  label: Parameters of Random Variables
+title: Same Mean, Different Deadline Risk
+essential_question: When two probability models have the same mean, how can standard deviation change
+  the decision?
+worksheet: u4_lesson7-8_live.html
+rules_callout:
+  title: MEAN AND STANDARD DEVIATION (keep on the page)
+  body: 'For a discrete random variable, $\mu_X=\sum xP(X=x)$ and $\sigma_X=\sqrt{\sum(x-\mu_X)^2P(X=x)}$.
+    For $n$ equally likely outcomes, divide the sum of squared distances from the mean by $n$, then
+    take the square root. The mean is a long-run average; the standard deviation describes a typical
+    distance from it, in the variable''s units. Add probabilities of outcomes that miss a deadline.
+
+    '
+focus: aps-4.8-d3-1
+reinforcement: []
+space:
+  first_take: 0.9in
+  a: 0.7in
+  b: 1.4in
+  c: 2.0in
+teacher:
+  questions_to_ask:
+  - Which number or visible feature supports your claim?
+  - Why does the other claim go beyond that evidence?
+  - What would you tell someone who chose the other claim?
+  watch_for:
+  - A choice with copied numbers but no explanation of how they support it.
+  - Treating a model or average as a guaranteed individual outcome.
+  first_take_note: Not graded. Route B's very fast outcomes may attract some students before deadline
+    risk is made explicit.
+visuals:
+  route_dotplots:
+    kind: raw_tikz
+    body: "\\begin{tikzpicture}\n\\begin{axis}[\n  width=0.90\\linewidth,\n  height=1.0in,\n  xmin=5,\n\
+      \  xmax=55,\n  xtick={10,15,20,25,30,35,40,45,50},\n  ymin=0,\n  ymax=3,\n  ytick=\\empty,\n\
+      \  axis y line=none,\n  axis x line=bottom,\n  title={\\textbf{Route A}},\n  xlabel={Delivery\
+      \ time (minutes)},\n  tick label style={font=\\small},\n  label style={font=\\small},\n  title\
+      \ style={font=\\small}\n]\n\\addplot[only marks,mark=*,mark size=2.4pt,color=dayblue] coordinates\n\
+      \  {(25,1) (27,1) (29,1) (29,2) (31,1) (31,2) (33,1) (35,1)};\n\\end{axis}\n\\end{tikzpicture}\\\
+      par\\smallskip\n\\begin{tikzpicture}\n\\begin{axis}[\n  width=0.90\\linewidth,\n  height=1.0in,\n\
+      \  xmin=5,\n  xmax=55,\n  xtick={10,15,20,25,30,35,40,45,50},\n  ymin=0,\n  ymax=3,\n  ytick=\\\
+      empty,\n  axis y line=none,\n  axis x line=bottom,\n  title={\\textbf{Route B}},\n  xlabel={Delivery\
+      \ time (minutes)},\n  tick label style={font=\\small},\n  label style={font=\\small},\n  title\
+      \ style={font=\\small}\n]\n\\addplot[only marks,mark=*,mark size=2.4pt,color=dayblue] coordinates\n\
+      \  {(10,1) (18,1) (26,1) (26,2) (34,1) (34,2) (42,1) (50,1)};\n\\end{axis}\n\\end{tikzpicture}\n"

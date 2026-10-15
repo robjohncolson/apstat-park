@@ -1,0 +1,106 @@
+\documentclass[11pt]{article}
+\usepackage{preamble}
+\setlength{\parskip}{4pt}
+
+\begin{document}
+
+\daybanner{AP Statistics \textperiodcentered\ Unit 1 \textperiodcentered\ Topic 1.13 \textperiodcentered\ TEACHER KEY}{Fertilizer in Two Greenhouses}
+
+\sectionbanner{CED TETHER}
+
+{\small
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item \textbf{Skill 1.C} --- Describe an appropriate method for gathering and representing data.
+  \item \textbf{EU VAR-3} --- Well-designed experiments can establish evidence of causal relationships.
+  \item \textbf{LO VAR-3.D} --- Explain why a particular experimental design is appropriate. [Skill 1.C]
+  \item \textbf{EK VAR-3.D.1} --- There are advantages and disadvantages for each experimental design depending on the question of interest, the resources available, and the nature of the experimental units.
+  \item (Supporting background from Topic 3.5, required to reason about design choice:)
+  \item \textbf{EK VAR-3.C.1} --- In a completely randomized design, treatments are assigned to experimental units completely at random. Random assignment tends to balance the effects of uncontrolled (confounding) variables so that differences in responses can be attributed to the treatments.
+  \item \textbf{EK VAR-3.C.7} --- For randomized complete block designs, treatments are assigned completely at random within each block.
+  \item \textbf{EK VAR-3.C.8} --- Blocking ensures that at the beginning of the experiment the units within each block are similar to each other with respect to at least one blocking variable. A randomized block design helps to separate natural variability from differences due to the blocking variable.
+  \item \textbf{EK VAR-3.C.9} --- A matched pairs design is a special case of a randomized block design. Using a blocking variable, subjects are arranged in pairs matched on relevant factors. Every pair receives both treatments by randomly assigning one treatment to one member of the pair and the remaining treatment to the second member of the pair.
+\end{itemize}
+}
+\textbf{Essential question:} When does blocking reveal a treatment effect more clearly than complete randomization?\par
+\textbf{DOK-3 skill:} 4.B \textperiodcentered\ \textbf{FRQ pattern:} {\small\texttt{completely-\allowbreak{}randomized-\allowbreak{}vs-\allowbreak{}block-\allowbreak{}when-\allowbreak{}blocking-\allowbreak{}earns-\allowbreak{}its-\allowbreak{}keep}}\par
+\textbf{DOK rationale:} Part (c) compares designs using the relative sizes of block and treatment differences, predicts how chance imbalance could mask an effect, and bounds the causal and population conclusions the experiment can support.\par
+
+\textbf{Self-paced bonus sheet.} Students take it when they choose and turn it in when they finish. Everything they need is printed on the sheet. Score part (c) only, E / P / I, by hand --- never AI-graded or auto-scored. (a) and (b) are the ladder up; use them to see where a thin (c) came from.\par
+
+\textbf{Questions to ask}
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item Which comparison estimates fertilizer effect without mixing greenhouses?
+  \item Which is larger: the greenhouse gap or the treatment gap?
+  \item How could complete randomization accidentally pair treatment with shade?
+  \item What does random assignment permit, what does significance add, and what would broader generalization need?
+\end{itemize}
+
+\begin{callout}{\IconWarn\ LOOK FOR}{calloutred}
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item Calling greenhouse a treatment rather than the blocking variable.
+  \item Saying complete randomization is invalid instead of less precise for this setting.
+  \item Treating the displayed means alone as proof of statistical significance or broad generalizability.
+\end{itemize}
+\end{callout}
+
+\sectionbanner{SCORING PART (c) --- E / P / I}
+
+\textbf{Expected elements}
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item \textbf{blocking-with-numbers} (required) --- Chooses B using greenhouse difference 3.2 versus fertilizer difference 1.2 kg
+  \item \textbf{imbalance-mechanism} (required) --- Explains how A could place more of one treatment in one house and mask or exaggerate its effect
+  \item \textbf{bounded-cause} (required) --- Makes a causal conclusion conditional on significance and limited to the studied plants and conditions
+\end{itemize}
+
+{\small\renewcommand{\arraystretch}{1.25}
+\noindent\begin{tabular}{|p{0.5in}|p{5.9in}|}
+\hline
+\textbf{E} & All three elements are correct and linked to this problem. Accept equivalent plain-language reasoning. \\ \hline
+\textbf{P} & At least one element includes a correct evidence-to-reason link, but another is missing or incorrect. \\ \hline
+\textbf{I} & No correct evidence-to-reason link; only a choice, copied numbers, or unsupported statements. \\ \hline
+\end{tabular}}
+
+\textbf{Common mistakes}
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item Treating sunny and shaded greenhouses as treatments instead of blocks
+  \item Comparing only the four means without computing within-block treatment differences
+  \item Saying Design A is not randomized; it is randomized but may be less precise
+  \item Claiming any observed difference proves cause without considering chance or statistical significance
+\end{itemize}
+
+\clearpage
+\focusbanner{THE PROBLEM --- annotated}
+
+Suppose a grower has 24 similar tomato plants, 12 in a sunny greenhouse and 12 in a shaded greenhouse. The response is fruit yield in kilograms per plant.\par\smallskip \textbf{Design A:} Completely randomize all 24 plants; assign 12 to fertilizer and 12 to no fertilizer, ignoring greenhouse.\par \textbf{Design B:} Treat greenhouse as a block; within each greenhouse, randomly assign 6 plants to fertilizer and 6 to no fertilizer.\par\smallskip Pilot means from plants grown under the same conditions are shown.\par
+\begin{center}
+\textbf{Mean fruit yield (kg per plant)}\par\smallskip
+\begin{tabular}{|l|c|c|}
+\hline
+\textbf{Greenhouse} & \textbf{Fertilizer} & \textbf{None} \\ \hline
+\textbf{Sunny} & 7.2 & 6.0 \\ \hline
+\textbf{Shaded} & 4.0 & 2.8 \\ \hline
+\end{tabular}
+\end{center}
+\begin{firsttakebox}{FIRST TAKE --- one sentence before you work the parts}
+Which design would you use to detect the fertilizer effect most clearly? Name one detail behind your choice.\par
+\answer{Not graded. Accept either design initially if the student identifies a real tradeoff; the calculations should sharpen the revision.}
+\end{firsttakebox}
+
+\begin{callout}{\IconBook\ BLOCK, RANDOMIZE, THEN INFER (keep on the page)}{calloutgreen}
+In a \textbf{completely randomized design}, treatments are assigned across all units. In a
+\textbf{randomized block design}, first group units that are similar on a relevant variable, then randomly
+assign treatments \emph{within each block}. Blocking separates natural block-to-block variability from the
+treatment comparison. Random assignment supports cause only when the observed difference is too large for
+chance alone; generalization also requires units that represent the target population.
+\end{callout}
+
+\dokbadge{1}~\textbf{(a)} Name the blocking variable and the response variable, with units.\par
+\answer{Block: greenhouse light condition (sunny or shaded). Response: fruit yield in kilograms per plant.}
+
+\dokbadge{2}~\textbf{(b)} For the sunny greenhouse, find fertilizer minus no fertilizer. For the fertilized plants, find sunny minus shaded. Compare the two differences.\par
+\answer{Fertilizer difference in sunny house: $7.2-6.0=1.2$ kg per plant. Greenhouse difference for fertilized plants: $7.2-4.0=3.2$ kg per plant, larger than 1.2.}
+
+\dokbadge{3}~\textbf{(c)} Which design should the grower use? Use the two differences to explain your choice and how chance imbalance could affect Design A. If Design B gives a statistically significant difference, state a causal conclusion limited to the plants and conditions studied.\par
+\answer{Use Design B. The $3.2$ kg greenhouse difference is larger than the $1.2$ kg fertilizer difference, so blocking on greenhouse removes a major source of natural variability before comparing treatments. In Design A, random assignment could by chance place more fertilized plants in the shaded house and more controls in the sunny house, masking or reversing the fertilizer difference. If the within-block fertilizer difference is statistically significant, random assignment permits the conclusion that fertilizer caused a change in mean yield for these experimental conditions. The result does not automatically generalize to all tomato varieties, greenhouses, or growers because the 24 plants and two houses were not randomly selected from those populations.}
+
+\end{document}

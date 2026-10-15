@@ -1,0 +1,60 @@
+\documentclass[11pt]{article}
+\usepackage{preamble}
+\renewcommand{\answer}[1]{}
+
+\begin{document}
+
+\ladderheading{AP Statistics \textperiodcentered\ Unit 4 \textperiodcentered\ Topic 4.9}{Two Test Plans for Cure Time}
+
+\focusbanner{THE PROBLEM}
+
+Suppose line N uses a new formula for sealant, a material that closes gaps. Line S uses the standard formula. A team takes independent simple random samples of 18 of 600 recent N batches and 18 of 540 recent S batches. Mean cure times are 41.2 and 44.0 minutes; the boxplots are shown. Before sampling, the team asked, ``Do the two populations differ in mean cure time?'' Formula was not randomly assigned to lines.\par\smallskip \textbf{Rhea:} ``Keep the original question and use population means. A difference between lines may have other causes.''\par \textbf{Sol:} ``Since $41.2<44.0$, use a lower tail with sample means. A significant result proves the formula caused faster curing.''\par
+\begin{center}
+\begin{tikzpicture}
+\begin{axis}[
+  width=0.61\linewidth,
+  height=1.44in,
+  ytick={2,1}, yticklabels={{Line N},{Line S}}, ymin=0.4, ymax=2.6,
+  axis x line=bottom, axis y line*=left, y axis line style={draw=none}, boxplot/box extend=0.5, xmajorgrids, enlarge x limits=0.06,
+  xlabel={Cure time (min)}, tick label style={font=\small}, label style={font=\small},
+  ytick style={draw=none}, yticklabel style={font=\small\bfseries}
+]
+\addplot[boxplot prepared={lower whisker=34, lower quartile=38.5, median=41, upper quartile=44, upper whisker=48.5, draw position=2}, fill=calloutblue, draw=dayblue] coordinates {};
+\addplot[boxplot prepared={lower whisker=35.5, lower quartile=40, median=44, upper quartile=48, upper whisker=52.5, draw position=1}, fill=calloutblue, draw=dayblue] coordinates {};
+\end{axis}
+\end{tikzpicture}
+\end{center}
+\begin{firsttakebox}{FIRST TAKE --- one sentence before you work the parts}
+Did the team originally ask whether N was faster or whether the lines differed in either direction? Explain in one sentence.
+\workspace{0.9in}
+\end{firsttakebox}
+
+\begin{callout}{\IconBook\ HYPOTHESES FOR TWO MEANS (keep on the page)}{calloutgreen}
+For two independent groups with a quantitative response, use a two-sample $t$ test for
+$\mu_1-\mu_2$. The null states no population difference: $H_0:\mu_1-\mu_2=0$.
+Choose $<$ or $>$ only when the research question specified that direction before seeing
+the data; otherwise use $\neq$. Hypotheses use population parameters, never observed sample
+means. Check independent random samples or random assignment, both 10 percent conditions
+when sampling without replacement, and both sample shapes when either $n<30$. Random sampling
+supports population scope; random assignment is needed to isolate a causal treatment effect.
+\end{callout}
+
+\newpage
+\textbf{Work (a)--(c).}\par\smallskip
+
+\dokbadge{1}~\textbf{(a)} Define $\mu_N$ and $\mu_S$ in context.\par
+\workspace{0.7in}
+
+\dokbadge{2}~\textbf{(b)} State $H_0$ and $H_a$ in N-minus-S order to match the question asked before sampling.\par
+\workspace{1.4in}
+
+\dokbadge{3}~\textbf{(c)} In 3--4 sentences, judge the two plans. Explain why the original question sets the tail, why hypotheses use population means, and why these two lines cannot isolate the formula as the cause.\par
+\workspace{2.0in}
+
+\begin{sentenceframebox}\raggedright\textbf{Frame:} The original question asks \blank[1.8in], so the alternative should \blank[1.8in].\end{sentenceframebox}
+
+\begin{sentenceframebox}\raggedright\textbf{Frame:} The hypotheses describe \blank[1.8in]. A causal claim is limited because \blank[2.0in].\end{sentenceframebox}
+
+\textbf{Turn this sheet in whenever you finish --- bonus credit. Part (c) is scored E / P / I.}\par
+
+\end{document}

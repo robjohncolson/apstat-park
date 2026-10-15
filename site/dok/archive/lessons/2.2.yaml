@@ -1,0 +1,56 @@
+topic: "2.2"
+ced2026:
+  unit: 2
+  topic: '2.1'
+  label: 'Two Categorical Variables: Tables & Graphs'
+title: Same Responses, Different Questions
+essential_question: Which display best answers a relationship question when the groups have different
+  sizes?
+worksheet: u2_lesson2_live.html
+rules_callout:
+  title: MATCH THE DISPLAY TO THE QUESTION (keep on the page)
+  body: 'A count bar graph shows numbers of students. A segmented bar graph stacks each group''s
+    percentages to $100\%$. To compare group preferences, divide each count by its group total and
+    compare the within-group percentages. Different group distributions suggest association. Percentages
+    alone do not show how many people were surveyed.
+
+    '
+focus: aps-2.2-d3-1
+reinforcement: []
+space:
+  first_take: 0.6in
+  a: 0.7in
+  b: 1.4in
+  c: 2.0in
+teacher:
+  questions_to_ask:
+  - Which number or visible feature supports your claim?
+  - Why does the other claim go beyond that evidence?
+  - What would you tell someone who chose the other claim?
+  watch_for:
+  - A choice with copied numbers but no explanation of how they support it.
+  - Treating a model or average as a guaranteed individual outcome.
+  first_take_note: Not graded. The goal is to surface whether students instinctively compare bar
+    totals, segment counts, or within-grade shares.
+visuals:
+  celebration_graphs:
+    kind: raw_tikz
+    body: '\begin{tikzpicture}\begin{axis}[width=0.95\linewidth,height=1.05in,ybar stacked,bar width=18pt,ymin=0,ymax=135,ytick={0,60,120},symbolic
+      x coords={9th,12th},xtick=data,enlarge x limits=0.4,title={Graph A},ylabel={Students},tick
+      label style={font=\small},label style={font=\small},title style={font=\small\bfseries},nodes
+      near coords,every node near coord/.append style={font=\small},ymajorgrids]\addplot[fill=calloutblue,draw=dayblue]
+      coordinates {(9th,72) (12th,18)};\addplot[fill=calloutgreen,draw=dayblue] coordinates {(9th,48)
+      (12th,42)};\end{axis}\end{tikzpicture}
+
+      \par\smallskip
+
+      \begin{tikzpicture}\begin{axis}[width=0.95\linewidth,height=1.05in,ybar stacked,bar width=18pt,ymin=0,ymax=112,ytick={0,50,100},symbolic
+      x coords={9th,12th},xtick=data,enlarge x limits=0.4,title={Graph B},ylabel={Percent},tick label
+      style={font=\small},label style={font=\small},title style={font=\small\bfseries},nodes near
+      coords,every node near coord/.append style={font=\small},ymajorgrids]\addplot[fill=calloutblue,draw=dayblue]
+      coordinates {(9th,60) (12th,30)};\addplot[fill=calloutgreen,draw=dayblue] coordinates {(9th,40)
+      (12th,70)};\end{axis}\end{tikzpicture}
+
+      \par{\small Lower: Field Day\quad Upper: Talent Show}
+
+      '

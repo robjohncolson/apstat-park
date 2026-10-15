@@ -1,0 +1,1181 @@
+{
+  "source": "hermes/old-app/recovered/browser_port",
+  "campaignSource": "lua_archive_sources/seq_setting.lua",
+  "stages": 48,
+  "worlds": 12,
+  "adaptations": [
+    "seeded randomness for synchronized input replay",
+    "transparent map background"
+  ],
+  "patches": [
+    {
+      "id": "authored-switch-release-and-keyed-goal-entry",
+      "files": [
+        "src/engine/GameRuntime.ts",
+        "src/engine/actors/Goal.ts",
+        "src/engine/sprites.ts"
+      ],
+      "evidence": [
+        "FUN_7ff72bb78b70",
+        "FUN_7ff72bb5eef0",
+        "FUN_7ff72bb531d0",
+        "FUN_7ff72bb52ec0"
+      ],
+      "behavior": "Plain switches retain their pressed state unless the authored reset parameter is enabled. A carried key must reach the goal; cats enter with UP. Desk entry requires UP for key delivery as requested."
+    },
+    {
+      "id": "optional-teacher-cats",
+      "files": [
+        "src/engine/GameRuntime.ts"
+      ],
+      "evidence": [
+        "Desk requirement: teachers can help without counting toward the student team"
+      ],
+      "behavior": "Desk adaptation, not a native rule: optional teacher cats do not increase party thresholds, goal quorums, or scroll-camera membership. A teacher cat that leaves is removed with every retained reference to it (removeRuntimePlayer): a WarpGun that held it returns to the empty hold (native aux +0x430 == 0, FUN_7ff72bb580a0), a cat it held is put back where it is, and its keys, magnet, ride and hop entries are dropped."
+    },
+    {
+      "id": "warp-sensor-origin",
+      "files": [
+        "src/engine/actors/Warp.ts",
+        "src/engine/actors/WarpAll.ts"
+      ],
+      "evidence": [
+        "FUN_7ff72bb62ec0",
+        "FUN_7ff72bc12370",
+        "FUN_7ff72bc17170"
+      ],
+      "behavior": "Local [0,0,width,height] sensor translated to the actor (top-left at the row point since warp-sensor-top-left; this entry first read it as a left/bottom anchor). Sensors have no visible artwork."
+    },
+    {
+      "id": "push-box-native-art",
+      "files": [
+        "src/engine/actors/PushBox.ts",
+        "src/engine/sprites.ts"
+      ],
+      "evidence": [
+        "FUN_7ff72bb340f0"
+      ],
+      "behavior": "Native opaque white/orange nine-patch, 24-unit corners from the recovered atlas."
+    },
+    {
+      "id": "jump02-unsupported-boxes",
+      "files": [
+        "src/engine/GameRuntime.ts"
+      ],
+      "evidence": [
+        "FUN_7ff72bb33890"
+      ],
+      "behavior": "In jump02, unsupported numbered boxes fall at .65 units/tick squared and settle on floors, boxes, or live cats. Other stages retain their current movement controllers."
+    },
+    {
+      "id": "solid-push-chains-and-segment-anchors",
+      "files": [
+        "src/engine/GameRuntime.ts",
+        "src/engine/actors/Bridge.ts",
+        "src/engine/actors/KeyGate.ts"
+      ],
+      "evidence": [
+        "FUN_7ff72bb343e0",
+        "FUN_7ff72bc16780",
+        "FUN_7ff72bb4f630",
+        "FUN_7ff72bb4f9d0"
+      ],
+      "behavior": "Pushes carry obstructing cats or stop at blocked chains. Gate extents follow authored segment counts. Bridge segment rectangles use local zero-origin bounds."
+    },
+    {
+      "id": "push-box-sky-respawn",
+      "files": [
+        "src/engine/actors/PushBox.ts",
+        "src/engine/GameRuntime.ts"
+      ],
+      "evidence": [
+        "Teacher observation of shipped PICO PARK (no recovered native handler yet)",
+        "FUN_7ff72bb6f0e0 (shared bottom kill-line)"
+      ],
+      "behavior": "Every stage: a push box whose top passes the bottom kill-line that fails players returns to its spawn x, falling from rest, and drops back onto its origin. It starts just above the top of the screen, or, when map tiles overhang the origin, from just under the lowest overhang. While that start overlaps a cat or another box, the box waits parked at the kill line (off-screen, at rest) and retries each frame. Deterministic (map tiles and frame state only)."
+    },
+    {
+      "id": "stacked-cats-weigh-lifts",
+      "files": [
+        "src/engine/GameRuntime.ts"
+      ],
+      "evidence": [
+        "FUN_7ff72bb64310",
+        "FUN_7ff72bc132c0 (recursive DOWN contact count)",
+        "FUN_7ff72bc17330 (recursive carry)"
+      ],
+      "behavior": "WeightedLift/Ex/Ex2 count every cat in the contact stack resting on the slab (directly, on another cat, or on a box), transitively, and carry the whole stack with the slab, as DarknessWeightedLift already did. Thresholds unchanged (optional teacher cats still add weight but never raise the requirement). Deterministic: rect geometry in player-index order."
+    },
+    {
+      "id": "push-box-head-carry",
+      "files": [
+        "src/engine/GameRuntime.ts",
+        "src/engine/actors/PushBox.ts"
+      ],
+      "evidence": [
+        "FUN_7ff72bb33890 (PushBox resolver: zeroes its own vx; support = any body in the cell below via FUN_7ff72bc13690, which has no category filter, so a cat holds a box; else the 0.65 settle)",
+        "FUN_7ff72bc17330 callers (box push, lifts, plane, stretch, RouletteLift, switch motion): the normal cat update FUN_7ff72bb6f0e0 never chain-displaces, so a walking cat does not carry its head box",
+        "FUN_7ff72bb6f0e0 jump: vy is set only if FUN_7ff72bb5b630(body, 0 = above, 1, 0) finds nothing above (an unfiltered FUN_7ff72bc13690 query); with something above, see head-stack-jump-impulse",
+        "Carriers move stacks: lifts/MoveWalls sweep (FUN_7ff72bc16f50) and displace contacted bodies by the same delta (FUN_7ff72bb34f30 -> FUN_7ff72bc17330 -> FUN_7ff72bc16780, recursive)"
+      ],
+      "behavior": "Every stage: a cat holds a push box like a floor; once unsupported (the carrier drops away or the box is blocked while the cat walks on) it falls. A rising cat meets a box above it at its underside (it never passes into it). What a jump press does with a body on the head is head-stack-jump-impulse; a walking cat carries its head box (stack-riding, which supersedes this entry's earlier \"a walking cat carries nothing\" reading). A carrier (WeightedLift family or MoveWall) under the cat moves the head box by that carrier's own delta, transitively down the stack, with cats riding the box. Deterministic: frame-start rects, lowest player index wins."
+    },
+    {
+      "id": "stack-riding",
+      "files": [
+        "src/engine/GameRuntime.ts"
+      ],
+      "evidence": [
+        "Retail capture og-capture-2: a walking cat carries the cat and/or box resting on it by its exact dx in every sampled frame, from the first sample (same frame, no lag); transitive (cat / box / cat: identical deltas); a cat on a pushed box rides it 1:1; an airborne cat keeps its x; when the carrier drops off a ledge, contact breaks and the box keeps its x and falls",
+        "Decompile (og-capture-2/decomp/matrix.md): NOT found. avatar+0x140 is written only by CollisionConstraintMove (FUN_7ff72bb6e6d0); FUN_7ff72bb6f0e0 never calls FUN_7ff72bc17330; PushBox FUN_7ff72bb33890 zeroes its vx and inherits nothing. Supporting hint: FUN_7ff72bb7b700 -> FUN_7ff72bb7cd20 caps a walking cat's scroll-mode speed by the furthest x of the stack on top of it (recursive), which presumes the stack moves with the walker"
+      ],
+      "behavior": "Every stage: after a cat's own update and collisions, everything resting on its pre-move rect (cats and push boxes; not a rising cat, a falling, hopping or hop-requested box) moves sideways by the same dx in the same frame, transitively up the stack (bottom-up, breadth-first; cats by index, then boxes by index). A cat carried by a pushed box carries its own stack the same way. A rider blocked by a tile, solid or body moves only as far as it can, and the support walks out from under it. A body is displaced by riding at most once per frame (frame-wide set), and only by ONE support: of the bodies it rested on at frame start, the one with the largest horizontal overlap (ties: cats by index, then boxes by index); a rider that landed this frame rides whatever it rests on. Vertical motion is not inherited (gravity / carriers handle it). Steps over 48 units (teleports) never drag a stack. Deterministic: simulation state only."
+    },
+    {
+      "id": "head-stack-jump-impulse",
+      "files": [
+        "src/engine/GameRuntime.ts",
+        "src/engine/actors/PushBox.ts"
+      ],
+      "evidence": [
+        "FUN_7ff72bb6f0e0: with a contact above (FUN_7ff72bb5b630 dir 0) the jumper's velocity is never set; FUN_7ff72bc15c70(player, node, GetJumpSpeed, 2) hands the jump up the column",
+        "FUN_7ff72bc15c70: v = GetJumpSpeed / FUN_7ff72bc13430(node, UP, 0xffffffff) (depth of the stack above); FUN_7ff72bc15dc0 calls each receiving owner's vtable +0x78 with (2, (0, v)), recursing with v + step, so the top layer gets the full speed",
+        "A player's +0x78 is FUN_7ff72bb69440 (setState): cats in the column change state, not velocity",
+        "Retail capture (og-capture/notes.md): box hop 22 native, airtime 0.27-0.30 s, hold 47/330/670 ms -> 34/33/33 px; stack blue/red/box: box hops, cats still; blue/box/red: nothing moves"
+      ],
+      "behavior": "Every stage: a jump press by a grounded normal cat with a cat or box resting on its head does not move the cat. The column above is walked bottom-up (breadth-first; cats by index, then boxes by index): cats pass the hand-off up (state only, no velocity); a box with anything on it receives nothing; the first free box reached gets one upward impulse, v0 = sqrt(2 G h) + G dt / 2 with h = 22 (the retail hop) and G the box gravity the port already uses for that stage, so its apex is 22 units. It keeps its x, rises under G, and lands with the exact-landing resolve on whatever is below (the head if still under it). Edge-triggered: holding jump changes nothing. Deterministic: simulation state only."
+    },
+    {
+      "id": "push-box-holds-switches",
+      "files": [
+        "src/engine/GameRuntime.ts"
+      ],
+      "evidence": [
+        "FUN_7ff72bb5f1d0 (switch begin-contact: mode != 2 requires body+0x20 & 2 and 1 <= body+0x4 <= 3)",
+        "FUN_7ff72bb340f0 (PushBox body: FUN_7ff72bc16bf0(..., 3) mask 3; body+0x4 = 2, category 2)"
+      ],
+      "behavior": "Fidelity: a landed push box that has moved from its spawn holds a plain Switch (and SwitchMediator pad) down like a cat, using the native 1px-inset body, as the native begin-contact accepts category-2 PushBox bodies. Roulette stop switches, JumpSwitch, ScaleSwitch, DelaySwitch, SwitchTimer and DeadSwitch stay player-only."
+    },
+    {
+      "id": "rect-left-bottom-anchor",
+      "files": [
+        "src/engine/actors/StaticRect.ts",
+        "src/engine/GameRuntime.ts"
+      ],
+      "evidence": [
+        "FUN_7ff72bb72ae0 literal \"Rect\" branch (DAT_7ff72bcbf448): W = p0 + p2*k, H = p1 + p3*k; if W < 0 the origin x += W and W *= -1.0 (0x7ff72bcff6a8); FUN_7ff72bb77c10(rect, 0, H ^ 0x80000000, W, H) = local {0, -H, |W|, H} (0x7ff72bb7692b..0x7ff72bb7696b)",
+        "Origin [rsp+0x48] = row x,y (row+0x14, 0x7ff72bb72b4f) passed to the actor transform in the common tail (0x7ff72bb772f2)",
+        "FUN_7ff72bb5b820 (Rect ctor) passes that rect unchanged to FUN_7ff72bc16bf0(actor, rect, 2, 1)"
+      ],
+      "behavior": "Every stage: a literal Rect spans x from its spawn toward its signed width and y from spawn - height up to the spawn (left-bottom anchor, height upward), not centred. Other StaticRect users (MoveWall, CollisionSwitch, PuzzlePredictProxy, CollisionActorCreator) are unchanged (unverified). The 1-1 override in campaign-jump01.mjs still reassigns after load."
+    },
+    {
+      "id": "descending-lift-stops-on-bodies",
+      "files": [
+        "src/engine/GameRuntime.ts"
+      ],
+      "evidence": [
+        "Retail capture og-capture-2 L4: lift underside stops at the cat top (screen 577 vs cat 581, sprite margin), held 2.84 s -> 4.32 s, then follows its sine path upward; cat y unchanged throughout",
+        "FUN_7ff72bc16f50 (chain test): fails when a body touching the slab in its motion direction touches a tile in that direction (FUN_7ff72bc137b0) or its own chain fails; FUN_7ff72bc17330 is only ever called with direction UP: no lift pushes a body down; no crush / damage path from body overlap",
+        "FUN_7ff72bb6db60 (UpDownLift): blocked -> +0x3f8 |= 1, hold, wait +0x410 ~ the time its sine path spends past the obstacle, then mirror the phase (back up)",
+        "FUN_7ff72bb64310 (WeightedLift family): a contact under the slab freezes it (+0x408 = 0.06 s)",
+        "FUN_7ff72bc1e050 / FUN_7ff72bc1e4a0: a remaining overlap is rolled back to the time of impact; the lift (node flag 2) is not pushed, the other body is"
+      ],
+      "behavior": "Every stage: a WeightedLift / Ex / Ex2 / DarknessWeightedLift / UpDownLift moving DOWN onto a live cat or a resting push box that stands on something (tile, solid, lift, box or cat) stops exactly in contact with its top and never moves into it (the stack on the slab gets the shortened delta). An UpDownLift then holds at that height until its own sine path rises back above it (equivalent to the native wait + phase mirror for a symmetric path), even if the body leaves. A weighted lift resumes from where it stopped. A body under the slab that stands on nothing (mid-air) is pushed down to the slab underside instead. No crush, no damage. Not modelled: the 0.06 s WeightedLift freeze after contact ends, and its freeze of upward motion while something touches its underside; base Lift and RouletteLift unchanged. Deterministic: frame-start lift rects, bodies in index order."
+    },
+    {
+      "id": "native-movewall",
+      "files": [
+        "src/engine/GameRuntime.ts"
+      ],
+      "evidence": [
+        "Factory call at 0x7ff72bb74904: FUN_7ff72bb664e0(this, trunc(p0), trunc(p1), p2 > 0 ? p2 : -1.0); no party-size term",
+        "FUN_7ff72bb664e0: travel = a (|a| <= 1.19e-7 -> 50); sensor width = b (~0 -> 50); height c (< 0 -> 260); body {-8, -c+1, 16, c-2} (category 4, flag 0x10); view {-9, -c, 18, c} from atlas (500,255,9,130) = solid #ff864d; sensor {min(b,0)+10, -c+1, |b|, c-2}, moving with the wall",
+        "FUN_7ff72bb66be0 (sensor begin-contact): state := 2, timer := 0 only if the other body has category != 0, state < 2 and timer >= 1.5 s; the wall spawns in state 0, which never moves on its own",
+        "FUN_7ff72bb667e0: slide sign(travel)*2 per tick until |offset| > |travel|, wait 1.5 s, return sign(travel)*-1.5 per tick until offset*travel <= 0, snap 0, wait 1.5 s, then cycle (the port constants already match)",
+        "Retail 1-4: both cats stayed on the floor, outside the sensor band (y 49..239), and the wall never moved; the orange block right of the UpDownLift is the row-5 MC_BW* ledge, not the wall"
+      ],
+      "behavior": "Every stage: a MoveWall row {x, y, p0, p1, p2} is a 16-wide pillar standing on (x, y): body x-8..x+8, y-c+1..y-1 with c = p2 (260 when p2 <= 0), drawn with the native orange bar; p0 is its travel, p1 its sensor width. It waits idle until a live cat or push box begins touching its sensor (x + min(p1,0) + 10, width |p1|, the body height band, moving with the wall) at least 1.5 s after load; then it runs the existing slide / wait / return / wait cycle. Not modelled: undoing a slide step when the native chain test fails (the port keeps its existing shove)."
+    },
+    {
+      "id": "native-lift-and-ledge-look",
+      "files": [
+        "src/engine/actors/WeightedLift.ts",
+        "src/engine/sprites.ts",
+        "src/engine/picoStyle.ts"
+      ],
+      "evidence": [
+        "FUN_7ff72bb6d980 (UpDownLift ctor): view {-60, -10, 120, 20} from atlas (385,49,60,10) = solid #ff864d; body {-59, -9, 118, 18}; retail capture L4: slab 173 x 23 screen px = 115 x 15 native, orange",
+        "FUN_7ff72bb63cf0 (WeightedLift family): orange scale sprites (atlas (351,511,98,42) wide / (383,559,34,42) narrow); body anchor relative to the row is NOT traced, so only the colour is changed",
+        "Retail capture (L4 frame 75): the MC_BWL/MC_BWC/MC_BWR ledge (stage_weight01 row 5) is #ff864d with rounded ends; no evidence was captured for MC_BH* / MC_BR* chips"
+      ],
+      "behavior": "Look and size: the UpDownLift body is the native 118 x 18 (was 64 x 14) centred on its row point and drawn with its native orange atlas slab (no guide line). WeightedLift / Ex / Ex2 are drawn as solid orange rounded slabs at their existing size (was translucent light blue with a guide line); their native scale sprite and body size are left for when the anchor is traced. MC_BW* chips render stage orange (was brown); other MC_B* chips keep their colour (no evidence)."
+    },
+    {
+      "id": "native-weighted-lift",
+      "files": [
+        "src/engine/GameRuntime.ts",
+        "src/engine/actors/WeightedLift.ts",
+        "src/engine/sprites.ts"
+      ],
+      "evidence": [
+        "FUN_7ff72bc2a1a0: row column 1 is a party-size spawn filter (-4 = up to 4 players, 5 = 5 or more); the 1-4 lifts are independent (no shared label, no balance object)",
+        "FUN_7ff72bb72ae0 plain WeightedLift branch (0x7ff72bb740db..0x7ff72bb74223): FUN_7ff72bb63cf0(obj, 0.0, 0) = wide variant; travel = p0 + p2*n; FUN_7ff72bb64100(int p1, int p3) only when p1 > 0: required = max(p3 or 2, ceil(p1/100*n)); else the ctor default max(2, ceil(0.2*n)) (DAT_7ff72bc7d858); p4 > 0 disables auto-return; p5 adds p5*max(0, n-2) to the return step",
+        "FUN_7ff72bb63cf0: wide body {x-92, y+67, 194, 18}; sprite {x-93, y, 196, 84} from atlas (351,511,98,42) (sign box on a post over an orange slab)",
+        "FUN_7ff72bb64310: count = FUN_7ff72bc132c0(UP, mask 6) = cats and push boxes, recursively (a box weighs one, a box on a cat counts); fixed 1.0 per tick toward full travel when count >= required, else the return step toward 0 (if auto-return), clamped; any contact under the slab sets +0x408 = 0.06 s and nothing moves until it expires",
+        "FUN_7ff72bb64640: the sign prints \"%d\" = max(0, required - count) at (x+5, y+7+offset), size 32"
+      ],
+      "behavior": "Plain WeightedLift rows, every stage: body {x-92, y+67, 194, 18} (was 64 x 14 centred) drawn with the native sign-and-slab sprite and the number of bodies still needed on the sign; required = max(p3 or 2, ceil(p1/100 n)) when p1 > 0, else max(2, ceil(0.2 n)) (was floor, and p3 applied always); travel p0 + p2 n; 1 unit per tick toward full travel while loaded, else 1 + p5 max(0, n-2) per tick back to rest unless p4 > 0 (no auto-return); a cat or push box touching the slab underside freezes it 0.06 s. The weight counts cats and push boxes resting on the slab, transitively (a box on a cat now counts); n = the student party (optional teacher cats never raise the requirement). 1-1 keeps its verified 184 x 19 slab (campaign-jump01.mjs). Not modelled: the native chain test before each step (a rider pinned on a ceiling), tile contacts in the underside freeze (1-4 A sinks flush with the floor by design; whether native freezes there is open), WeightedLiftEx / Ex2 (variant mapping unverified), the sign text colour/font (not decoded: stage orange used)."
+    },
+    {
+      "id": "native-player-body",
+      "files": [
+        "src/engine/actors/PlayerGeometry.ts",
+        "src/engine/actors/Player.ts",
+        "src/engine/physics.ts",
+        "src/engine/GameRuntime.ts",
+        "src/engine/actors/BreakoutBall.ts"
+      ],
+      "evidence": [
+        "FUN_7ff72bb66e50 (avatar ctor) -> FUN_7ff72bb6a3b0(avatar, 0): rect = DAT_7ff72c62d1a8 (copied from DAT_7ff72bcbdfa0 by FUN_7ff72baa5f10; the memory image reads [-16, -47, 32, 46]) -> FUN_7ff72bc16bf0(avatar, &rect, 3); FUN_7ff72bc12370 stores it as the body {x, y, w, h} at +0x28..+0x34; category 1 (+4)",
+        "FUN_7ff72bb66e50 view: DAT_7ff72bcb98a0 = [-32, -62, 64, 62] with UV DAT_7ff72c62ad68.. = [1, 1, 31, 31] atlas px, so the drawn cat spans y-62..y and its bottom is 1 below the body bottom (y-1); the port already draws this 64 x 62 root bottom-centred on the row point",
+        "Lua stage rows stack spawned cats 50 apart (block_size = PLAYER_HEIGHT + 4 with PLAYER_HEIGHT 46): stage_jump02 P1..P8 at y = 432, 382, ..., 82",
+        "FUN_7ff72bb774a0 common tail -> setParams FUN_7ff72bb67620: if p0 is numeric and (int)p0 == 1, vtable +0xa8 = FUN_7ff72bae78f0 makes scale.x negative (the cat spawns facing left)",
+        "FUN_7ff72bb774a0: slot = table(+0xc0)[counter(+0xb8) % length(+0xf0)], the counter = player rows spawned so far in row order; FUN_7ff72bb72960 fills the table with 0..numPlayers-1 (shuffled only when enableShufflePlayer); the row label is never read"
+      ],
+      "behavior": "Every stage: a cat's body is the native 32 x 46 with its bottom 1 above the row point (x-16..x+16, y-47..y-1); it was 26 x 34 with its bottom 2 below it. The drawn cat is unchanged relative to the row point (64 x 62, bottom-centred on it, as native). The browser-only 3-unit floor-rest inset in the tile sweep is removed: it existed only because the old body started 2 units inside the floor, and the new body never starts inside one. A Player-family row whose p0 is 1 spawns facing left (the port also restores that facing on respawn: native respawn facing not traced). Stage player rows bind input slot and colour by row order (slot-table entry k for the k-th spawned row), not by label; optional teacher cats keep their own slot. Adapters keyed to the old body follow it: the key-carry actor point (body bottom + 1) and the BreakoutBall native-contact offset (now 0). Not changed: the jump/gravity integrator and the ScaleSwitch scaling rule."
+    },
+    {
+      "id": "goal-native-open-and-door",
+      "files": [
+        "src/engine/actors/Goal.ts",
+        "src/engine/GameRuntime.ts"
+      ],
+      "evidence": [
+        "FUN_7ff72bb52c20 (Goal ctor): view {-32, -64, 64, 64} (DAT_7ff72bcbad80/84, DAT_7ff72bc7d1b8, DAT_7ff72bcbad90) from atlas (96,512,48,48), drawn at 4/3; open frame (96,576,48,48) (FUN_7ff72bb52ec0)",
+        "FUN_7ff72bb53000 (slot 12): sensor DAT_7ff72bcbada0 = {-24, -32, 48, 32}, category 10; a numeric p0 raises its top: y = -32 - p0, h = 32 + p0",
+        "FUN_7ff72bb531d0 (contact): the Goal opens (FUN_7ff72bb52ec0) only on a category-8 body (Key) touching its sensor, on message 9 (FUN_7ff72bb53190) or on scene state 0x1a; it never opens by itself",
+        "No campaign row sends message 9 to a Goal (no row targets \"Goal\"). 9-1 / 9-4: LaserKeyBox / BallBox vtable slot 6 (FUN_7ff72bb54780 / FUN_7ff72bb53ff0) allocates an ordinary Key (FUN_7ff72bb64f20(key, 0)) into +0x400; breaking the box (FUN_7ff72bb54940: 3 category-5 hits / FUN_7ff72bb54330: a ball answering command 0xb within 5.0) puts that Key at (box x, box y - 30) (DAT_7ff72bcb4ee8) and adds it to the scene (FUN_7ff72bb54d60); the Key carried into the door opens it"
+      ],
+      "behavior": "Every stage: a Goal starts closed and opens only when a Key is delivered (the desk keeps UP for delivery, authored-switch-release-and-keyed-goal-entry); it no longer opens at frame 0 on stages with no Key row. The door is the native 64 x 64 (48 x 48 frame at 4/3) with its bottom on the row point (was 96 x 96 sunk 30 below it), and the sensor is {x-24, y-32-p0, 48, 32+p0} (was {x-20, y-30, 40, 60}). KeyGoal is a different class and is unchanged. Consequence: 8-2 / 8-4 (BreakoutKey) and 9-1 / 9-4 (the Key inside the LaserKeyBox / BallBox) cannot be cleared until those openers are implemented (batches 21 / 22)."
+    },
+    {
+      "id": "rect-party-terms",
+      "files": [
+        "src/engine/actors/StaticRect.ts",
+        "src/engine/actors/DarknessRect.ts",
+        "src/engine/actors/SwitchRect.ts",
+        "src/engine/GameRuntime.ts"
+      ],
+      "evidence": [
+        "FUN_7ff72bb72ae0 Rect / InvisibleRect / DarknessRect branch 0x7ff72bb76872..0x7ff72bb7696b: k = (u32)(party - 2) (0x7ff72bb7687f add ebx,-2); W = p0 + p2 k (0x7ff72bb768bb..c9); H = p1 + p3 k (0x7ff72bb768d7..e5); if the param count > 4 (0x7ff72bb768ea cmp [r12+0x1c],4) origin += (p4 k, p5 k) (FUN_7ff72bb93620 on rsp+0x48); if W < 0 origin.x += W, W = -W; rect = FUN_7ff72bb77c10(0, -H, W, H)",
+        "DarknessRect: same branch and ctor FUN_7ff72bb5b820 (+0x6e0 = 1 only changes command 0x2c)",
+        "SwitchRect branch 0x7ff72bb7633f: W = p0, H = p1 (no party terms), the same negative-W flip, rect FUN_7ff72bb77c10(0, -H, W, H)",
+        "Colour: FUN_7ff72bb5b820 (Rect) and FUN_7ff72bb5bcb0 (SwitchRect) build the same 9-slice from the same UV table DAT_7ff72bcbbdf0..DAT_7ff72bcbbe60 (atlas (0..47, 528..575), solid #ff864d)"
+      ],
+      "behavior": "Every stage: a literal Rect / DarknessRect is W = p0 + p2 k wide, H = p1 + p3 k tall, shifted by (p4 k, p5 k) when the row has more than 4 params, k = student party - 2 (clamped at 0; native wraps unsigned for a party of 1), left-bottom anchored (was: p0 x p1 only). DarknessRect and SwitchRect use the same left-bottom anchor (were centred) and the stage orange (were black / translucent cyan). Zero sizes follow native (no 32 default for Rects). 1-1 keeps its campaign-jump01.mjs override."
+    },
+    {
+      "id": "key-party-offset",
+      "files": [
+        "src/engine/GameRuntime.ts"
+      ],
+      "evidence": [
+        "FUN_7ff72bb72ae0 Key branch 0x7ff72bb7450a..0x7ff72bb7455f: int p0 -> xmm6, int p1 -> xmm1 (FUN_7ff72bb78470), vec = (p1, p0) (FUN_7ff72bb930e0), FUN_7ff72bb651a0 writes origin + ((N - 2) p1, 0.8 N p0) back to the factory origin rsp+0x48",
+        "FUN_7ff72bb651a0: ((float)N - DAT_7ff72bcff5c0 (2.0)) * a, (float)N * DAT_7ff72bcb5530 (0.8) * b; N = DAT_7ff72c629fa8+0xcc08 (the configured player count)"
+      ],
+      "behavior": "Every stage: a Key row spawns at x + (n - 2) p1, y + 0.8 n p0 (n = the student party; optional teacher cats never move it); its home position (where a dropped key returns) is that moved point. Was: the row point at every party size."
+    },
+    {
+      "id": "bottom-anchored-boxes",
+      "files": [
+        "src/engine/actors/FallBox.ts",
+        "src/engine/GameRuntime.ts"
+      ],
+      "evidence": [
+        "FallBox: FUN_7ff72bb42900 (slot 12) rect = {-p0/2, -p1, p0, p1} (bottom-centre) -> FUN_7ff72bb42d90; view 9-slice from atlas (144..191, 640..687) tinted with palette index 9 (FUN_7ff72baea070(9) = DAT_7ff72c62a040[9] = 0xffffffff)",
+        "ColorBox: shared block 0x7ff72bb76d9d builds {-w/2, -h, w, h} with w = p1, h = p2 (default 32) for FUN_7ff72bb3b350; ForceColorBox branch 0x7ff72bb73c9b builds the same rect for FUN_7ff72bb3b490",
+        "ForceColorBox has no recolour rule: it shares the ColorBox vtable (PTR_LAB_7ff72bcb7c88); the only callers of the player recolour FUN_7ff72bb67670 are FUN_7ff72bb688c0 (own slot), FUN_7ff72bb68a50 (network packet), FUN_7ff72bb6a160 (online slot reassignment) and FUN_7ff72bb6f0e0 (MultiPlayer relay)",
+        "The FallBox atlas region is a channel mask (red fill, blue outline) that the native draw remaps; the remap is not decoded, so the grey look stays"
+      ],
+      "behavior": "Every stage: FallBox, ColorBox and ForceColorBox stand bottom-centred on their row point (were centred on it, half their height too low). ForceColorBox no longer recolours a cat that overlaps it (invented; the warp-gun colour of the box is unchanged). Not changed here: FallBox art (grey), its 2-unit body inset, ColorBox colour / push rules (batch 3)."
+    },
+    {
+      "id": "normal-small-box-are-pushboxes",
+      "files": [
+        "src/engine/GameRuntime.ts"
+      ],
+      "evidence": [
+        "FUN_7ff72bb72ae0 branches 0x7ff72bb739a7 / 0x7ff72bb73a09 / 0x7ff72bb73a77 / 0x7ff72bb73ae7 (TallBox / BigBox / NormalBox / SmallBox, index 0..3) -> FUN_7ff72bb333d0(obj, index)",
+        "FUN_7ff72bb333d0: the PushBox ctor body (vtable PTR_FUN_7ff72bcb68c0, weight +0x404 = 100, offset +0x40c = 0) with rect DAT_7ff72bcb66a0[index]; the memory image reads Tall {-40,-703,80,703}, Big {-48,-128,96,128}, Normal {-48,-96,96,96}, Small {-25,-48,48,48}; then +0x90 |= 0x10 (hop propagation)",
+        "Same vtable as PushBox: p0 = weight / offset (FUN_7ff72bb33780), required = ceil(weight/100 n) + offset (FUN_7ff72bb34820, ceil = IAT 0x7ff72bc7c5d8), pushed by FUN_7ff72bb33890, falls 0.65 when unsupported (FUN_7ff72bb34c40)"
+      ],
+      "behavior": "Every stage: TallBox / BigBox / NormalBox / SmallBox rows are push boxes (the port PushBox, so they push, fall, ride, hop, respawn and hold switches like one) with the native table rect on the row point and p0 as the weight: 7-2 NormalBox (p0 100) needs the whole student party, the 7-2 / 11-4 SmallBoxes (p0 10) one cat. Was: static grey solids centred on the row point. LaserKeyBox / BallBox keep their own actors. Not modelled: the native 1-unit body inset."
+    },
+    {
+      "id": "colorbox-colour-push",
+      "files": [
+        "src/engine/GameRuntime.ts",
+        "src/engine/actors/PushBox.ts"
+      ],
+      "evidence": [
+        "FUN_7ff72bb3b350 (ColorBox ctor): colour +0x6fc = p0 % n (n = DAT_7ff72c629fa8+0xcc08); if p3 >= 0 and that colour == p3 % n it becomes (colour + 1) % n; flags |= 0x10",
+        "FUN_7ff72bb3b5e0 (update): vx = 0, then it moves if FUN_7ff72bb3c2e0(side 2) or (side 3) finds the colour; FUN_7ff72bb3c2e0 walks the side contacts recursively and returns 1 on a player (type DAT_7ff72c62a101) moving into the box whose colour (player +0x400 = plVar2[0x80]) equals the box colour; one such cat anywhere in the chain is enough",
+        "Box pushes box: FUN_7ff72bb343e0 (leading side) fails on a wall (FUN_7ff72bc137b0); for a push-box contact (type DAT_7ff72c62a10f) it counts that box own chain (FUN_7ff72bb34530, any body moving into it, the pushed box included) and fails only when the count < its requirement (FUN_7ff72bb34820), then recurses along the line"
+      ],
+      "behavior": "Every stage: a ColorBox row is a push box (rect {-w/2, -h, w, h}, w = p1, h = p2, default 32) of colour p0 % n (p3 skip) that moves only when a cat of that colour (the cat on that player slot) is in the chain pushing it; it falls, rides, hops and respawns like a push box. Was: a static solid in a 6-colour palette. ForceColorBox (11-3) keeps its own actor (warp-gun target). And every stage: a push box pushed into another push box moves it (and the line beyond it) when each box requirement is met by the pushers plus the boxes in front of them; a solid ends the line. Was: a box never moved into another box."
+    },
+    {
+      "id": "weighted-lift-ex-variants",
+      "files": [
+        "src/engine/GameRuntime.ts",
+        "src/engine/actors/WeightedLift.ts",
+        "src/engine/sprites.ts"
+      ],
+      "evidence": [
+        "FUN_7ff72bb72ae0 0x7ff72bb742ab..0x7ff72bb74307: bl = (name == \"WeightedLiftEx2\", string at 0x7ff72bcbef18); FUN_7ff72bb63cf0(obj, 0.0, bl)",
+        "FUN_7ff72bb63cf0: param_3 == 0 -> DAT_7ff72c62d108 = {-92, 67, 194, 18} (wide), else DAT_7ff72c62d118 = {-28, 67, 56, 18} (narrow): WeightedLiftEx is wide, WeightedLiftEx2 narrow",
+        "Factory 0x7ff72bb74314..0x7ff72bb743ae: if int p0 != 0, travel = p0 + int(param[n + 1]) (when nonzero) -> FUN_7ff72bb64050; if int p1 > 0, FUN_7ff72bb64100(int p1, 0) (required = max(2, ceil(p1/100 n))); float p2 -> +0x414 and +0x418 (the step per tick both ways)",
+        "Narrow sprite atlas (383,559,34,42) drawn {-34, 0, 68, 84}; sign at (x + 0, y + 7) (FUN_7ff72bb64640: +5 only for the wide variant)"
+      ],
+      "behavior": "Every stage: WeightedLiftEx (6-3) is the wide 194 x 18 slab and WeightedLiftEx2 (12-2) the narrow 56 x 18 slab, 67 below the row point, with the sign showing the bodies still needed; travel = p0 + the party table entry p[n + 1]; required = max(2, ceil(p1/100 n)); p2 units per tick in both directions; auto-return; the 0.06 s underside freeze; weight = cats and push boxes on the slab, transitively (as native-weighted-lift). Was: a 64 x 14 slab centred on the row point, travel p0, 1 unit per tick."
+    },
+    {
+      "id": "lift-horizontal-carry",
+      "files": [
+        "src/engine/GameRuntime.ts",
+        "src/engine/actors/WeightedLift.ts"
+      ],
+      "evidence": [
+        "FUN_7ff72bb550a0 (Lift ctor): body DAT_7ff72c62d010 = {-59, -9, 118, 18} (memory image), view {-60, -10, 120, 20} from atlas (385,49,60,10), as UpDownLift",
+        "FUN_7ff72bb55370 (update): FUN_7ff72bb34f30(this, (0, dy), dir 0 = the contacts above) and FUN_7ff72bb34f30(this, (dx, 0), dir 0) -> the stack on the slab moves by the slab dx as well as its dy (recursively, FUN_7ff72bc17330)"
+      ],
+      "behavior": "Every stage: a Lift is the native 118 x 18 orange slab, and what rests on it (cats and push boxes, transitively) moves with its horizontal sweep as well as its vertical one (11-4: the 1488-unit trip). Was: 64 x 14 translucent blue, vertical carry only. Not changed: Lift p2 / p3 (native: amplitude per party member; 11-4 has 0, 0)."
+    },
+    {
+      "id": "bridge-folded-start-and-motion",
+      "files": [
+        "src/engine/actors/Bridge.ts",
+        "src/engine/actors/KeyGate.ts",
+        "src/engine/GameRuntime.ts"
+      ],
+      "evidence": [
+        "FUN_7ff72bb72ae0 Bridge / KeyBridge block 0x7ff72bb76c59: count = int p0, dir = normalize(int p1, int p2), seg = int p4, headPush = int p5 > 0 -> FUN_7ff72bb4f630(obj, type 0, ...); if int p3 > 0: +0x518 = trunc(int p3 * (8 - N) * 0.1) (0x7ff72bb76d0d..0x7ff72bb76d5f, 8 - N unsigned); KeyBridge also sets +0x520 = 1",
+        "FUN_7ff72bb4f9d0 (on add): type 0 segments start at the row point (base +0x130 = the row point), target row + dir seg (count - 1 - i); segment i < +0x518 starts at row + dir seg (m - i); type 1 (Gate) starts extended and targets the row cell",
+        "FUN_7ff72bb4fea0: command 9 -> segment state 1, command 10 -> state 2; FUN_7ff72bb4f230: state 1 moves toward the target at DAT_7ff72bcff538 (1.0), state 2 back to the base at DAT_7ff72bcff4fc (0.5) via FUN_7ff72bb4f3e0 (2 units per tick at 1.0)",
+        "FUN_7ff72bb4fe10 (KeyBridge slot 25): while +0x520 is set, once the actor named \"Key\" is held (key +0x408 != 0) it sends itself command 9",
+        "FUN_7ff72bb4f630: the head segment with headPush (+1000 |= 4) pushes the bodies it meets (FUN_7ff72bb34f30)"
+      ],
+      "behavior": "Every stage: a Bridge is a solid strip that starts folded into the one-cell nub at its row point (or pre-extended by trunc(p3 (8 - n) 0.1) cells), extends 2 units per tick when switched on and folds back to the nub at 1 per tick when switched off; a KeyBridge starts folded and extends once any key is held (was: deployed from frame 0 and removed by a key). A Gate is solid and shrinks to its row-point cell at 2 per tick when opened and grows back at 1 per tick when closed (was: instant hide / show). Growing stops for a frame instead of entering a live cat or push box; a head-push bridge (p5 > 0) shoves them along instead. Switch / mediator / key wiring unchanged. Deterministic: frame-counted. Not modelled: the 4-tick follower stagger (the strip stays contiguous either way)."
+    },
+    {
+      "id": "native-movewall-rollback",
+      "files": [
+        "src/engine/GameRuntime.ts"
+      ],
+      "evidence": [
+        "FUN_7ff72bb667e0 (MoveWall update): the timer (+0x3fc) and the state machine advance first (state 2: offset += sign 2 until |offset| > |travel| -> state 3; state 3: offset += sign -1.5 after 1.5 s until offset travel <= 0 -> 0, state 1); then delta = offset - saved, and FUN_7ff72bc16f50(this, delta, 0, 0): on failure the offset is restored to the saved value (FUN_7ff72bb93150(pfVar1, local_res18)) and nothing moves (state and timer kept, retried next tick); on success the body moves (FUN_7ff72bb97ce0) and FUN_7ff72bb34f30(this, delta, side 2 / 3) displaces what it meets (FUN_7ff72bc17330, recursive)",
+        "FUN_7ff72bc16f50 (chain test): for each body touching in the motion direction (FUN_7ff72bc13550), fail if that body touches a tile in that direction (FUN_7ff72bc137b0) or its own chain fails (recursive)"
+      ],
+      "behavior": "Every stage: each MoveWall step is planned before it is taken: the cats and push boxes the wall would enter are pushed ahead of it (each pushes what it meets, recursively); if any of them would enter a tile, a Rect, a solid gate / bridge, a lift slab or another wall, or the wall itself would enter a lift slab or a solid, the whole step is undone (the wall waits; its state and timer keep running, as native) and it retries next tick. Bodies are moved only by a step that succeeds, so a cat is never left inside the wall. Was: the wall always advanced and shoved, leaving a cat pinned against the 1-4 ledge inside the wall (frozen)."
+    },
+    {
+      "id": "weighted-lift-chain-test",
+      "files": [
+        "src/engine/GameRuntime.ts"
+      ],
+      "evidence": [
+        "FUN_7ff72bb64310 (WeightedLift family update): the step (0, d) is tested with FUN_7ff72bc16f50(this, step, 0, 0); only when it passes is the offset (+0x400) committed (FUN_7ff72bb31fc0) and the stack carried (FUN_7ff72bc17330); otherwise nothing moves this tick",
+        "The port already applied this preflight to DarknessWeightedLift (FUN_7ff72bb62790)"
+      ],
+      "behavior": "Every stage: a WeightedLift / Ex / Ex2 rising step is taken only if the slab and every cat or push box resting on it (transitively) can rise with it without entering a tile, a Rect, a MoveWall, a solid gate / bridge, another lift or another body; otherwise it waits this tick (a rider is never carried into the 1-4 wall or a ceiling). Descending steps keep descending-lift-stops-on-bodies."
+    },
+    {
+      "id": "thunder-beam",
+      "files": [
+        "src/engine/actors/Thunder.ts",
+        "src/engine/GameRuntime.ts",
+        "src/engine/sprites.ts"
+      ],
+      "evidence": [
+        "FUN_7ff72bb4d330 (slot 12): p0 = direction (0 UP, 1 DOWN, 2 LEFT, 3 RIGHT; view rotation 0 / 0x8000 / 0xc000 / 0x4000); p1 != 0: no emitter cap and objects never shorten the beam; p2 != 0: the 32 x 32 aux body stays enabled",
+        "First update 0x7ff72bb4d600 (once, +0x3e8 & 1): the aux body {-16, -16, 32, 32} (DAT_7ff72bcba2e0) is swept from the row point 2400 along the direction against the map (FUN_7ff72bc2fca0(world + 0x51760, ...)); L0 = 32 + the travel (+0x4d4, copied to +0x4cc / +0x4d0): the beam stops at the first solid chip, ending 16 inside it. Map chips the box overlaps at its start are not hits (the emitters sit inside walls)",
+        "Every update: L = L0; FUN_7ff72bb4da00 (beam contact): players are listed; Thunder and the MagnetPlayer aux are ignored; ANY other body overlapping the beam (when p1 == 0) cuts L to the distance from the origin to its near edge, including the GuardPlayer shield (tag DAT_7ff72c62d0c0)",
+        "FUN_7ff72bb4d850 (kill): a listed player overlapping the 4-unit beam of length L on two consecutive steps, with the whole +0x4e8 mask clear, gets command 5 (death); no other actor is killed",
+        "FUN_7ff72bb4dc10 (draw): floor(L / 32) + 1 tiles 32 x 32 from atlas (160,400,32,32) / (192,400,32,32) (DAT_7ff72bcba170), x -16, from y -5 outward, the last cropped, the frame toggling every 0.1 s; the emitter cap {-16, -8, 32, 8} from atlas (192,436,16,4) (p1 == 0 only)"
+      ],
+      "behavior": "Every Thunder: its beam is as long as the native sweep (to the first solid map chip, ending 16 inside it; 2432 when nothing is hit), not a fixed 2400; bodies in its path still cut it each frame (now including guard shields); it is drawn as the native animated orange zigzag along its live length with the orange emitter cap, rotated to its direction (was: a small yellow bolt icon). The kill latch is unchanged (it already matched)."
+    },
+    {
+      "id": "guard-shields",
+      "files": [
+        "src/engine/GameRuntime.ts"
+      ],
+      "evidence": [
+        "FUN_7ff72bb72ae0 GuardPlayer branch 0x7ff72bb72de7: a normal avatar, then for each extra param p1, p2, p3 present a guard object FUN_7ff72bb56990(guard, avatar, dir) added to the scene",
+        "FUN_7ff72bb56990: shape = {UP: 1, DOWN: 1, LEFT: 0, RIGHT: 0} (offline table); body DAT_7ff72c62d050[shape] = {-3, -30, 6, 60} (vertical) / {-24, -3, 48, 6} (horizontal) (memory image), FUN_7ff72bc16bf0(..., 0, 1) with +4 = 2: a contact body, not a floor; colour = the owner colour (+0x404)",
+        "FUN_7ff72bb56c10 (update): position = the owner transform + DAT_7ff72c62d030[dir] = UP (0, -56), DOWN (0, 10), LEFT (-28, -24), RIGHT (30, -24); it copies the owner visibility; no button anywhere: the shield is always on and the guard moves and jumps normally"
+      ],
+      "behavior": "GuardPlayer rows (4-1, 12-1): each extra direction param gives the cat an always-on shield plank (6 x 60 beside it for LEFT / RIGHT, 48 x 6 above or below it for UP / DOWN) at the native offset from its row point, drawn in its colour; a plank cuts a Thunder beam like any other body, so it protects whoever is behind it. Was: holding JUMP made the guard alone immune and froze it, with no plank. Ambiguous: the offset is applied unmirrored (the owner transform copy may include its facing flip; not traced), and the plank is not solid for cats (contact body)."
+    },
+    {
+      "id": "step-enemy-native",
+      "files": [
+        "src/engine/actors/StepEnemy.ts",
+        "src/engine/actors/UpDownEnemy.ts",
+        "src/engine/actors/BowwowEnemy.ts",
+        "src/engine/GameRuntime.ts",
+        "src/engine/sprites.ts"
+      ],
+      "evidence": [
+        "StepEnemy FUN_7ff72bb6c6c0: body DAT_7ff72c62d250 = {-24, -13, 48, 26}, mode 3 (moving physical body); view {-25, -14, 50, 28} from atlas (358,8,25,14); FUN_7ff72bb6ca10: p0 < 0 -> direction -1, otherwise the ctor default +1 (RIGHT)",
+        "FUN_7ff72bb6cbe0 (update): vx = direction * DAT_7ff72c61f5e0 (1.0 per tick, the unit of its 0.65 per tick gravity DAT_7ff72bcb69bc); no ground below -> vy += 0.65, else vy = 0",
+        "FUN_7ff72bb6ce10 (contact): a wall contact with a horizontal normal reverses it; a side contact with a player kills the player (command 4); a contact from above sends command 0 to the player (effect not traced) and does not hurt either",
+        "UpDownEnemy FUN_7ff72bb6d170: sensor DAT_7ff72c62d260 = {-28, -22, 56, 48}; view {-30, -26, 60, 52} from atlas (385,0,30,26); motion FUN_7ff72bb6d5c0 unchanged (already matched)",
+        "BowwowEnemy FUN_7ff72bb38ba0: sensors {-30, -39, 60, 78} (DAT_7ff72c61f358); FUN_7ff72bb39180 picks the candidate with the largest 30-frame average movement (FUN_7ff72bb67b10(player, out, 0x1e) averages the ring of per-frame deltas)"
+      ],
+      "behavior": "StepEnemy (5-1, 5-3, 7-2, 7-3, 7-4, 12-4): the native 48 x 26 body centred on its row point, falling at 0.65 per tick until it stands on a chip or a solid, walking 1 unit per tick (60 per second; was 100) to the right unless p0 < 0, turning back at walls (it walks off ledges); a side contact kills a cat, a cat from above is safe (unchanged). UpDownEnemy (5-1, 5-3, 7-3): the native 56 x 48 sensor {x-28, y-22}. BowwowEnemy (7-1): the native 60 x 78 sensor, and it wakes / chases on each cat's 30-frame average movement (was: one frame of velocity). Sprites: the atlas slug and spike for StepEnemy / UpDownEnemy; the Bowwow art is not decoded (a dark 60 x 78 placeholder). Not modelled: a StepEnemy reversing on a body, standing on a StepEnemy, Bowwow state 4."
+    },
+    {
+      "id": "thunder-frame-order",
+      "files": [
+        "src/engine/GameRuntime.ts"
+      ],
+      "evidence": [
+        "FUN_7ff72bb56c10 (the guard object update) places the plank from the owner transform (+0x3f0 -> +0x44) in the actor update pass, before the shared body/contact pass in which FUN_7ff72bb4da00 (Thunder beam contact) cuts L against bodies and lists players",
+        "FUN_7ff72bb4d850 (Thunder slot 27) then kills only listed players overlapping the beam of that same L: the plank, the cut and the kill all read one frame of body positions; Thunder slot 25 (0x7ff72bb4d600) only shifts the +0x4e0 / +0x4e4 / +0x4e8 latch and toggles the frame"
+      ],
+      "behavior": "Thunder stages with GuardPlayers (4-1, 12-1): planks are refreshed after every cat and body has moved this frame, and the beam cut, the drawn length and the kill judge all use those same positions (was: the plank was placed and the beam cut at the start of the frame, before the cats moved, so a guard walking into a beam left the beam at its old length for one frame and the cat behind it could die on the second contact). Thunder kills are judged for the same cats as before (those that reached the contact checks this frame), after the per-cat loop instead of inside it."
+    },
+    {
+      "id": "bowwow-chase-stops",
+      "files": [
+        "src/engine/actors/BowwowEnemy.ts",
+        "src/engine/GameRuntime.ts"
+      ],
+      "evidence": [
+        "FUN_7ff72bb39180 (update) picks the in-range cat (|dx| < 300 asleep DAT_7ff72bc7daa8, else < 400 DAT_7ff72bc7da00) with the largest FUN_7ff72bb67b10(cat, out, 0x1e) movement, and only when that movement is strictly above 0.0 (best starts at 0.0, strict compare): a cat whose 30-frame mean displacement is zero is never a target",
+        "States (+0x3f8): 0 sleep (bob, Zzz) -> 1 on any target; 1 -> 2 (warn) when best > 1.5 (DAT_7ff72bc7d1ac); 2 -> 0 with no target, -> 3 (wake) when best > 2.5 (DAT_7ff72bcb74c4); 3 steers v = normalize(cat - (dog + (0, 64 DAT_7ff72bc7d1b8))) * speed (+0x40c, p0) only while it has a target, and adds v to its position EVERY tick, target or not; it never returns to sleep",
+        "Contact FUN_7ff72bb39680 (fixture category 7, rect {-30, -39, 60, 78} DAT_7ff72c61f358): a category-1 (cat) contact gets command 4 (death), and a dog in state 3 enters state 4, which only keeps adding the last v (no more steering)"
+      ],
+      "behavior": "BowwowEnemy (7-1): a cat standing still (zero 30-frame mean movement) no longer wakes or steers the dog, and a warned dog goes back to sleep when every cat in range is still; a dog that is already chasing keeps flying straight along its last heading while the cats are still (it steers again as soon as one moves), and after it catches a cat it only drifts along that heading (state 4) instead of turning to the next cat. Was: any cat in range counted as a target even when still, and a chasing dog froze in place when the cats froze. The coordinator expectation \"it stops when all cats are still\" is not native: only a warned (state 2) dog gives up; the way through 7-1 is to keep each cat's 30-frame mean movement under 1.5 (sneak in short steps)."
+    },
+    {
+      "id": "fallbox-solid-while-armed",
+      "files": [
+        "src/engine/actors/FallBox.ts",
+        "src/engine/actors/KeyGate.ts",
+        "src/engine/GameRuntime.ts"
+      ],
+      "evidence": [
+        "FUN_7ff72bb42d90 (body): the rect inset 2 (DAT_7ff72bcff5c0 = 2.0, DAT_7ff72bcb7d8c = -4.0), FUN_7ff72bc16bf0(..., 3), body+4 = 2; nothing in the update FUN_7ff72bb429b0 disables it except the horizontal on-screen gate FUN_7ff72bb42ff0: the box is solid unarmed, during the arm delay and while it falls",
+        "Contact FUN_7ff72bb42fb0: ANY body or chip contact whose normal has y < 0 (something resting on its top) sets +0x6f4 |= 1 (armed): a cat, a push box or another FallBox",
+        "FUN_7ff72bb429b0 (update): armed -> if t <= 0.22 (DAT_7ff72bcb8d20 = 0.22) t += dt and the box holds still; else FUN_7ff72bc13690(body, (0, 1.0 DAT_7ff72bcff538), 1) tests for a contact below: none -> vy += 0.65 per tick (DAT_7ff72bcb69bc, gravity, no cap), else vy = 0; the box lands on chips and bodies (cats too); vx is never written; nothing carries a rider (a cat on it falls by its own gravity)",
+        "Despawn in the fall branch: the node y (the box BOTTOM, row-point anchored) > 2 * 720 / scale (DAT_7ff72bc7db90) -> FUN_7ff72bc11650 destroys it; there is no respawn timer (only a stage rebuild brings it back)"
+      ],
+      "behavior": "FallBox (2-2, 2-4, 10-1 and every FallBox stage): an armed box stays solid while it waits 0.22 s and while it falls (was: it stopped being solid the tick it armed, so a cat dropped straight through it); it then falls under gravity (0.65 per tick per tick, uncapped; was a constant 0.65 per frame) and lands on chips, blocks, boxes, other FallBoxes and cats, starting to fall again if that support goes; a push box or FallBox resting on its top arms it too (was: cats only); it despawns when its bottom passes twice the view height (was: its centre), and never respawns. Its solid body is the native rect inset 2 on every side (the drawn box is unchanged), so a cat stands 2 lower on a FallBox than on its drawn top (2-2: on 336, level with the Rect blocks either side; was 334) and neighbouring boxes leave a 4-unit seam. FallBox bodies are resolved in the same pass as Rects and gates, and that pass sets a cat back on top of what it stands on before any side push, so it walks off a FallBox onto a level Rect (native: the down contact keeps vy 0, so the feet never dip below a level neighbour). A cat standing on it is not carried; it falls with the box under the same gravity."
+    },
+    {
+      "id": "darkness-weighted-lift-tiles",
+      "files": [
+        "src/engine/GameRuntime.ts"
+      ],
+      "evidence": [
+        "FUN_7ff72bb62580 (setParams): the slab body is FUN_7ff72bc16bf0(this, {0, 0, p0, p1}, 2), a type-2 body: FUN_7ff72bc12490 moves a body whose type (+0x20) has bit 0 clear straight (pos += delta), never through the map sweep FUN_7ff72bc2fca0, and it never records a chip contact (its +0xa0 list stays empty)",
+        "FUN_7ff72bb62790 (update): the 0.06 s freeze (0x3d75c28f) is refreshed by FUN_7ff72bc13690(body, DOWN, 1), which for this body can only see bodies below it; the offset step is committed only when FUN_7ff72bc16f50(this, delta, 0, 0) accepts it, and that test walks the slab's BODY contacts in the move direction (a contacted body blocks when it touches a chip that way or its own chain fails); the slab's own chip contacts are never consulted. The plain WeightedLift (FUN_7ff72bb63cf0 / FUN_7ff72bb64310) is the same"
+      ],
+      "behavior": "DarknessWeightedLift (10-3; 10-4 unchanged): the slab is no longer stopped or frozen by map chips it passes through: only bodies under it freeze it, and only riders that would hit a chip (rising) or a static block block a step. 10-3 lift 2 now sinks past the row-144 chips (it stopped at y 96 after 48 of its 144); its riders land on those chips and the lift holds just below them, uncovering the door slot. Was: the port tested the slab itself against chips (freeze probe and step preflight). The plain WeightedLift branch already skipped the slab's chip test."
+    },
+    {
+      "id": "stepenemy-unspawn",
+      "files": [
+        "src/engine/actors/StepEnemy.ts"
+      ],
+      "evidence": [
+        "The Lua row is read correctly: stage_traffic_light01.lua { \"StepEnemy\", chipSize*20, chipSize*8, -1 } = (960, 384), p0 -1; map column 20 row 8 is MC_FLL (solid), so the native body {-24, -13, 48, 26} (DAT_7ff72c62d250) starts 24 x 13 inside that chip",
+        "Native never pushes a body out of a chip. FUN_7ff72bc1da80 (world step) sweeps a moved body with FUN_7ff72bc12490(body, map, delta, 0, slide 1) -> FUN_7ff72bc2fca0: per moving axis FUN_7ff72bc304f0 first tests a face strip 0.5 (DAT_7ff72bcff4fc) past the leading face, cells floor(coord / 48) edges inclusive (every chip id >= 2 solid, DAT_7ff72bcc8a30): a hit zeroes that axis and records the contact (FUN_7ff72bb31cf0); the sweep itself only tests cells the box enters beyond its current extents (FUN_7ff72bc28390 / FUN_7ff72bc284a0) and stops 0.01 short of the cell boundary (DAT_7ff72bc7d45c); chips already under the box are never tested",
+        "FUN_7ff72bb6cbe0: grounded = a down contact (FUN_7ff72bc13690(body, (0, 1), 1)) -> vy = 0, else vy += 0.65 per tick; FUN_7ff72bb6ce10 reverses only on a NEW contact with a horizontal normal (begin-contact, FUN_7ff72bc14040 re-checks it with the same face strip)"
+      ],
+      "behavior": "StepEnemy (every stage; visible on 7-2): its chip collision follows the native face-strip rule instead of testing its whole next rect: the ground is the strip 0.5 under its bottom (a chip it already overlaps counts as ground), a wall is the strip 0.5 past its leading face, chips it already overlaps never block it, a fall stops 0.01 above the chip, and it turns only on a new wall contact. The 7-2 StepEnemy (spawned 24 x 13 inside the first step) now stands on that step, walks left off it after 25 ticks, drops about 35 to the floor and keeps walking left (was: it reversed every frame in place). Bodies (blocks, boxes, lifts, gates) keep the rect test, ignoring any it already overlaps."
+    },
+    {
+      "id": "mc-d-tiles-solid",
+      "files": [
+        "src/engine/chips.ts",
+        "src/engine/GameRuntime.ts"
+      ],
+      "evidence": [
+        "stage_common.lua: MC_DLU = 26, MC_DLD = 27, MC_DRU = 28, MC_DRD = 29 (MC_BR1..5 = 30..34)",
+        "FUN_7ff72bc2fc00 (map ctor, from scene ctor FUN_7ff72bc1a070) sets map+0x40 = DAT_7ff72bcc8c40, map+0x48 = 9: chips 26..34 read that extension table; FUN_7ff72bc285c0 (inlined in FUN_7ff72bc281c0 / 28270 / 28390 / 284a0): chip < 26 -> DAT_7ff72bcc8a30[chip] = {0, 0, 1 x 24}, chip 26..34 -> ext = {3, 3, 3, 3, 1, 1, 1, 1, 1}; solid = attr & 1",
+        "FUN_7ff72bc2fca0 (map sweep) tests only bit 0, the same in every direction: no one-way and no kill for any chip; bit 1 (set only on MC_D*) is never read by action-stage code. The only kill near these blocks is the UpDownEnemy sensor (FUN_7ff72bb6d780)"
+      ],
+      "behavior": "MC_DLU / MC_DLD / MC_DRU / MC_DRD (the red 2 x 2 blocks the UpDownEnemy hides in on 5-1, 5-3, 7-3): solid blocks like any other chip, still drawn red; touching them no longer kills (was: non-solid tiles that killed a cat on a guessed directional rule, a 96-wide death pit). Cats can stand on the block while the enemy is down; the enemy's own sensor still kills. A StepEnemy walking into the block now turns back."
+    },
+    {
+      "id": "pushbox-general-fall",
+      "files": [
+        "src/engine/GameRuntime.ts",
+        "src/engine/actors/PushBox.ts"
+      ],
+      "evidence": [
+        "PushBox vtable PTR_FUN_7ff72bcb68c0 slot +0xc8 = FUN_7ff72bb33890, installed by every PushBox ctor (FUN_7ff72bb334f0 / FUN_7ff72bb33600) and the Normal / Small / Tall / Big ctor FUN_7ff72bb333d0: no stage test anywhere",
+        "FUN_7ff72bb33890 (every tick): vx = 0, then the push rule may set +-1.0 (DAT_7ff72c61f320); no contact with normal (0, 1) below (FUN_7ff72bc13690(body, (0, +1), 1), any body or chip, the whole bottom edge) -> FUN_7ff72bb34c40(a, 0, 0.65) adds 0.65 (DAT_7ff72bcb69bc) to vy; else vy = 0. No maximum fall speed (the 19.5 cap DAT_7ff72bcbdf88 is the Player's FUN_7ff72bb67da0 only)",
+        "Nothing in FUN_7ff72bb33890 or its callees moves x except the +-1.0 push: there is no snap into a box-wide gap; a box drops into a one-chip gap because the push moves it 1 unit per tick, so it cannot skip the first position where nothing is under it. The world sweep FUN_7ff72bc12760 lands it flush (0.01 margin)"
+      ],
+      "behavior": "Every stage: an unsupported push box (PushBox and the Normal / Small / Tall / Big family) falls at the native 0.65 per tick per tick with no speed cap, as soon as nothing is under its whole bottom edge, and lands flush (was: only on stage_jump02 or for the box family; elsewhere a box pushed off a ledge hung in the air unless it fitted a box-wide gap, under 980 / s^2 capped at 600 / s, with a centre tip-over rule). The box-wide-gap snap is removed (not native). Because the port pushes a box by the pusher's whole step (about 4.9 per frame, native: 1 per tick), a push step now stops at the first unit where the box loses all support, as the native 1-unit steps would. Floating spawns drop from frame 0 (10-3 box onto row 192, 10-4 onto 240, 12-1 onto Rect 302.4); a DamageRect under a box supports it like any body (the 4-2 BlockRoad plug rests on its lower DamageRect, FUN_7ff72bb3e730). A push step also ends flush against a wall it would hit (native 1-unit steps end at contact; was: the whole step was refused, leaving the box up to a step short). The support and fall tests use the native body's x extent (FUN_7ff72bb340f0: the rect inset 1 on each side), so 10-4's 96-wide box drops into the 95.52 gap beside DarknessRect 2. Not modelled: the body's 1-unit vertical inset and the native 1-unit-per-tick push speed."
+    },
+    {
+      "id": "scaleswitch-carry",
+      "files": [
+        "src/engine/GameRuntime.ts"
+      ],
+      "evidence": [
+        "ScaleSwitch update FUN_7ff72bb5f550: while pressed by a cat (contact category 1) it sends command 0x21 with its rate (p0, +-0.015 per tick on 4-4) to that cat every tick",
+        "Player command 0x21: rate <= 0 only resizes (FUN_7ff72bb679c0); rate > 0 reads body 0's world box (FUN_7ff72bb70550) before and after the resize, and with dh = h_after - h_before, dw = (w_after - w_before) * 0.5 (DAT_7ff72bcff4fc) calls FUN_7ff72bb34f30(player, (0, -dh), up), (+dw, 0) right and (-dw, 0) left",
+        "FUN_7ff72bb34f30 -> FUN_7ff72bc17330 (params _DAT_7ff72bcb6220 = {1, 0, 1, 0}, mask 2): every cat contact (category 1 only, so not push boxes) whose normal is that direction is moved by the delta with FUN_7ff72bc16780 (position += delta, no map sweep, body synced, recursing into the moved cat the same way, visited set of 100); velocity and grounded state are untouched"
+      ],
+      "behavior": "ScaleSwitch (4-4): while a cat grows, every cat standing on its head (and the whole stack on that cat) rises with it by the height gained, and cats touching its sides are pushed out by half the width gained, recursively; no map test (native moves them directly). Was: the rider overlapped the grown head and was shoved off sideways. Shrinking moves nobody (a rider just drops), and push boxes are never lifted by growth."
+    },
+    {
+      "id": "jumpstand-launch",
+      "files": [
+        "src/engine/actors/Player.ts",
+        "src/engine/actors/PushBox.ts",
+        "src/engine/GameRuntime.ts"
+      ],
+      "evidence": [
+        "Factory: JumpStand builds the launch vector (0, p0) (0x7ff72bb7495c..6c), JumpStandEx (p0, p1) (0x7ff72bb749f1..a10); ctor FUN_7ff72bb649a0: body {-16, -34, 32, 34} (DAT_7ff72bcbd960) mode 3, category 5, which the Stage contact matrix pairs with cats (1) and boxes (2): a solid block cats and boxes stand on; no gravity",
+        "Update FUN_7ff72bb64c70 (every tick, no cooldown, no extra sensor): every body touching its top (FUN_7ff72bb40af0(body, up, ..., mask -1)) that has nothing on its own top (FUN_7ff72bc132c0(other, up, 0, 0, -1) == 0) gets command 0 with the vector; a cat gets x forced to 0 (0x7ff72bb64da1)",
+        "Player strategy FUN_7ff72bb6fd20: command 0 is taken only while the hold-ramp counter (ctrl+0x14) is 0; FUN_7ff72bb6f0e0 then sets vy = p_y after gravity (the first tick moves exactly p_y), the counter stays 0 (no held-jump ramp), a jump press that tick is ignored, and a later press keeps vy when it is already below the -5.1 jump speed (counter 0xe: no ramp)",
+        "PushBox family (vtable PTR_FUN_7ff72bcb68c0 +0x98 = FUN_7ff72bb33d00): stores (|x| * sign(current vx, 0 -> +), y) at +0x7e8 with flag 1; FUN_7ff72bb33890 sets vy = launch.y on the ground, then while airborne with nothing on its top adds launch.x to vx every tick; the stored launch clears on landing"
+      ],
+      "behavior": "JumpStand / JumpStandEx (1-1 ... 12-x; blocking 2-4 and 3-2): the stand is a solid 32 x 34 block for cats and boxes (was: walk-through, boxes fell into the 2-4 gap). Every tick, a cat or push box resting on its top with nothing on its own head is launched: a cat straight up at p_y per tick with no held-jump boost, its first tick moving the full p_y (the port lost that tick: a -10 stand rose 71 instead of the native 82); a box up at p_y with the stand's sideways component (JumpStandEx) pushing it each tick while nothing rides it (2-4: the -18 / 3 stand throws a box about 258 up and onto the floor east of the gap). A cat or box with something on its head is not launched (a loaded stand is a pedestal), and a coyote jump right after a launch keeps the launch speed. Was: only a falling cat in the top 8 was bounced, after its move, and boxes never."
+    },
+    {
+      "id": "distance-constraint-native",
+      "files": [
+        "src/engine/GameRuntime.ts"
+      ],
+      "evidence": [
+        "Factory 0x7ff72bb75e9a, ctor FUN_7ff72bb3f3a0 (no body); slot 12 FUN_7ff72bb40be0: N = party size, maxDist = p[2N - 4], w = p[2N - 3] (the hanging weight); links bind neighbours in player order (i, i + 1)",
+        "Update FUN_7ff72bb3f580 (slot 25): nothing while any player is in state 1 or 3; per player the far-side loads L / R (FUN_7ff72bb40380 / FUN_7ff72bb40570: W = (0, (stackAbove + 1) * w) when unsupported, plus, walking every link out to the chain end, unit(p_neighbour - p) * (stackAbove + 1) for each link that is stretched (FUN_7ff72bb407a0 returns 0 for a slack link, which does not stop the walk), stackAbove = FUN_7ff72bc132c0(body, up, 1, 0, -1)) and the count of unsupported neighbours out to the chain end (0 as soon as one is supported); c_i = pair(i, i - 1) + pair(i, i + 1) (FUN_7ff72bb3fce0)",
+        "pair FUN_7ff72bb3ffe0: nothing unless len > maxDist (a rope); n = d / len; share = (s2 + 1) / (s1 + s2 + 2), s1 = max(0, -n.selfFar), s2 = max(0, n.otherFar) (1 when the partner is in state 4); c = n * (len - maxDist) * share * 0.2 (DAT_7ff72c61f374); blocked redirects from the tile-contact normals (FUN_7ff72bc137b0): a blocked side turns x into y, a blocked ceiling turns y into x, a blocked floor turns y into x (x k = min(1, 1.2 / (count + 1)) under the cmd-0x29 latch, DAT_7ff72c61f37c); sgn(0) = +1",
+        "Post rules: latch and opposing velocity -> c.x = -sgn(v.x) (|v.x| - 0.1); an upward pull weaker than gravity (c.y > -0.65, DAT_7ff72bcb69bc) on a grounded cat is dropped; |c.y| <= 20.15 (DAT_7ff72bcb86e8); every c is computed first, then applied: position += c and velocity += c (FUN_7ff72bb97db0 / FUN_7ff72bb93620), riders carried (FUN_7ff72bc17330); the moved body reaches its world position only through the world step's tile sweep with slide (FUN_7ff72bc17ca0 -> FUN_7ff72bc1da80 -> FUN_7ff72bc12490), so a rope never pulls a cat into chips",
+        "WarpAll (FUN_7ff72bb63060 -> cmd 7 -> FUN_7ff72bb6fd20 -> msg 0x14 to \"Key\" -> FUN_7ff72bb65700): a carried key is released and eases home (FUN_7ff72bb65430); the port already matches (unchanged)"
+      ],
+      "behavior": "DistanceConstraint rope (2-1, 2-3): the pull is the native rope: only when a link is stretched past its length, split by anchoring (a hanging cat gets a third, the standing partner two thirds, weighted by the stack above and the hanging weight w), all corrections computed first and then applied, each moved through the tile sweep (a cat is never pulled into a wall, bar or roof; a blocked pull turns sideways or down as native does), velocity changed by the same amount, riders carried, a grounded cat ignoring an upward pull weaker than gravity, and the whole rope idle while any cat is dying. Was: equal halves applied link by link with no tile test (cats were pulled into the bar / roof tiles), no hanging share, the cmd-0x29 velocity clamp with the wrong sign. WarpAll dropping a carried key back home is native (unchanged)."
+    },
+    {
+      "id": "lift-load-carry-agree",
+      "files": [
+        "src/engine/GameRuntime.ts"
+      ],
+      "evidence": [
+        "FUN_7ff72bb64310 (WeightedLift update) counts its load with FUN_7ff72bc132c0(body, up, recursive, mask 6) over the slab's own support contacts and carries exactly that contact set with FUN_7ff72bc17330 (recursive, one visited set): what counts is what rides, and a stack rides only through the body under it",
+        "Browser adaptation: a body is taken as supported by the slab when the centre of its feet is over the slab (a narrow Ex2 slab still carries a cat wider than it); a body only touching the slab corner while standing on a ledge is not on the slab"
+      ],
+      "behavior": "Weighted lifts (every family): a cat or box counts toward a lift, and is carried by it, only when the centre of its feet is over the slab; the cats and boxes on its head count and ride through it. A push box on a cat's head is carried by a lift only when that cat itself was carried (moved by the lift's delta this frame). Was: a cat touching the slab by 1 unit while stopped by a ledge counted (the lift moved) and its head boxes were moved by the lift into the stopped cat (2-4 lift edge)."
+    },
+    {
+      "id": "multi-jump-relay",
+      "files": [
+        "src/engine/actors/Player.ts",
+        "src/engine/GameRuntime.ts"
+      ],
+      "evidence": [
+        "Factory 0x7ff72bb735d3 -> 0x7ff72bb76f17: MultiPlayer is ONE normal avatar (FUN_7ff72bb66e50) shared by the whole party; p1 (int) -> avatar+0xc90 = jumps per airtime (5-2: 2, 5-4: 10; < 1 = unlimited); p0 = facing",
+        "FUN_7ff72bb68290(av, -5.1, 3.0): +0x3f8 |= 2 (air jumps allowed), input source 3, relay component +0x17e0 (FUN_7ff72bb58c40) with jump speed -5.1 and move speed 3.0 (the ordinary 300 px/s, FUN_7ff72bb687e0 reads +0x195c); then +0x3f8 |= 4 (turn passing)",
+        "Relay FUN_7ff72bb58db0 every frame: turn slot +0x178 (starts at the avatar spawn input slot), holder slot +0x174 (-1); only a JUMP press edge from the turn slot counts (FUN_7ff72bc18f10(inp, 2, +0x178)) and makes holder = turn (even while the previous jumper still holds); LEFT / RIGHT / DOWN are read from the holder OR the turn slot (FUN_7ff72bb59000), nobody else controls anything; the holder releasing JUMP -> holder = -1; landing (cmd 0x17, FUN_7ff72bb58d60) also resets the holder",
+        "Jump rule FUN_7ff72bb6f0e0: ground contact -> ctrl+0x18 = 0; flag 2 skips the ground / coyote test; a jump starts on the press edge when (c90 < 1 || ctrl+0x18 < c90) and no JumpArea launch is pending; each jump ctrl+0x18++ (the ground jump counts), sets vy = -5.1 and runs the 13-frame hold boost read from the holder (already rising faster than -5.1: vy kept, no boost); then FUN_7ff72bb67670(av, (+0x400 + 1) % n), n = party size, recolours the cat to palette[turn]; a head already touching a ceiling uses the count but does not pass the turn; landing does not reset the turn",
+        "HUD FUN_7ff72bb702d0: draws remaining = c90 - ctrl+0x18 above the cat (y - 96)",
+        "Command 9 with input source 3 doubles c90 (0x7ff72bb699ca..db); a Switch whose target is actorName + label (5-2: two \"MultiPlayer1\" pads) sends it on its press edge: 2 -> 4 -> 8"
+      ],
+      "behavior": "MultiPlayer (5-2, 5-4): one cat shared by the party, played as a jump relay. The cat may jump in mid air up to its jumps-per-airtime count (5-2: 2, doubled by each \"MultiPlayer1\" switch to 4 and 8; 5-4: 10; reset on touching ground); only the player whose turn it is can start a jump, and every jump passes the turn to the next player (round robin over the party, the cat recolours to that player). The player who pressed jump holds the hold-boost; walking is controlled by that holder and by the turn player together. A remaining-jumps number floats above the cat. Was: whoever held jump took all input, nobody else could even walk, and only one ground jump per airtime."
+    },
+    {
+      "id": "jumparea-top-left",
+      "files": [
+        "src/engine/actors/JumpArea.ts",
+        "src/engine/actors/Player.ts",
+        "src/engine/GameRuntime.ts"
+      ],
+      "evidence": [
+        "JumpArea setParams FUN_7ff72bb361a0: sensor {0, 0, p0, p1} -- the top-left corner at the row point (the port centred it)",
+        "Begin-contact only (FUN_7ff72bb36340) sends command 0 with (p2, p3)",
+        "Player strategy FUN_7ff72bb6fd20 ignores command 0 while the hold counter ctrl+0x14 != 0 (frames 1..13 of a jump); otherwise FUN_7ff72bb6f0e0 sets vy = p3 once on the next update (jumping blocked that frame) and overrides vx with p2 every frame until landing (steering ignored)"
+      ],
+      "behavior": "JumpArea (5-2): the launch sensor hangs from its row point (top-left corner), so the five areas sit under the three pits as nets that throw a fallen cat back up and out (vy -18 per tick, vx -4 / -8 / -12 per tick until it lands). A cat entering the area during the first 13 frames of a held jump is not launched. Was: centred on the row point (half of every pit uncovered) and the launch speed was replaced by steering on the next frame."
+    },
+    {
+      "id": "majority-player",
+      "files": [
+        "src/engine/GameRuntime.ts"
+      ],
+      "evidence": [
+        "Factory branch 0x7ff72bb736e3: FUN_7ff72bb774a0(ctx, pos, scene, mode 4) spawns ONE normal avatar on the first slot (spawned-player counter 1, no per-player controller); n = numPlayers (DAT_7ff72c629fa8+0xcc08) = party size; ratio = clamp(ceil(0.7f * n) / n, 0.1, 1.0) (0.7 DAT_7ff72bcb77b0, ceil import 0x7ff72bc7c5d8, clamp FUN_7ff72bae6bf0; n == 0 -> 1.0 DAT_7ff72bcff538)",
+        "FUN_7ff72bb68220(avatar, n, ratio): vote block +0x1530 (FUN_7ff72bb7fec0), input source +0x1528 = 1, body colour +0x378 = 0xffbfffdf (neutral)",
+        "Tally FUN_7ff72bb7ffa0 every tick before physics (from FUN_7ff72bb690d0): prev = cur; for buttons 0..11 count slots p < n holding b (FUN_7ff72bc18c90); bit set when (prev clear and frac >= ratio) or (prev set and frac >= 0.5 * ratio) (DAT_7ff72bcff4fc); progress = clear: min(frac / ratio, 1), set: min((frac - r/2) / (r/2), 1)",
+        "press = cur & ~prev (FUN_7ff72bb80150), release = prev & ~cur (FUN_7ff72bb801a0), held = cur (FUN_7ff72bb80110); the avatar readers FUN_7ff72bb68300 / 68510 / 68640 take the source-1 path (voted bits only); buttons 2 jump, 3 up, 4 down, 5 left, 6 right; right is checked before left (FUN_7ff72bb6f0e0)",
+        "MajorityController (branch 0x7ff72bb747d3, ctor FUN_7ff72bb65df0, player p0 via FUN_7ff72bb78680) is HUD only: FUN_7ff72bb65f80 copies progress of [3, 4, 5, 6, 2]; draw FUN_7ff72bb660c0: pad {-82, 0, 164, 84}, per value > 0 an orange 0xffff864d bar from the bottom; bars up (-54, 12.5, 28, 16), down (-54, 52.5, 28, 16), left (-69.5, 28.5, 16, 24), right (-29.5, 28.5, 16, 24), jump (24.5, 20.5, 43, 40)",
+        "Nothing majority-specific in goal / key / respawn: the single cat is the whole roster (its door entry clears the stage); the port's floor(n / 2) + 1 goal rule has no native source"
+      ],
+      "behavior": "MajorityPlayer (5-1, 5-3): one neutral-coloured cat shared by the party, steered by a vote. Every tick each button (jump, up, down, left, right) is counted over the party's n input slots (a missing player abstains): it turns on when at least ceil(0.7 n) players hold it (2 of 2, 3 of 3, 3 of 4, 6 of 8) and stays on while at least half that ratio still hold it (1 of 2, 2 of 3, 2 of 4, 3 of 8); presses may be staggered. The cat sees only the voted buttons (a jump starts on the vote's rising edge, the hold boost reads the held vote; right beats left). The MajorityController is a screen-fixed pad drawing five orange progress bars. Was: one player (or anyone) drove the cat with no vote, a debug box for the pad, and an invented majority door rule."
+    },
+    {
+      "id": "jumpswitch-launch",
+      "files": [
+        "src/engine/GameRuntime.ts"
+      ],
+      "evidence": [
+        "Ctor FUN_7ff72bb778f0: base Switch type 0 (FUN_7ff72bb5e8c0), bit 0x40 (momentary), no 0x100; vtable 7ff72bcbf6b0 +0x60 FUN_7ff72bb78cb0 stores (p0, p1) at +0x430 (12-1: (0, -9))",
+        "Pressed by any body with fixture flag +0x20 & 2 and category 1-3 (cat, push box) overlapping the radius-12 sensor circle (FUN_7ff72bb5f1d0); the jump button plays no part",
+        "FUN_7ff72bb5eef0: rising edge -> SE \"switch\" + fire (+0x108 = FUN_7ff72bb5f410); 0x40 clears pressed at the end of each update, so it fires once per new overlap and again after release + re-press",
+        "Fire FUN_7ff72bb5f410 (0x7ff72bb5f4d8..f524): target by name (FUN_7ff72bc1bc80, \"PushBox1\"), else the toucher; a player (actor+0x70 == 1) gets command 1 with (0, p1), anything else command 0 with (p0, p1); the base fire's 9 / 10 to the target is ignored by a box",
+        "PushBox receiver (vtable 7ff72bcb68c0 +0x98 FUN_7ff72bb33d00) cmd 0: +0x7e8 = (|x| * sign(vx), y), flag 1; FUN_7ff72bb33890: vy = launch.y with no rider check (hop 9, 8.35, ... apex ~66.9 after 14 ticks)"
+      ],
+      "behavior": "JumpSwitch (12-1): a momentary pad pressed by any live cat or push box within 12 of its point (no jump press needed); each new press launches its labelled target (\"PushBox1\": the push box hops 9 per tick up, ~67 high, even with a cat on it; a named cat would be launched straight up), or the toucher when no target matches, and it fires again after release and re-press. It opens no gates, bridges or stopwatches. Was: only a cat pressing jump on it, once per stage, opening gates and moving only the legacy normal / small / colour boxes (never PushBox 1)."
+    },
+    {
+      "id": "delayswitch-countdown",
+      "files": [
+        "src/engine/GameRuntime.ts"
+      ],
+      "evidence": [
+        "Ctor FUN_7ff72bb5f6d0: type 0, latched (no 0x40), bit 0x100 (the press itself sends nothing), +0x74 = 2; vtable 7ff72bcbc808 +0x60 FUN_7ff72bb5f960: delay = p0 (11-4: 10) at +0x434",
+        "Update FUN_7ff72bb5f9c0: the press edge sets the countdown +0x430 = delay; while > 0 subtract dt; at <= 0 fire the label target with 9 (on, value +0x3fc) via FUN_7ff72bb5ebb0 once, set bit 4, zero the countdown; the base update clears pressed (bit 8): an empty pad pops up (0x100 suppresses the off message) and a body still on it is pressed again at once (fires every delay seconds)",
+        "Draw FUN_7ff72bb5fa80: while counting, \"%d\" of (int)(t + 0.99) (DAT_7ff72bcbc918) at (x, y - 75) (DAT_7ff72bcbc91c), size 0x20, centred",
+        "Pressers: cats and push boxes (the Switch contact categories)"
+      ],
+      "behavior": "DelaySwitch (11-4): a press by a cat or push box starts a countdown of p0 seconds (10 on 11-4) drawn as a whole-second number above the pad; at zero it sends its \"on\" once (11-4: starts Lift 1) and pops up, and if something is still on it the countdown restarts at once; it never sends \"off\" and no longer counts as a latched opener holding gates or lifts. Was: it fired the moment it was touched (by the current cat only), stayed down forever, and showed no countdown."
+    },
+    {
+      "id": "warp-sensor-top-left",
+      "files": [
+        "src/engine/actors/Warp.ts",
+        "src/engine/actors/WarpAll.ts"
+      ],
+      "evidence": [
+        "Warp ctor FUN_7ff72bb62ec0 builds its sensor with FUN_7ff72bc16bf0(actor, {0, 0, p0, p1}, 0, 1) -> FUN_7ff72bc12370, which stores the rect as given (x, y, w, h at +0x28..+0x34) -- the same call and the same {0, 0, w, h} form as the JumpArea sensor FUN_7ff72bb361a0 (jumparea-top-left: top-left at the row point)",
+        "The engine rects are y-down top-left: the JumpStand body {-16, -34, 32, 34} (DAT_7ff72bcbd960) is the block standing ON its row point, from y - 34 to y",
+        "Stage data: 5-1 stage_majo01 Warps at rows y 576 / 576 / 480 with h 96 on a 480-high map: top-left puts all three just below the map (pit catchers); a bottom anchor put the third one over the floor x 2256..2352 in front of the door (any cat walking to the door was warped back)"
+      ],
+      "behavior": "Warp / WarpAll sensors hang down from their row point (top-left corner at the row x / y, w x h below it), like JumpArea. Was: the bottom-left reading of warp-sensor-origin (the sensor rose h above the row point), which on 5-1 turned the floor before the door into a warp."
+    },
+    {
+      "id": "jump-off-body-contact",
+      "files": [
+        "src/engine/actors/Player.ts",
+        "src/engine/GameRuntime.ts"
+      ],
+      "evidence": [
+        "FUN_7ff72bb6f0e0 lines 220-237: a jump press is accepted on ANY contact below - chip or body - found by FUN_7ff72bc13690(body, DOWN, 1, 0); the 0.07 s coyote timer only covers having no contact at all",
+        "FUN_7ff72bb67850 -> FUN_7ff72bb69dd0: a cat falls when it has no chip below and every body below it is a falling cat, so a rider falls with its carrier on the same tick, still touching it, and may jump off it at any point of the fall"
+      ],
+      "behavior": "Every stage: a cat resting on another cat (or a push box) may jump even while that support is itself falling or moving (was: only while grounded or within the 0.07 s coyote time, so a rider on a falling partner could jump only in the first ~4 ticks of the fall). A cat landing on a falling cat takes its fall speed, so the two fall together still touching (native: the rider is unsupported and falls under the same gravity; was: the landing zeroed the rider speed and the carrier dropped away). This is how 10-2's pit under the slab is crossed: the carrier walks off the block with the rider on its head and the rider jumps from it mid-fall."
+    },
+    {
+      "id": "pushed-box-carries-stack",
+      "files": [
+        "src/engine/GameRuntime.ts"
+      ],
+      "evidence": [
+        "Retail capture og-capture-2 (E1): a CAT resting on a pushed box rides it (box-on-box carry is not shown by the capture; it is inferred from the 6-1 / 6-2 designs below; the native code path was not located: FUN_7ff72bb34f30 -> FUN_7ff72bc17330 only shoves the LEADING side of a push, and the ColorBox update FUN_7ff72bb3b5e0 only sets its own vx)",
+        "stage_push01.lua (6-1) builds a pyramid of six ColorBoxes (\"階段作り\", stair building: widths 62..32, heights 62..52) dropped onto a box pushed along the floor, and stage_auto_scroll01.lua (6-2) a leaning stair of 8 ColorBoxes pushed by its bottom box: both need the stack to ride the pushed box"
+      ],
+      "behavior": "Every stage: when a push moves a box, the boxes and cats resting on it ride along by the same step (through the same stack-riding pass as a walking cat, one support per rider, never into a solid). Was: only cats on the pushed box were carried; boxes on it stayed put and the stack fell apart as the bottom box slid out (6-1 pyramid, 6-2 leaning stair)."
+    },
+    {
+      "id": "colorbox-native-body",
+      "files": [
+        "src/engine/GameRuntime.ts"
+      ],
+      "evidence": [
+        "ColorBox body FUN_7ff72bb3c0c0: the collision body is the drawn rect shrunk 2 on every side (PushBox is shrunk 1, FUN_7ff72bb340f0); each box therefore adds h - 4 to a stack"
+      ],
+      "behavior": "ColorBox push boxes (6-1, 6-2 and every colour stage): the collision rect is the drawn box inset 2 on every side (the drawing keeps its full size, so a resting box overlaps the floor by 2 and neighbours show 4 units of seam). 6-1's five-box stack now tops out at 178 and passes under Rect 2016..2208 (underside 160) with 18 to spare; 6-2's leaning stair settles to the native 8 x 44. Was: the full drawn rect (the 6-1 stack hit that Rect by 2)."
+    },
+    {
+      "id": "land-on-rising-lift",
+      "files": [
+        "src/engine/GameRuntime.ts"
+      ],
+      "evidence": [
+        "A lift platform is a moving body: the world step resolves its contact with a cat landing on it and the lift carries its riders up with FUN_7ff72bc17330 (the same rider carry as every lift family); natively a rider is never left inside a rising platform",
+        "Port: a cat falling onto a platform that rose this frame ends up to one tick of lift travel inside its top; resolveClosedGateCollision sees a previous bottom below the new top (not a landing) and restores the previous rect every frame (10-2 RouletteLift: feet 378.2 vs top 378.0, frozen with vy 0, never grounded)"
+      ],
+      "behavior": "Every lift (WeightedLift family and RouletteLift): a cat that was above a lift top within 2 units last frame and now overlaps it is set on the top and grounded, unless standing there would put it into a chip or block above (then it is not moved) (was: a cat landing on a platform rising under it ended 0.2 inside it, could neither walk nor jump and kept the lift counting a rider for good: 10-2 roulette lifts)."
+    },
+    {
+      "id": "native-walk-and-push-speed",
+      "files": [
+        "src/engine/actors/Player.ts",
+        "src/engine/actors/PushBox.ts",
+        "src/engine/GameRuntime.ts"
+      ],
+      "evidence": [
+        "Walk: the avatar ctor writes 3.0 at +0x41c (0x7ff72bb66efa); FUN_7ff72bb687e0 returns +0x41c * +0x418 (0x7ff72bb687fc..68804, +0x418 = 1.0 unless message 0x22 scales it); FUN_7ff72bb6f0e0 sets vx = +-3 per tick on a held direction (input masks 0x20 / 0x10), instantly, the same in the air; the 0.98 (DAT_7ff72bcbea28, 0x7ff72bb6f1de) only decays PRIOR momentum while avatar+0x3f8 bit 0 is clear (a rope yank), it is not an input scale",
+        "Jump: the takeoff tick integrates (0, J) (xmm8 cleared at 0x7ff72bb6f1c1): no horizontal travel on the jump tick, +-3 again from the next tick",
+        "Push: FUN_7ff72bb33890 (PushBox / BigBox / NormalBox / SmallBox, 0x7ff72bb33971) and ColorBox FUN_7ff72bb3b5e0 (0x7ff72bb3b690) set the box vx = +-1.0 (DAT_7ff72c61f320) per tick when enough bodies with vx > 0 press its face; the pusher keeps vx = 3 and the world sweep stops it at the box face, so it advances 1 per tick with the box",
+        "Retail capture og-capture-2: walk 0.22..0.28 screen px/ms (/1.5 = 2.5..3.1 per tick), constant from the first sample, dead stop on release; E1 push: box -13 -> +31 screen px over 203..688 ms = 1.01 per tick, the pusher at the same rate"
+      ],
+      "behavior": "Every stage: cats walk at the native 3 per tick (180 / s; was 4.9 per tick, 294 / s, the 0.98 decay misread as an input scale), on the ground and in the air, with no travel on the jump takeoff tick; a pushed box (every push-box family, ColorBox included) moves at most 1 per tick in total however many cats push it (one budget per box per frame), and every pusher stays flush against it (was: the box moved by the pusher's whole step, ~4.9). The collision-off cat and the MoveWall opposing-intent check use the same 3 per tick sideways. Not changed: ice sliding (native ice not decoded), rope coasting (the 0.98 decay after a rope yank), the box-against-box chain rule (native may block a box that meets another box; flagged, not changed)."
+    },
+    {
+      "id": "breakout-paddle-dome",
+      "files": [
+        "src/engine/actors/BreakoutBall.ts",
+        "src/engine/sprites.ts",
+        "src/engine/GameRuntime.ts"
+      ],
+      "evidence": [
+        "Paddle = separate head actor FUN_7ff72bb6b070(ctrl, avatar, 0, 1) -> FUN_7ff72bb6b720: body FUN_7ff72bc16e00(ctrl, DAT_7ff72c62d1c0 = circle {0, 0, r 25}, 2), category 3, mass 100; update FUN_7ff72bb6b250 places it at the avatar position + (0, -34) * scaleY (DAT_7ff72c62d1d0[0]) every tick: a dome centred 34 above the feet, top 12 above the head",
+        "Ball contact FUN_7ff72bae64f0 (n from the ball toward the other body): accepted when approaching; other mass >= 100 -> v_n' = 2(d.n) - v.n with d = the other body's displacement this tick (+0xf8, FUN_7ff72bc16460), renormalised to 4 * scale; |v'|^2 <= 1.19e-7 (DAT_7ff72bc7d458) -> v = -n + (0, 0.05) (DAT_7ff72bc7d460). Against the circle n is radial through the paddle centre",
+        "Ball vs ball (both mass 1.0, ctor FUN_7ff72bae5cf0): the same contact function, plain elastic exchange along n",
+        "Views: paddle {-25, -26, 50, 26} (DAT_7ff72c62d200[0]) from atlas (288, 464, 24, 12) (DAT_7ff72c61f570[0]); ball {-12, -12, 24, 24} from atlas (256, 512, 12, 12) player-bound / (272, 496, 12, 12)"
+      ],
+      "behavior": "Breakout stages (8-2, 8-4, 9-3): every BreakoutPlayer carries a paddle dome, a circle of radius 25 centred 34 above its feet (12 above its head), that moves with the cat. A ball touching the dome bounces along the radial normal: hit left of the paddle centre goes left, right goes right, dead centre goes straight up; a resting ball touched by a cat launches along the dome normal at 4 per tick. The cat box stays a second contact surface with the same response (was: the box only, so every hit came off an axis-aligned face). Balls now bounce off each other (equal-mass exchange of the normal components; a ball left with no speed leaves along -n). The paddle and ball use their native atlas frames. Not modelled: the native positional separation of overlapping bodies (the port changes headings only, as before); ball-ball contact is resolved once per frame, not per native sub-tick."
+    },
+    {
+      "id": "breakout-ball-per-row",
+      "files": [
+        "src/engine/GameRuntime.ts"
+      ],
+      "evidence": [
+        "BreakoutPlayer factory FUN_7ff72bb72ae0 (0x7ff72bb73113) ALWAYS allocates the ball first, FUN_7ff72bae5cf0(0x4f8, 0) at row + (0, -120) (DAT_7ff72bcb74d8), then the avatar FUN_7ff72bb774a0(mode 0, arg5 = 1); the ball death callback (+0x4b0, LAB_7ff72bb786c0) is bound to that avatar",
+        "When the party limit drops the avatar (0x7ff72bb7333f) the ball is still created and bound to the LAST spawned player (FUN_7ff72bb78650), whose ball count +0x420 is incremented; the avatar ctor FUN_7ff72bb66e50 starts +0x420 at 1"
+      ],
+      "behavior": "Breakout stages: every active BreakoutPlayer row makes its ball, even when the party is smaller than the row count; the ball of a row with no cat belongs to the last cat spawned, which owns one more ball. 8-2 / 8-4 at party 2: 4 balls (P1 owns 1, P2 owns 3); party 4: one each; party 8: 8 balls. 9-3 always has 8 balls: party 2 P2 owns 7, party 4 P4 owns 5, party 8 one each. Was: one ball per spawned cat (2 balls at party 2)."
+    },
+    {
+      "id": "breakout-loss-and-fail",
+      "files": [
+        "src/engine/GameRuntime.ts"
+      ],
+      "evidence": [
+        "Lost ball: FUN_7ff72bae64f0 stops it on a top-face (n.y == 1) hit of any tile but BLK / BWL / BWC / BWR (unchanged in the port), 180-tick timer +0x4a8; at 0 it calls the owner callback LAB_7ff72bb786c0 -> avatar FUN_7ff72bb69440 cmd 3 and is removed",
+        "FUN_7ff72bb69440 cmd 3: skipped if the scene is resolved; else +0x420 -= 1; at 0 the player gets flag +0x3f8 |= 0x10 (out). The cat does NOT die",
+        "Stage fail FUN_7ff72bb7bbe0: while scene flag 0x40 is clear and not everyone is in the goal, if EVERY player is out (flag 0x10) the stage fails and restarts (scene flag |= 2)"
+      ],
+      "behavior": "Breakout stages: each cat counts its balls (1 + the extra balls of party-limited rows); a lost ball takes one from its owner and a cat at 0 is out (it keeps walking and jumping). When every student cat is out and the key has not appeared, the stage restarts from its start (bricks, balls and cats; teacher cats are kept). 9-3 has no BreakoutKey, so the rule stays armed the whole stage. Was: losses were recorded and never read (losing every ball left the stage unwinnable with no restart). Not modelled: the native \"or in state 1\" alternative of the fail test (state 1 not identified)."
+    },
+    {
+      "id": "breakout-key-hidden-until-clear",
+      "files": [
+        "src/engine/GameRuntime.ts"
+      ],
+      "evidence": [
+        "BreakoutKey row (0x7ff72bb7457a) builds the ordinary Key class FUN_7ff72bb64f20(0x558, 1), type 1, no params, and starts it hidden: FUN_7ff72bb65240(this, 0) turns its sensor and view off",
+        "Key update FUN_7ff72bb65430 state 0: FUN_7ff72bc30790(map) = any tile 30..34 (MC_BR1..BR5) left anywhere; when none remains it activates at its spawn point as a normal 32 x 56 Key and sets scene flag 0x40 (disarms the lost-balls fail FUN_7ff72bb7bbe0)",
+        "Then an ordinary Key: hangs at home, carried on touch, opens the Goal by the existing key / goal rule"
+      ],
+      "behavior": "Breakout stages 8-2 / 8-4: the BreakoutKey is an ordinary Key, hidden and untouchable until no MC_BR1..BR5 brick is left anywhere on the map; then it appears at its spawn point, is carried like any key and opens the Goal (enter with UP); its appearance disarms the lost-balls restart. Was: a 24 x 24 pickup visible from frame 0 whose collection did nothing (the Goal never opened)."
+    },
+    {
+      "id": "breakout-syncarea-inert",
+      "files": [
+        "src/engine/GameRuntime.ts"
+      ],
+      "evidence": [
+        "BreakoutSyncArea FUN_7ff72bb778c0 only drives online sync chunks (FUN_7ff72bae82a0); offline it has no body, no view and no clear rule"
+      ],
+      "behavior": "Breakout stages: the BreakoutSyncArea row creates nothing (was: an invented 72 x 48 box at the map corner that cleared the stage when every cat stood in it)."
+    },
+    {
+      "id": "stage-map-private-copy",
+      "files": [
+        "src/engine/GameRuntime.ts"
+      ],
+      "evidence": [
+        "Native rebuilds the stage (and its map grid from the Lua table, FUN_7ff72bc27dc0) on every load and every fail restart, so chips a ball destroyed (FUN_7ff72bae7be0) are back on the next attempt; the shared stage data is never written"
+      ],
+      "behavior": "Every stage: each load (and each breakout restart, which reloads) plays on its own copy of the map chip table; breaking chips (bricks, breakable chips) changes only that copy. Was: the runtime wrote into the shared stage table, so bricks broken on one attempt stayed gone on the restart and on every later load of that stage in the same session (a second 9-3 run stalled at frame 171)."
+    },
+    {
+      "id": "bound-ball-pitcher",
+      "files": [
+        "src/engine/GameRuntime.ts",
+        "src/engine/sprites.ts"
+      ],
+      "evidence": [
+        "BoundBallPitcher factory 0x7ff72bb74b10 mode 0 -> ctor FUN_7ff72bb37d70: solid cannon body FUN_7ff72bc16bf0(this, DAT_7ff72bcb7320 = {-40, -18, 54, 40}, 3), category 4; ctor speed 5.0 (+0x3f0 / +0x3f4); params FUN_7ff72bb37f30: speed = p[N-1] * 0.1 (DAT_7ff72bc7d464), index N-1 (0x7ff72bb38064..82 via FUN_7ff72bb389b0); direction (sin a, -cos a) (FUN_7ff72bb933e0): 270 = left",
+        "Update FUN_7ff72bb38130: the first update is skipped (+0x3ec); one child at a time, no timer: a gone child is cleared that tick and the next update spawns; spawn FUN_7ff72bb383e0 at pos + dir * 20 (DAT_7ff72bc7d1b0), velocity dir * speed, held for 0.5 s (DAT_7ff72bcff4fc)",
+        "BoundBall ctor FUN_7ff72bb36d10 (setup FUN_7ff72bb36e40, update FUN_7ff72bb36ee0, msg FUN_7ff72bb37250, contact slot 31 FUN_7ff72bb37500): circle r 12 (DAT_7ff72c62add8), category 5, gravity +0x12c 0.65 per tick, mass +0x148 50 (cats 100 DAT_7ff72bcc7dc4, default 1.0 FUN_7ff72bc155e0); view 24 x 24 atlas (272, 496, 12, 12)",
+        "Contact step 1: |vy| = sqrt(vy_prev^2 + 2 * 0.65 * (y - y_prev)) (DAT_7ff72bcb69bc, prev state +0x100 / +0x110, FUN_7ff72bc16120), sign kept; map chips: v' = v - (1 + e)(v.n)n, e 1.0 (DAT_7ff72bcff538), a normal part < 1.2 (DAT_7ff72bcb7134) -> 0; a top-face landing (n.y == 1) -> 30-frame fade (+0x3f8 = 0x1e), velocity 0 (FUN_7ff72bb37d00), body off",
+        "Actor contact, closing only: v1n' = ((m1 - e m2) u1 + (e + 1) m2 u2) / (m1 + m2), e 1.2 (DAT_7ff72bcb7134) when N < 5 else 1.0, |v1n'| < 1.2 -> 0; resting on a category 1 / 5 body with vy' <= 1.19e-7 (DAT_7ff72bc7d458): +0x3fc++, update kills the ball at 2 (0 when N > 4, FUN_7ff72bb37af0) while |vy| ~ 0; grounded vx *= 0.95 (DAT_7ff72bcb7130) from the 2nd grounded frame (1st when N > 4); cats are never harmed (no avatar command)",
+        "Port (b12 snapshot): 126-133 a 16 px ball under 980 / s^2 with jump -408 / hold 13; 10372-10428 the ball sat at the pitcher and jumped on player 0's jump button (native: no player input); 10448-10470 an invented missing-BallBox fade; 10498-10528 an invented side push / support; 1305-1309 a generic DeadBallPitcher (no cannon body, no speed params)"
+      ],
+      "behavior": "9-4 BALL PARK: the BoundBallPitcher is a solid cannon {x-40, y-18, 54, 40} (cats can stand on it) with the native barrel / base art. Its speed is 0.1 * p[N-1] (party 2: 3.16 per tick, party 4: 3.55; solo 5.0); after one skipped tick it fires one ball at a time from 20 px along its heading (left), held still and visible for 0.5 s, then flying; when that ball is gone the slot is cleared and the next tick fires again. The BoundBall is a circle of radius 12 falling 0.65 per tick per tick with no speed cap; bounces keep their energy (the vy fix). Map chips reflect it elastically (normal parts under 1.2 are dropped); landing on the top face of any chip (floor or ledge) stops it, it fades for 30 frames and is removed. Cats (mass 100), boxes and every other body (mass 1.0) bounce it only while it closes on them: off a still head it comes back at -0.467 of its speed (party 5+: -0.333), a cat jumping up into it adds a lot (10 vs a rising -10: -19.3). Two resting contacts (vy left ~0) on a head or box kill it (party 5+: the first; the native limit 0 is read as \"after one resting contact\", else a ball would die whenever |vy| passes ~0); on a head vx decays 0.95 per tick from the 2nd grounded frame. Cats are never harmed and never moved by it. Removed: the jump-button ball control, the invented side push and the invented missing-BallBox fade. Approximations: contacts are found by closest point on each chip / body rect at sub-steps of at most 4 px (native: the world sweep); the ball ignores its own cannon (it spawns inside the cannon body; native filtering not traced) and does not push cats."
+    },
+    {
+      "id": "ball-box",
+      "files": [
+        "src/engine/GameRuntime.ts"
+      ],
+      "evidence": [
+        "BallBox branch 0x7ff72bb7514d -> ctor FUN_7ff72bb53e10 (vtable PTR_FUN_7ff72bcbaf48): view {-24, -64, 48, 64} (DAT_7ff72bcb94c0), solid body {-22, -62, 44, 60} (DAT_7ff72bcb64f0) category 5, top sensor {-4, -66, 8, 10} (DAT_7ff72bcbb170); setup FUN_7ff72bb53ff0 pre-builds an ordinary Key (FUN_7ff72bb64f20) into +0x400",
+        "Update FUN_7ff72bb54060: falls when unsupported, vy 0 grounded; breaking: a 40-frame countdown, alpha fade frames 30..20, then removed (FUN_7ff72bc11650)",
+        "Sensor contact (slot 31 FUN_7ff72bb54330): |other.x - box.x| <= 5 (DAT_7ff72bc7d588) -> message 0xb; a reply > 0 starts the break and places the Key at (box.x, box.y - 30) (DAT_7ff72bcb4ee8); only the BoundBall answers 0xb (FUN_7ff72bb37250: 30-frame fade, velocity (0, 3.0) DAT_7ff72bc7eb00, body off, x = box x, reply 1); the player handler FUN_7ff72bb69440 never handles 0xb",
+        "Port (b12 snapshot): 919-923 / 12441 a centred 48 x 48 NormalBox with no sensor that never broke and held no Key (the Goal could never open)"
+      ],
+      "behavior": "9-4 BALL PARK: the BallBox is a solid 44 x 60 body standing on its row point ({x-22, y-62}), falling when unsupported (it settles 3 px onto the floor; the fall uses the box-family 0.65 per tick per tick, the BallBox constant is not decoded). A BoundBall touching its 8 x 10 top sensor {x-4, y-66} with its centre within 5 of the box x breaks it: the ball drops into it (velocity (0, 3), fading for 30 frames), the box fades out over its 40-frame break (alpha from frame 30 to 20) and is removed, and an ordinary Key appears at (box x, box y - 30), carried like any key and opening the Goal by the existing key rule. A ball crossing the sensor off-centre (more than 5 away) just bounces off the box. Cats never break it (standing on it does nothing). Was: a centred 48 x 48 NormalBox that never broke and held no Key. The Key is created when the box breaks (native pre-builds it off-scene in +0x400 and adds it then: the same thing on screen)."
+    },
+    {
+      "id": "seesaw-and-balance",
+      "files": [
+        "src/engine/GameRuntime.ts"
+      ],
+      "evidence": [
+        "Seesaw / SeesawParent ctor FUN_7ff72bb5d420(obj, p0) (SeesawParent FUN_7ff72bb77b30 ignores p1 / p2): plank rect from LAB_7ff72bcbc230[p0] = {-300, -10, 600, 20} / {-300, -10, 450, 20} / {-150, -10, 450, 20} about the pivot (the row point); setup FUN_7ff72bb5d700: one dynamic Box2D box (density 1, friction 1, restitution 0, gravity scale 0), revolute joint limits +-0.1745 rad (DAT_7ff72bcbc478 / DAT_7ff72bcbc470); NO engine collision body (no FUN_7ff72bc16bf0): cats and boxes never touch a plank",
+        "Children with p1 = 1: gear joint ratio -1.0 to the parent (FUN_7ff72bb5d9e0, FUN_7ff72bbe7210, DAT_7ff72bcff6a8) = they copy its angle; SeesawParent update FUN_7ff72bb5da90: angular velocity = (target - angle) / dt, target +0x930 from message 0xc (FUN_7ff72bb5db00); draw FUN_7ff72bb5d870 rotated (angle * 10430.378)",
+        "Balance ctor FUN_7ff72bb313f0(obj, 900.0), setup FUN_7ff72bb31900: two pans, body {-97, -7, 194, 14} (DAT_7ff72c62ada0) solid, at x -/+ p0 * 0.5 (DAT_7ff72bcff4fc); pan update FUN_7ff72bb31050: count FUN_7ff72bc132c0(pan, UP, 1), at most +0x400 px per tick toward +0x3f8 with the move check FUN_7ff72bc16f50 and rider carry FUN_7ff72bc17330",
+        "Balance update FUN_7ff72bb315f0: r = clamp((R - L) / (N * 0.5), -1, 1); amp = sin(0.12217) * 450 = 54.84 (DAT_7ff72bcb6210); |r| > 1.19e-7: targets -r * amp / +r * amp, else 0; speed max(|r|, 0.2) (DAT_7ff72bc7d858), 0.2 when a pan moves against the imbalance; angle = atan2(s * max(|L|, |R|), 450) with s = +1 when R >= 0 and -1 only when R < 0 (0x7ff72bb31809..31826) -> message 0xc to \"SeesawParent\"",
+        "Physics world 100 px / m (DAT_7ff72bc7d45c), gravity (0, 980) px/s^2 (DAT_7ff72bcc84b0, FUN_7ff72bbe76d0); PhysicsBall ctor FUN_7ff72bb55c30 / setup FUN_7ff72bb55d80: circle r 12 (DAT_7ff72c61f3d8), density 0.1, friction 0.5, restitution 0.2; death FUN_7ff72bb55e40: touching the area floor or ceiling starts a 30-tick countdown (moves 15, still below 15, removed at 0); the pitcher (angle 180 = down, 0.1 * p[N-1]) re-fires through FUN_7ff72bb38130",
+        "PhysicsSwitch: switch type 2, no fixture, latched; each update casts a ray (x, y) -> (x, y - 16) (DAT_7ff72bc7e738) through the Box2D world (FUN_7ff72bbe7770): only balls hit it; a hit sends (\"Key\", 9) and FUN_7ff72bb65700 shows the hidden Key",
+        "Port (b12 snapshot): seesawFromSpawn 12483-12505 (SeesawParent = a 365 x 915 wall from p1 / p2, children p0 * 48 x 16, no rotation) solid for cats and boxes in every collision list; updateSeesawTilts 8649-8720 (cat-driven tilt, rider snapping); balanceFromSpawn one static 28 x 20 block; the ball a straight line through the planks; physicsSwitchRect pressed by cats / boxes and released; no key.activate(); applyPhysicsAreas an invented 96 px/s slow-fall"
+      ],
+      "behavior": "9-2: the three planks are rectangles from the p0 shape table about their pivots (SeesawParent 340..790 at y 358, the geared Seesaws 490..940 at 258 and 340..790 at 164), drawn rotated, and are NOT solid for cats or boxes (removed from every collision list; updateSeesawTilts deleted; the cats spawn on the floor strip again instead of inside a 365 x 915 wall). The SeesawParent is driven toward the Balance angle (see seesaw-box2d); the geared children copy it. The Balance is two 194 x 14 pans at x 640 -/+ 450 (y 597..611) that move like lift slabs (the rising-lift chain test, a sinking pan stops on what is under it, riders and their stacks are carried): r = clamp((right - left riders) / (N / 2), -1, 1) (stacked cats count), each pan heads for -/+ r * 54.84 at max(|r|, 0.2) px per tick (0.2 when moving against the imbalance), and the plank angle is atan2(s * max(|left|, |right|), 450), s = +1 when the right pan offset is >= 0 and -1 only below 0: at party 2 one extra cat on a pan gives the full 6.95 deg after ~55 ticks. The planks, the PhysicsArea boundary, the PhysicsBall and the PhysicsSwitch ray are a real Box2D world (seesaw-box2d supersedes this entry's batch-12 hand-rolled circle solver). The PhysicsBall lifecycle: touching the area floor or ceiling starts the native 30-tick death (moves 15 ticks, asleep, removed) and the pitcher fires the next ball (one at a time, first tick skipped). The PhysicsSwitch latches the first time a ball body is hit by its 16 px ray and shows the hidden Key; cats and boxes never press it and it never releases. The invented PhysicsArea slow-fall and its blue fill are gone."
+    },
+    {
+      "id": "laser-ball-pitcher",
+      "files": [
+        "src/engine/GameRuntime.ts",
+        "src/engine/sprites.ts"
+      ],
+      "evidence": [
+        "LaserBallPitcher factory 0x7ff72bb74b72 -> FUN_7ff72bb37d70 mode 1 (+0x3ec = 1: first update skipped; speed +0x3f0 / +0x3f4 = 5.0); cannon body FUN_7ff72bc16bf0(this, DAT_7ff72bcb7320 = {-40, -18, 54, 40}, 3), category 4",
+        "Params FUN_7ff72bb37f30: p0 angle, direction (sin a, -cos a), barrel {-23, -38, 46, 58} (DAT_7ff72bcb7330) atlas (240, 400, 23, 29) (DAT_7ff72bcb7300) rotated a / 180 * 32768; a outside 170..190 also draws the base {-25, -4, 52, 40} (DAT_7ff72bcb7310) atlas (240, 432, 26, 20) (DAT_7ff72bcb72f0); modes 1..3: raw p1 float = speed px/tick; 3+ params: p2 target (+0x660)",
+        "Firing FUN_7ff72bb38130 / FUN_7ff72bb383e0: one ball at a time at pos + dir * 20 (DAT_7ff72bc7d1b0), velocity dir * +0x3f0, 0.5 s spawn delay (DAT_7ff72bcff4fc), a gone child cleared and refired the next update; messages FUN_7ff72bb38210: 0x15 speed *= payload, 0x16 base speed",
+        "Ball FUN_7ff72bb4e470: view {-12, -12, 24, 24} atlas (256, 512, 12, 12), circle r 12 (DAT_7ff72c62cfd0) category 5; delay FUN_7ff72bb4e6f0 parks the velocity and hides it; no gravity; on its FIRST contact with anything (FUN_7ff72bb4ea70, chips too via FUN_7ff72bc14040) FUN_7ff72bb4ec10: velocity 0, body off, 30-frame fade, removed; hitting a category-1 cat with a target: message 0x25 to the target; no kill, no push",
+        "Port (b12 snapshot): 1295-1299 a DeadBallPitcher (no body, no sprite); 10684-10690 a 16 x 16 loop 96 px every p1 s along (cos, sin) (270 aimed up) that never collided; 10348-10352 cat contact a no-op"
+      ],
+      "behavior": "9-1: each LaserBallPitcher is a solid cannon {x-40, y-18, 54, 40} (9-1: x 752..806, y 380..420) with the native barrel and base art; after one skipped tick it fires one ball at a time from 20 px along its heading (270 = left) at its raw p1 speed (7 per tick), hidden and still for 0.5 s, then flying in a straight line at constant speed with no gravity. The ball stops on its first contact with anything but its own cannon (map chips, cats, boxes, the LaserKeyBox, Rects, lifts), fades for 30 frames and is removed; the next tick the cannon fires again. A ball that hits a cat while its row names a target (the party <= 3 row: \"LaserKeyBox\") sends resetHits to that target; the party >= 4 rows have no target, so cats just absorb balls. Messages: 0x15 multiplies the NEXT ball's speed (the current ball keeps its own), 0x16 restores the base speed. Approximations: contact by closest point at sub-steps of at most 4 px; the ball ignores its own cannon (it spawns inside it; the category (4, 5) filter is not traced); the 11-frame scale part of the fade is drawn as an alpha fade only."
+    },
+    {
+      "id": "laser-key-box",
+      "files": [
+        "src/engine/GameRuntime.ts",
+        "src/engine/sprites.ts"
+      ],
+      "evidence": [
+        "LaserKeyBox ctor FUN_7ff72bb544e0: view {-23, -62, 46, 62} (DAT_7ff72bcb6500), frames (288, 480), (320, 480), (352, 480) 23 x 31 (DAT_7ff72bcbaf10); body {-22, -62, 44, 60} (DAT_7ff72bcb64f0) type 3 category 5; params FUN_7ff72bb54fe0: p0 pitcher name (+0x408), k = p[max(N-1, 1)] (+0x428); on-add FUN_7ff72bb54780 an ordinary Key FUN_7ff72bb64f20(0x558, 0) kept off-scene in +0x400",
+        "Hits FUN_7ff72bb54940: only actor contacts with a category-5 body (laser balls), any side; cats do not count; hits++ (+0x3fc); while hits < 3: frame = hits, message 0x15 with &k to the pitcher; at 3: a 40-frame fade (+0x3f8 = 0x28, FUN_7ff72bb547f0 alpha (n - 20) / 10, solid during the fade, then destroyed) and the Key moved to (box x, box y - 30) (DAT_7ff72bcb4ee8) and added to the scene (FUN_7ff72bb31f00, FUN_7ff72bb54d60)",
+        "Message 0x25 FUN_7ff72bb54860, only while hits < 3: hits = 0, 0x16 to the pitcher (base speed), frame 0",
+        "Port (b12 snapshot): 924-928 a centred 48 x 48 NormalBox; 7897-7900 / 11205 the box was hidden (\"unlocked\") only when a Key targeting it was carried (9-1 has no such Key: the Goal stayed closed)"
+      ],
+      "behavior": "9-1: the LaserKeyBox is a solid 44 x 60 body standing on its row point ({x-22, y-62}; 9-1: x 53..97, y 372..432, blocking the left tunnel) drawn with its three native hit frames. Only laser balls count as hits (cats never do): hits 1 and 2 show the next frame and multiply the pitcher's next-ball speed by k = p[max(N-1, 1)] (party 2: 1.8, so 7 -> 12.6 -> 22.68 per tick; party 4: 1.6); the 3rd hit fades the box out over 40 frames (still solid while fading) and removes it, and an ordinary Key appears at (box x, box y - 30) (9-1: (75, 404)) that opens the Goal by the existing key rule. resetHits (a ball hitting a cat on the targeted row) works only while hits < 3: hits 0, frame 0, the pitcher back to its base speed. Removed: the carried-Key \"unlock\" path (carryKeyForPlayer hid a LaserKeyBox; isLaserKeyBoxUnlocked filtered it out of every collision list)."
+    },
+    {
+      "id": "seesaw-box2d",
+      "files": [
+        "src/engine/GameRuntime.ts"
+      ],
+      "evidence": [
+        "Step call site: scene tick FUN_7ff72bc1b830 runs the actor updates, then vtable +0x30 = stage update FUN_7ff72bb7bbe0 with dt = DAT_7ff72bc7d790 = 1/60 (vtable 0x7ff72bcbfec0 / 0x7ff72bcc00b8 slot +0x30); FUN_7ff72bb7bbe0 calls FUN_7ff72bbe7720(world + 0x51950, dt) once per tick, which is mov r9d, 0xa; mov r8d, r9d; jmp FUN_7ff72bbf4e50 = b2World::Step(dt, 10 velocity, 10 position iterations); then the engine world step FUN_7ff72bc1da80",
+        "World FUN_7ff72bbe74f0 -> b2World ctor FUN_7ff72bbf2950 (allowSleep 1 at +0x19340; warmStarting / continuousPhysics / subStepping / stepComplete = 0x1000101 at +0x1935c: Box2D 2.3 defaults) plus a static ground body (+0x19380); gravity FUN_7ff72bbe76d0: (x, y * 0.01) = (0, 9.8) m/s^2 from (0, 980) px/s^2; 100 px per metre (DAT_7ff72bc7d45c = 0.01 in FUN_7ff72bbe6520 / 5ad0 / 5d30 / 5f80 / 6ef0 / 7770)",
+        "Body FUN_7ff72bbe6520: b2BodyDef type 2 when wrapper +8 == 1, position (+0x20, +0x24) * 0.01, angle +0x30, angular damping +0x38, allowSleep / awake 0x101, velocity (+0x28, +0x2c) * 0.01, gravity scale +0x3c -> b2Body +0xa8; userData = the wrapper; fixtures (FUN_7ff72bbe5ad0 circle / 5d30 polygon / 5f80 edges): friction +0xc, restitution +0x10, density +8, category 1, mask 0xffff",
+        "PhysicsArea factory 0x7ff72bb7540f (\"PhysicsArea\" -> FUN_7ff72bb77970; \"PhysicsRect\" -> FUN_7ff72bb56400): static body, wrapper +0xc (kind) = 1, density 1 / friction 1 / restitution 0; params FUN_7ff72bb78d80: 5 points (p0, p1), (p0, p1 + p3), (p0 + p2, p1 + p3), (p0 + p2, p1), (p0, p1); FUN_7ff72bbe5f80 makes one b2EdgeShape per segment (radius 0.01) with vertex0 = the segment start (hasVertex0 after the first) and vertex3 = the next point (hasVertex3 before the last)",
+        "Seesaw setup FUN_7ff72bb5d700: dynamic box (polygon FUN_7ff72bbe5c70 from LAB_7ff72bcbc230[p0], y negated, then scaled), density 1 (+0x750), friction 1 (+0x754), restitution 0, gravity scale 0 (+0x734), angular damping 0; revolute (joint type 1, bodyA = the ground body when none, FUN_7ff72bbe6f70) with localAnchorA = the pivot * 0.01, localAnchorB 0 (FUN_7ff72bb5dd40 -> FUN_7ff72bbe6ef0), limits enabled -0.17453292 / +0.17453292 (DAT_7ff72bcbc478 / 470, FUN_7ff72bbe6ea0), no motor; children: gear joint (type 6) bodyA = parent, bodyB = child, joint1 = the parent revolute, joint2 = its own, ratio -1 (DAT_7ff72bcff6a8; FUN_7ff72bb5d9e0 / 7170 / 7210 / 7250); SeesawParent update (vtable 0x7ff72bcbfae0 +0xc8) FUN_7ff72bb5da90: SetAngularVelocity((+0x930 - angle) * (1 / dt)); Seesaw update 0x7ff72bb5d850 is empty",
+        "PhysicsBall setup FUN_7ff72bb55d80: circle r 12 (DAT_7ff72c61f3d8), density 0.1, friction 0.5, restitution 0.2, angular damping 0.5 (DAT_7ff72bcff4fc via FUN_7ff72bbe6850 -> b2Body +0xa4), dynamic; FUN_7ff72bb383e0 mode 4 stores dir * speed on the actor (+0x118) before the ball has components (registered in setup), and the body is built from the wrapper velocity (still 0): the ball starts at rest",
+        "Death FUN_7ff72bb55e40: walks the ball body contact list (+0x88): other body userData kind (+0xc) == 1 and |1 - |manifold localNormal.y (contact +0xa4)|| <= DAT_7ff72bc7d458 -> 30; below 15 the awake flag is cleared, sleep time / velocities / forces zeroed every tick; 0 -> FUN_7ff72bc11650. PhysicsSwitch ray FUN_7ff72bbe7770: every fixture of every body (no broad-phase), shape RayCast from (x, y) * 0.01 to (x, y - 16) * 0.01, maxFraction 1",
+        "Codex replay (real Box2D 2.3.1) of the batch-12 solver's per-frame plank angles: the ball first lands at frame 672 near x 236.91 and never reaches the switch (the hand-rolled port latched at 929); reproduced here: the death test fires at tick 674, x 239.1, never latched"
+      ],
+      "behavior": "9-2: the planks, the PhysicsArea boundary, the PhysicsBall and the PhysicsSwitch ray live in one Box2D 2.3 world (planck 1.5.0, a faithful JS port of Box2D 2.3, bundled into runtime.mjs from the repo node_modules) built on the first ball-park tick in native creation order (ground, PhysicsArea, SeesawParent + revolute, each Seesaw + revolute + gear) at 100 px per metre with gravity (0, 9.8). Each tick, after the actor updates (Balance -> SeesawParent SetAngularVelocity((target - angle) * 60), the ball death test on the last step's contacts, the switch ray), the world steps once with b2World::Step(1/60, 10, 10); the plank angles and the ball position / velocity are read back for drawing. Planks: dynamic boxes from the shape table, density 1, friction 1, restitution 0, gravity scale 0, revolute to the ground at the pivot with limits +-0.1745 rad, children geared to the parent at ratio -1. PhysicsArea: a static body with four edges (density 1, friction 1, restitution 0, kind 1) with the native ghost vertices. Ball: dynamic circle r 12, density 0.1, friction 0.5, restitution 0.2, angular damping 0.5, spawned at rest at the pitcher + 20 px; it rolls as a damped disk (about (2/3) (g sin(theta) - 0.25 v)). Death: a contact with the area whose manifold normal is vertical starts the 30-tick countdown (15 ticks moving, then put to sleep each tick, then the body is destroyed). Switch: the 16 px segment is ray-cast through every fixture with each shape's RayCast, so a ball whose centre sits on the segment start misses while one approaching from the side is hit. The 9-2 solver was re-routed on this world (FLIP_LEFT_AT 520 / FLIP_RIGHT_AT 760). Remaining approximations: planck computes in float64 (Box2D: float32); the native polygon keeps an unscaled centroid (used only by edge-polygon contacts, which never occur here); the order of the SeesawParent and Balance updates within a tick follows the port (Balance first), not a traced actor-list order; a contact that stops touching keeps its stale manifold normal in Box2D but is zeroed by planck (equivalent for the death test, which fires on the first touching tick)."
+    },
+    {
+      "id": "action-button",
+      "files": [
+        "src/engine/types.ts",
+        "src/engine/GameRuntime.ts"
+      ],
+      "evidence": [
+        "Warp gun update FUN_7ff72bb57280 fires on FUN_7ff72bb68510(owner, 0xb) = input bit 11 press edge ((cur & m) == m && (prev & m) == 0, FUN_7ff72bb6ad30); magnet input FUN_7ff72bb59530 reads FUN_7ff72bb68300(owner, 0xb) = bit 11 held; jump is bit 2 (BUTTON_JUMP = 2, stage_common.lua); bit 11 > BUTTON_MAX = 10, shown as '[shot]' in the stage text",
+        "Port (b12 snapshot): InputState (types.ts 65-75) had no such button; the warp gun fired on jumpPressed (GameRuntime 2131)"
+      ],
+      "behavior": "Every stage: InputState gains action (held) and actionPressed (press edge) for native input bit 11. The desk sends them as bits 64 (held) and 256 (press edge) beside 1/2/4/8 directions, 16 jump, 32 jump edge (128 stays the teacher-helper flag); keys: X (also K) for the player, G for the solo buddy; the relay accepts bits <= 511 and keeps the edges one tick like jump. Old packets (bits <= 63) decode exactly as before. A cat with zero Roulette activity has no action button either; an action press counts as player activity for the solo input routing."
+    },
+    {
+      "id": "warp-gun-player",
+      "files": [
+        "src/engine/GameRuntime.ts"
+      ],
+      "evidence": [
+        "Factory branch 0x7ff72bb72c13: a normal mode-3 cat (FUN_7ff72bb6f0e0 moves and jumps normally) + the gun FUN_7ff72bb57010; fire FUN_7ff72bb57280 on the bit-11 press edge, independent of jump; one live shot per gun (+0x408)",
+        "Range FUN_7ff72bb57c80: dies when its SCREEN x (FUN_7ff72bc15b90 subtracts the camera scroll when actor +0x90 bit 8 is set; base ctor FUN_7ff72bc155e0 line 107 sets it on every actor) < 0 or >= 1280 / scale (DAT_7ff72bc7db94)",
+        "Pick-up: message 0xe value 0 to a hit cat (FUN_7ff72bb6fd20 -> FUN_7ff72bb67cc0(0)): active off, collision off, hidden (the port still ran resolvePlayerBodyCollisions on it, so a held cat blocked walking)",
+        "Port (b12 snapshot): 2131-2134 fired on jumpPressed and cancelled the jump (gun cats never jumped); 9585 / 9646 tested the WORLD x (a shot fired at world x >= 853 died on its first step)"
+      ],
+      "behavior": "11-1 / 11-3: a WarpGun cat fires on the action press edge (X), not on jump; it jumps like any cat. The shot range is the visible screen: shot x minus the scroll-camera scroll in 0 .. 1280 / scale, so a shot fired far right in the world flies. Unchanged (already native): the gun at (+-20, -10), the shot from owner + (+-30, -17) at 6 per tick, its 10 x 10 contact and launch probe, the 0.5 s hit fade, one live shot per gun, Player / ColorBox pick-up (hidden, inert where hit, a carried key stays), placement on the shooter's side (x = shot.x - w - 1 / shot.x + 1, bottom = shot.y - 1, one retry h + 2 lower), the key drop on placement. A held cat cannot fire (it is skipped as before) and no longer blocks another cat (cat-vs-cat body push skipped while held: collision bit off). Not modelled: the launch probe ignores the tile map (unverified natively); the scroll camera still counts a held cat at its old position (native unknown); a ColorBox-class push box (ColorBox rows) is not a pick-up target (no gun stage has one)."
+    },
+    {
+      "id": "colorbox-gravity",
+      "files": [
+        "src/engine/GameRuntime.ts"
+      ],
+      "evidence": [
+        "ForceColorBox factory 0x7ff72bb73c9b, ctor FUN_7ff72bb3b490: the ColorBox class (vtable 0x7ff72bcb7c88), colour = raw p0 = 8; update FUN_7ff72bb3b5e0 pushable only by a cat whose slot == colour (8: nobody) and HAS GRAVITY: falls when FUN_7ff72bc13690 fails (FUN_7ff72bb34c40)",
+        "Port (b12 snapshot): ColorBox / ForceColorBox in colorBoxes never fell; a warp-gun release (9830-9835) only wrote the spawn x / y, so a placed box floated"
+      ],
+      "behavior": "11-3 (every ForceColorBox): a ColorBox-class box outside the push-box list falls when unsupported with the push-box family fall (0.65 per tick per tick, 2-unit sweep steps, flush landing on the map, any solid, a push box, another ColorBox or a live cat below; side contact never holds it up). A ForceColorBox the warp gun places falls from where it appears. It stays unpushable (colour 8: no slot matches). ColorBox rows were already push boxes that fall (colorbox-colour-push)."
+    },
+    {
+      "id": "magnet-player",
+      "files": [
+        "src/engine/GameRuntime.ts",
+        "src/engine/actors/Player.ts",
+        "src/engine/sprites.ts"
+      ],
+      "evidence": [
+        "Factory branch 0x7ff72bb72d33: an ordinary mode-3 cat + the aux FUN_7ff72bb59090(new 0x670, cat), attached by FUN_7ff72bb59390; sprite {-11, -22.5, 22, 30} atlas (208, 496) 11 x 15; field body {20, -50, 110, 80} (DAT_7ff72c61f438), contact callback FUN_7ff72bb5a180",
+        "Placement FUN_7ff72bb59e50: facing right aux = cat + (20, -10), hold offset (0, 0); facing left aux = cat + (-170, -10), hold offset (150, 0), body not mirrored: field {cat.x + 40, cat.y - 60, 110, 80} / {cat.x - 150, cat.y - 60, 110, 80}",
+        "Input FUN_7ff72bb59530: on while bit 11 is held (toggle variant only when DAT_7ff72c6301b0 != 0; 0 in the memdump)",
+        "Candidates FUN_7ff72bb5a180: up to 8 per step, cats (+4 == 1) but its own, box family DAT_7ff72c62a10f (FUN_7ff72bb34e10); |normalize(target - cat).y| < sin(2.0) (FUN_7ff72bc4cd48); grab: insertion-sorted by squared distance, command 0x1e(1), first accepting wins (cat FUN_7ff72bb6fd20: input skipped, velocity 0, gravity bit cleared FUN_7ff72bb691d0; box FUN_7ff72bb33d00: +0x400 bit 2 freezes push / fall); holder +0x90 bit 4 cleared (FUN_7ff72bae78f0 / FUN_7ff72bae7950)",
+        "Pull FUN_7ff72bb5a2d0: hold y = cat.y, near edge 30 in front; d = hold - (target + vOwner), vOwner once locked; gains (0.03, 0.08) / (0.06, 0.16) (DAT_7ff72bc7eaf8 / DAT_7ff72bcbbb34 / bbb30 / bbb38); |dx| > 1 -> sign * max(2, g|d|) else snap, y threshold 2; both snapped -> lock; FUN_7ff72bb5b630 -> FUN_7ff72bc13690 wall / ceiling zeroing; velocity FUN_7ff72bb35190 and pos += v FUN_7ff72bb97db0; lock break > 32 (DAT_7ff72bc7d7f8); release 0x1e(0) zeroes the target velocity",
+        "Blocking FUN_7ff72bb59530: FUN_7ff72bb5b630(body, side 2 / 3, 1) zeroes v.x, (side 0, 1) zeroes v.y < 0; FUN_7ff72bb5b630 -> FUN_7ff72bc13690 param_3 = 1 also tests the actor contacts at body +0xa0 (count +0xe8), not only the map contacts (+0x90); then FUN_7ff72bb35190 (velocity) and FUN_7ff72bb97db0 (pos += v), the engine sweep resolves the body; the lock bit (+0x3f8 bit 0) is only set while unlocked, never cleared by a block",
+        "Shared targets: command 0x1e handlers FUN_7ff72bb33d00 (box: set / clear +0x400 bit 2, velocity 0, return 1) and FUN_7ff72bb6fd20 (cat) accept unconditionally; FUN_7ff72bb5a180 filters by class, field, angle and the cap of 8, not by holder; each aux keeps its own +0x518 and pulls every update",
+        "Port (b12 snapshot): 2745-2747 MagnetPlayer only joined magnetPlayers; 241-242 / 7798-7825 a MoveEnergy pull (radius 112) and collect radius 56 with no caller and no native source"
+      ],
+      "behavior": "11-2 / 11-4: each MagnetPlayer carries a magnet (drawn at cat + (+-20, -10), mirrored by facing). While its action button is HELD the magnet field is {x + 40, y - 60, 110, 80} in front of the cat (x / y = centre x / feet y; facing left {x - 150, ...}). Field list: other live cats and box-family push boxes (PushBox, Normal / Small / Tall / Big Box; not ColorBox) touching the field with |normalize(target - cat).y| < 0.909, at most 8. With nothing held the nearest (squared distance, ties in list order) is grabbed, even one another magnet already holds: then both magnets pull it, each in its own update (MagnetPlayer order), each moving it once; the held state is one flag on the target, so either magnet letting go unfreezes it (a box falls again, a cat gets its buttons and gravity back) while the other keeps pulling it. A held cat ignores its buttons and has no gravity (its own update is skipped; it is still a body for keys, Thunder, cats standing on it); a held box neither falls nor is pushed. The holder cannot turn while it holds (it walks backwards). Each tick, after the cats moved, the target is pulled toward the hold point (its origin at the holder's feet level, near edge 30 in front): d = hold - (target + vOwner) with vOwner the holder's motion this tick once locked, gains (0.03, 0.08) unlocked / (0.06, 0.16) locked, |dx| > 1 -> sign * max(2, gx |dx|) else dx, y the same with threshold 2, both snapped -> locked; v.x = 0 when the target touches a wall on that side, v.y < 0 -> 0 under a ceiling (map OR a solid actor body: Rect, gate, bridge, lift, wall, blink block, FallBox, jump stand, box, live cat); the target then moves once by vOwner + v swept against the map and then those bodies, stopping flush at contact (no second move). A blocked pull keeps the lock (only the > 32 distance unlocks). A locked target more than 32 from the hold point unlocks. Letting go, the holder dying, or the target leaving the field list releases: the target velocity is zeroed (it drops straight down), a cat gets gravity back, the holder can turn. A helper cat that leaves is released first. The invented MoveEnergy pull / collect radius is deleted. Not modelled: the repeating magnet sound (0.6 s); the field list order among cats and boxes beyond distance (cats first, then boxes); lift carry of a locked target is by the holder's displacement."
+    },
+    {
+      "id": "puzzle-stage-data",
+      "files": [
+        "src/engine/types.ts"
+      ],
+      "evidence": [
+        "The Puzzle row p0 \"stage_switch_puzzleNN.puzzle\" is a Lua dotted path resolved by FUN_7ff72bbd8bf0 (getglobal + getfield), called from FUN_7ff72bb4be20 via FUN_7ff72bbd8e60: the sub-stage table lives in the same stage .lua file (stage_switch_puzzle01.lua lines 85-300)",
+        "Map loader FUN_7ff72bc27dc0 reads width / height / offsetX / offsetY / chipSize / variable / table; Lua index k -> x = k // height, y = k % height (column-major, one source line per column); variable != 0 -> table[party] (Lua 1-based)",
+        "Puzzle map loader FUN_7ff72bb17090 -> FUN_7ff72bb16920 (judge x / y / w / h, infoX, infoY) + fallTimeDefault (+0x258) / fallTimeFloorDefault (+0x25c) / fallTimeTable (+0x2a8 count, +0x2ac + 8i threshold, +0x2b0 + 8i time)",
+        "Port (b13 snapshot): convert_stage_lua.py kept only puzzle.createTable; types.ts PuzzleDef { createTable } (the map, judge, info and fall tables were dropped)"
+      ],
+      "behavior": "Every stage with a puzzle sub-stage (8-1, 8-3; also the unused endless stage): the bundled stage data now carries stage.puzzle.map = {width, height, chipSize, variable, offsetX / offsetY when present, judge {x, y, w, h}, infoX, infoY, fallTimeDefault / fallTimeFloorDefault when present, fallTimeTable rows [threshold, t(party 2) .. t(party 8)] (Lua row[party], 1-based), table (the default grid), variants {4, 6, 8} and variantByPlayerCount (index = party - 1)}. Grids are chip names, row-major (the Lua tables are column-major, transposed like stage.map). The Block rows stay in stage.puzzle.createTable. The exporter (follow-alongs scripts/export-pico-campaign.py) reads the Lua with the recovered converter's own parsers; the hermes tree is untouched. PuzzleDef gains the optional map field (PuzzleMapDef)."
+    },
+    {
+      "id": "puzzle-proxies-netcode-only",
+      "files": [
+        "src/engine/GameRuntime.ts"
+      ],
+      "evidence": [
+        "PuzzlePredictProxy (class 0x2a) rows {\"PuzzlePredictProxy\", n, 0, 0, \"PuzzleMain\", \"BlockN\"}: netcode prediction of remote Blocks only; no body, no view (puzzle_8-1_8-3.json predict_proxies)",
+        "Blocks are sub-stage actors: FUN_7ff72bb181b0 creates them inside PuzzleTetrisStage (FUN_7ff72bb17f80) from puzzle.createTable, Tetris ctor FUN_7ff72bb142d0, grid cells, never a main-stage body",
+        "Port (b13 snapshot): GameRuntime 1114 a 32 x 32 StaticRect per proxy (8 orange squares at the origin, solid in every unfiltered collision list); 1421 every Block a PushBox at its grid coordinates read as pixels; 1785 the puzzle createTable spawned into the main stage; 2243 / 11695 checkPuzzlePredictProxies cleared the stage when every proxy was occupied (bypassing Key / Goal)"
+      ],
+      "behavior": "8-1 / 8-3: the PuzzlePredictProxy rows create nothing (no body, no view); the Block rows are no longer spawned into the main stage as push boxes (they are the Puzzle sub-stage pieces, see puzzle-tetris); the invented proxy-occupancy instant clear is deleted (the stage clears only through the ordinary Key and Goal)."
+    },
+    {
+      "id": "puzzle-tetris",
+      "files": [
+        "src/engine/GameRuntime.ts"
+      ],
+      "evidence": [
+        "RNG: one global subtractive generator DAT_7ff72c62f7b0 (uint32 a[1..55]): seed FUN_7ff72bba81c0 (a[55] = s, mj = s, mk = 1, a[21i mod 55] = mk, mk = mj - mk, mj = a[ii]; 3 refills; index 55), refill FUN_7ff72bba8840 (a[i] -= a[i + 31] for i 1..24, a[i] -= a[i - 24] for 25..55), draw FUN_7ff72bba8a90 / FUN_7ff72bb9d380 (n == 0 -> 0, else a[++index] % (n + 1), refill at > 55); piece pick FUN_7ff72bb14810 / 148c0 / 14420: below(count - 1), one redraw if not spawnable; mode 1 table DAT_7ff72c62a330 = L (0,0),(0,1),(1,0) / I (-1,0),(0,0),(1,0): 1 draw per piece. Seed: stage start FUN_7ff72bb27b50 case 0 -> FUN_7ff72bb28f60 -> FUN_7ff72bb9d2f0(stage + 0x24b80) = the host clock (FUN_7ff72bba4b30) shared in the session block; % 2 makes the sequence depend on the seed parity only",
+        "Blocks FUN_7ff72bb181b0 / FUN_7ff72bb12610: spawn cell = the createTable (x, y), idx = int(p0) % 10, colour = the cat colour slot of idx, active (0x40) iff idx < party (clamped >= 2); init FUN_7ff72bb14420: next = draw, then current = next, next = draw (2 draws per Block, inactive ones too, createTable order); attach FUN_7ff72bb12b60 writes the first piece, fall timer = fallTime * 1.0",
+        "Update FUN_7ff72bb128d0: BLOCKED (0x10) -> retry FUN_7ff72bb146e0 only; grounded = the shape one row down is blocked by a non-falling cell (FUN_7ff72bb135c0 out flag); JUMP press edge (FUN_7ff72bc28ce0) rotates, LEFT (5) / RIGHT (6) / DOWN (4) use the auto-repeat bit (FUN_7ff72bb137f0 -> FUN_7ff72bc28c10), left wins; DOWN while grounded is ignored when lockTimer >= max(ft, floor) - 0.12 (DAT_7ff72bc819a8), else it drops (and so locks at once on the ground); fall / lock timers -= dt; fall <= 0 -> drop; grounded without a soft drop: no gravity, the drop (lock) waits until lockTimer - dt <= 0; any drop resets fall = ft * 1.0, lock = max(ft, floor)",
+        "Move FUN_7ff72bb13130: erase own cells; rotate (x, y) -> (-y, x) tested at the current position (no wall kick); x += dx if free; drop: free -> y + 1, blocked by a non-falling cell -> cells 0x24 + colour and vtable +0xb0 FUN_7ff72bb14530 in the same tick, blocked by a falling cell -> stay; then cells 0x1a + colour. Collision FUN_7ff72bc281c0: coordinates clamped; codes 0 / 1 free, 2..25 solid (DAT_7ff72bcc8a30), 26..55 solid (DAT_7ff72bc81e10)",
+        "Respawn FUN_7ff72bb14530: the just-locked shape (rotation reset, FUN_7ff72bb12bf0) is tested at the spawn cell (FUN_7ff72bb127b0); fits -> erase, FUN_7ff72bb148c0 (current = next, one new draw), the new piece written untested; else flag 0x10 (BLOCKED); retry FUN_7ff72bb146e0 places the same shape again, no draw",
+        "Repeat source: the Block reads bridge record +0xc (FUN_7ff72bb137f0 -> FUN_7ff72bc28c10), written by FUN_7ff72bc28fc0 from the keyboard state (FUN_7ff72bc18dd0 -> FUN_7ff72bbd33c0, bit 0 of the per-key byte kept by FUN_7ff72bbd2ce0); its mark-repeating-on-press branch only drives the virtual random-input pads (ctor FUN_7ff72bc29780, update FUN_7ff72bc29870; gate bridge +0x10 = 0 from FUN_7ff72bc28960), never player input. Strict timer > threshold, remainder carried (timer -= threshold), dt in ms: at 60 Hz a held key fires on ticks 0, 8, 12, 15, 19, 23, 27 ...",
+        "Repeat: device rule FUN_7ff72bbd2ce0: fire on the press, then when held time > DAT_7ff72c61fb30 (FUN_7ff72bbd58f0; 134 ms offline, set by the map loader FUN_7ff72bb17090 from DAT_7ff72bc82150), then every DAT_7ff72c61fb34 = 66 ms (FUN_7ff72bbd5950), the excess carried",
+        "Map update FUN_7ff72bb172e0 / FUN_7ff72bb17530: rows judge.y + h - 1 .. 0, full = every judge cell 0x24..0x2d; shift copy with the r - shift >= 1 and sticky terrain-source rules; n > 0: lines += n, each Block FUN_7ff72bb145d0 (y + n, erase, test at y + n - 1: free -> original y), then every fallTimeTable row with threshold <= lines sets fallTime. Judge narrowing FUN_7ff72bb16920: the first run of empty cells in row judge.y",
+        "FUN_7ff72bb180f0 (after the Blocks): every active Block BLOCKED -> sub flag 8 -> Puzzle update sets +0x3f8 | 1 and FUN_7ff72bb60000 main stage +0xc |= 2 (the fail / restart flag); target != 0 && lines >= target -> flag 4 -> Puzzle stops ticking (+0x3f8 | 1), FUN_7ff72bb60030 message 9 to \"Key\" (FUN_7ff72bb65700 shows the hidden Key) and broadcast 0x1b. Setup FUN_7ff72bb4c420 broadcasts 0x1a; player FUN_7ff72bb69440: 0x1a -> +0x430 -= 1, 0x1b -> +0x430 += 1 (max +0x42c); FUN_7ff72bb68510 / 68640 read no input while +0x430 == 0"
+      ],
+      "behavior": "8-1 / 8-3: the Puzzle row runs the native co-op Tetris sub-stage. Grid: the party's table (4 for party 2-4, 6 for 5-6, 8 for 7-8), judge narrowed to the well (table4 x 19 w 15, table6 x 15 w 23, table8 x 11 w 31; rows 8..21). One Block per createTable row, active iff its player index (row p0) < party, in its bay at (x, 5); a Block is steered by input slot = its player index and drawn in that cat's colour. Pieces: the native generator (L / I trominoes), seeded from ONE draw of the runtime's seeded random at puzzle setup (RNG decision: native seeds from the host clock per stage start and only the seed parity matters for these pieces; the port seeds per stage attempt from the relay-seeded picoRandom stream, so the seed is in the journal and replays identically; a fail restart reloads and draws a new seed); 16 init draws (2 per Block x 8 in createTable order), then 1 per successful respawn in lock order. Controls: JUMP press = rotate clockwise (no wall kick), LEFT / RIGHT / DOWN fire on the press, after 134 ms held, then every 66 ms (each Block keeps its own held state, the wire has no edges for them); DOWN drops a row (locks at once when grounded, except during the 0.12 s grace after landing). Gravity: one row per fallTime (fallTimeTable by party and lines: 8-1 0.6 / 0.4 / 0.3 s at party 2 from 0 / 3 / 6 lines, 8-3 0.2 / 0.1 s from 0 / 5 lines); on the ground the piece locks after max(fallTime, 0.5) s (moves and rotations do not reset it); other players' falling pieces block but are not ground. Lock -> respawn in the same tick (the locked shape is tested at the spawn cell; the new piece is written untested); a Block that cannot respawn is BLOCKED and retries every tick. Line clear exactly per FUN_7ff72bb17530 (landed cells only; the bay separators make columns right of the first separator clear instead of shift across rows 4-7; falling pieces keep their y unless the y + n - 1 test fails). The counter shows lines still needed (target 10). Every active Block blocked -> the stage restarts (the breakout restart path). 10 lines -> the puzzle stops (still drawn, \"OK\"), the hidden Key appears (Key.activate + refreshKeyGoalViews) and the cats get their buttons back; from setup until then every cat is frozen (visible, physics on, buttons ignored: the Roulette activity credit model). Readable state: game.puzzle {grid (row-major codes: 1 empty, 2..25 terrain, 26 + c falling, 36 + c landed), width, height, chips, judge, blocks [{label, player, colour, active, piece (0 L, 1 I), next, x, y, rotation, shape, cells(), blocked, spawnX, spawnY, fallTimer, lockTimer}], linesCleared, linesNeeded, target, won, failed, seed, fallTime(), lockDelay(), cellAt(x, y), previewPieces(n)}; GameRuntime.puzzlePieceSequence(seed, n) is the pure generator. Inferred / untraced: the win is checked before the fail when both happen in one tick; the lock timer starts at 0; the repeat clock is 1000 / 60 ms per tick; whether native re-seeds on a fail restart."
+    },
+    {
+      "id": "puzzle-tetris-draw",
+      "files": [
+        "src/engine/GameRuntime.ts"
+      ],
+      "evidence": [
+        "Sub-stage origin = the Puzzle actor position (FUN_7ff72bb4c0b0 tail: FUN_7ff72bc15b90 -> translate sub + 0x20 + 0x50, scale 1); cells drawn at (x * 24, y * 24) size 24 (FUN_7ff72bb16bd0, offsetX / Y absent), codes >= 2, UV DAT_7ff72c62a390[code]: falling 0x1a + c and landed 0x24 + c share one UV per colour",
+        "Counter FUN_7ff72bb17320: \"%d\" (DAT_7ff72bc820f0), size 48, align 2 / 2, at (infoX, infoY) + chip * (offsetX, offsetY) + origin = (636, 48); value max(0, target - lines). Win draw FUN_7ff72bb4c290: \"OK\" (DAT_7ff72bcb9e38) at (640, 300) (DAT_7ff72bc7d8ac / DAT_7ff72bc7daa8)",
+        "8-3 \"SPEED UP\": an ordinary Text row {-100, 300, \"SPEED UP\", 32, 0, 6, 1} (no message from the puzzle); the port's RecoveredText renders and slides it"
+      ],
+      "behavior": "8-1 / 8-3: the puzzle draws in one container in the actor layer at the Puzzle row point (world (0, 0); inferred from the native translate by the Puzzle actor position): terrain chips 2..25 in the main-map style (picoStyle tiles, same-fill neighbours merged), piece cells as rounded 24 x 24 squares in the owning cat's colour (falling and landed identical), the \"%d\" lines-still-needed counter (48 px, centred at (636, 48)) and, after the win, \"OK\" centred at (640, 300), both in the runtime's monospace bold Text style. Inferred / untraced: the atlas cell art (plain colour squares instead), the text colour (the runtime text orange), the draw order against the cats (they never overlap: the grid ends at y 552, the cats live below the ceiling row at y 544)."
+    },
+    {
+      "id": "rope-draw",
+      "files": [
+        "src/engine/GameRuntime.ts"
+      ],
+      "evidence": [
+        "DistanceConstraint ctor FUN_7ff72bb3f3a0 (vtable PTR_FUN_7ff72bcb85f0): draw component +0x3f0 (PTR_FUN_7ff72bcb6560), draw node +0x400 (FUN_7ff72bbbafa0), delegate +0x490 FUN_7ff72bb40b50 with obj +0x4a0 = actor, fn +0x4a8 = FUN_7ff72bb3f960; FUN_7ff72bc15ac0 slot 3 FUN_7ff72bc2fb60 -> FUN_7ff72bbbb0f0 -> FUN_7ff72bbbda80 appends the node to the scene renderables",
+        "FUN_7ff72bb3f960 (every draw): consecutive players in Stage order (scene +0x6b198, count +0x6b240) -> FUN_7ff72bb3fa30(actor, P[i], P[i+1], ctx, renderer)",
+        "FUN_7ff72bb3fa30 (0x7ff72bb3faa7..0x7ff72bb3fc52): skip only when BOTH cats have +0x410 == 4 (no length test: slack or taut is drawn); Pos = FUN_7ff72bc15b90 (transform +0x44 + presentation +0x138) = the feet centre (avatar body {-16,-47,32,46}); Bresenham FUN_7ff72bba53b0(buf DAT_7ff72c62b060, cap 1000, (5,0) -> (trunc(B.x - A.x - 5.0), trunc(B.y - A.y))), 5.0 = DAT_7ff72bc7d588; i += 2.0 (DAT_7ff72bcff5c0); each point a 2 x 2 quad (w = h = 0x40000000) at A + (px, py - 14.0), 14.0 = DAT_7ff72bcb7d88 (0x7ff72bb3fbaa)",
+        "Renderer vtable +0x10 (0x7ff72bb3fc23): UV DAT_7ff72bc7d7a0 = (0.4921875, 0, 2/256, 2/256) (the MoveEnergy meter slice: INFERENCE a solid texel tinted by the colour), texture DAT_7ff72c62f480, colour 0xFFFF864D; ARGB byte order INFERENCE from palette DAT_7ff72c62a040[0] = 0xff7fbfff (P1 light blue) => opaque orange #FF864D, NOT green (the teacher expected green; the native rope is orange)",
+        "Layer: the ctor writes -0.5f to node +8 (actor +0x408); node default 0; FUN_7ff72bb32c20 writes -0.6. That is a field of the rope draw node, not the sprite-node depth +0x360 the cats / Goal use, and the sort over it was not decoded: INFERENCE the rope draws behind the cats and in front of the map (and of the door)",
+        "Port (b14 snapshot): DistanceConstraint.ts builds a static green 0x34d399 circle + bar marker at the spawn point (snapshot 1331-1334), never moved; nothing drew between the cats (on 2-1 the spawn is (0, 0): a green blob in the corner)"
+      ],
+      "behavior": "Every rope stage (2-1, 2-3): each frame, after the rope update, one Graphics per rope draws a straight line between every neighbouring pair of cats in Stage order, from cat A feet centre + (5, -14) to cat B feet centre + (-5, -14) (feet centre = rect.x + width / 2, rect.y + height + 1), as 2 x 2 squares on every 2nd Bresenham point (reads as a ~2 px dotted-solid line), colour #FF864D opaque, drawn slack or taut; a pair is skipped only when both cats are inside the door. zIndex 0.2: behind the cats (0.3+), in front of default actors (0), the door (-0.3) and the map (separate layer). The green spawn-point marker is hidden."
+    },
+    {
+      "id": "rope-pull-solids",
+      "files": [
+        "src/engine/GameRuntime.ts"
+      ],
+      "evidence": [
+        "Native rope FUN_7ff72bb3fce0 -> FUN_7ff72bb3ffe0 per neighbour: correction summed; 0x29 latch clamp (DAT_7ff72bcff6a8 = -1, DAT_7ff72bc7d464); FUN_7ff72bc13690(body +0x98, (0,1), 1) grounded drops an upward pull weaker than 0.65 (DAT_7ff72bcb69bc); |c.y| <= 20.15 (DAT_7ff72bcb86e8), c.x uncapped (already ported: snapshot 7109-7111, kept)",
+        "Apply FUN_7ff72bb3f580 after all are computed: position move FUN_7ff72bb97db0(transform +0x44, c) plus velocity += c (FUN_7ff72bb93620 on +0x118); attachments notified (+0x3d0, slot +0x28); riders carried (FUN_7ff72bc17330)",
+        "The body reaches its world position only through the world step FUN_7ff72bc17ca0 -> FUN_7ff72bc1da80 -> FUN_7ff72bc12490 -> map FUN_7ff72bc2fca0 (batch-7 decode): the map part is sub-stepped by face strips, so a correction never crosses a chip (port: moveRectWithTileCollisions sweeps in 1 px sub-steps, physics.ts sweepAxis)",
+        "Bodies: a Rect is a static solid body in the same contact matrix cats stand on, so the contact pass keeps the cat out (INFERENCE: body separation not traced); 2-1 crevasse block = Rect {1388, 240, 56, 56} (staticRects[0], no chip under it, bottomless pit)",
+        "Port bug (b14 snapshot): applyNativeRope 7120 / 7127 moved the cat and its riders with moveRectWithTileCollisions only (tiles); next frame resolveClosedGateCollision (KeyGate.ts:213) got a previousRect already inside the Rect and restored it, so every taut tick ratcheted cat A deeper (probe: A inside the stone from tick 15, y 194 -> 284 in 55 ticks) until it fell out the bottom",
+        "Port order of the sweep (review F2): x against tiles then bodies, then y against tiles then bodies from the resolved x (one swept move per axis); the earlier tiles-then-bodies composition could keep a tile-chosen y after a body stopped x early and end inside a chip. Native world-step order between map and body contacts not traced",
+        "blocked() (redirect probes 7089 / 7094 / 7097) still tests tile chips only: whether the native redirect normals list body +0xa0 (FUN_7ff72bc137b0, kept by FUN_7ff72bc14040 against the map +0x140 / FUN_7ff72bc304f0) holds actor contacts is unresolved, so it is left as is"
+      ],
+      "behavior": "Every rope stage: the rope correction and the rider carry are swept against tiles (1 px sub-steps, unchanged) and then against every solid actor body (magnetTargetSolids(cat): Rects, solid gates / bridges, lifts, MoveWalls, solid BlinkBlocks, stationary FallBoxes, JumpStands, boxes, other live cats) minus the cats and push boxes resting on the moving cat (they ride on it; a carried rider also ignores its carrier), with the continuous span sweep sweepRectAgainstSolids, so even a 20.15 pull never crosses a body. Where the bodies stop an axis the velocity does not take that component; a stopped downward pull leaves the cat grounded with vy 0. On 2-1 a cat standing on the crevasse stone with its partner hanging in the pit stays on the stone (dragged sideways along its top) instead of being pulled through it. Entered (state 4) cats are not riders."
+    },
+    {
+      "id": "actor-draw-depth",
+      "files": [
+        "src/engine/GameRuntime.ts"
+      ],
+      "evidence": [
+        "Depth float actor +0x360 (sprite node +0x178, field +0x1e8). Goal ctor FUN_7ff72bb52c20: param_1 + 0x6c = 0x3e99999a -> +0.3",
+        "Player ctor FUN_7ff72bb66e50 (~line 214): +0x360 = DAT_7ff72bcbdf8c (-0.3) - slot (+0x400) * DAT_7ff72bc7d45c (0.01) -> -0.30, -0.31, -0.32 ... per cat slot",
+        "Sort FUN_7ff72bbbd5b0 (per layer from FUN_7ff72bbe7c80 / FUN_7ff72bc1b830): insertion sort moving an entry ahead while prev.depth < its depth => descending depth, drawn in order: larger depth = further back. Same reading as the port TerritoryBallJudgeGridRenderer.ts:22-26 (\"larger depths first, invert the sign\")",
+        "KeyGoal ctor depth not checked: INFERENCE same family as Goal. Layer index of either not traced (INFERENCE both default world-layer actors)",
+        "Port (b14 snapshot): actorLayer.sortableChildren = true (1543) but no zIndex on Goal (886), KeyGoal (900) or Player (2830): all 0, so row order decided and a Goal row after the Player rows drew over the cats",
+        "Port order, uncited: cats 0.3 + 0.01 * slot (above every default-z actor); rope 0.2; every other actor class (boxes, keys, enemies, lifts, walls, Rects, switches, gates, bridges, coins, ...) 0 in stable row order; TerritoryBallJudge grid -0.1; Goal / KeyGoal -0.3; warp-gun and magnet auxiliaries -0.4 (WARP_GUN_AUXILIARY_DEPTH); RecoveredText its own render depth. Only the Goal / KeyGoal and cat values are cited; the relative order of the zero-z classes is unchanged from before (row order)",
+        "WARP_GUN_AUXILIARY_DEPTH (-0.4, written straight to zIndex at 9413 / 9999) has no native citation in the port; if it were a native depth it would be +0.4 as a zIndex, but that is not traced, so it is left unchanged (it stays behind its cat either way)"
+      ],
+      "behavior": "Every stage: Pixi zIndex = -native depth. Goal and KeyGoal views zIndex -0.3 (always behind every cat); each cat view zIndex 0.3 + 0.01 * its colour / input slot (native +0x400), so cats always draw in front of the door and higher slots over lower ones; actors without a native depth stay at 0 (between the door and the cats)."
+    },
+    {
+      "id": "goal-enter-native",
+      "files": [
+        "src/engine/GameRuntime.ts"
+      ],
+      "evidence": [
+        "Goal sensor FUN_7ff72bb53000: rect DAT_7ff72bcbada0 = {-24, -32, 48, 32} (+p0 raises the top), category 10; overlap callback (+0x188 trampoline FUN_7ff72bb53420 -> +0x1a8) FUN_7ff72bb531d0, called every world step for every overlapping pair whose bodies both have body +0xc bit 0 (FUN_7ff72bc1da80 lines 86-103, FUN_7ff72bc119c0)",
+        "FUN_7ff72bb531d0(goal, other): online-guest bail (FUN_7ff72bc11800); category 1 (cat) AND door open (goal +0x3f8 bit 0, set by FUN_7ff72bb52ec0) AND FUN_7ff72bb68510(cat, 3) -> FUN_7ff72bb67800(cat, 4); closed door + cat: nothing",
+        "Button 3 is a RISING EDGE: FUN_7ff72bc28ce0 returns cur & bit && !(prev & bit); FUN_7ff72bb6ad30 the same ((+8 & m) == m && (+0x10 & m) == 0). The wire carries held UP, so the port derives the edge per cat from its previous UP (deterministic, as the puzzle Blocks do for their keys)",
+        "State switch FUN_7ff72bb69be0 -> FUN_7ff72bb69c80(4) -> FUN_7ff72bb6e990, vtable PTR_FUN_7ff72bcbe8f0 {enter 6ea00, exit 6ea60, update 6eab0, input 6eb80}; +0x410 = 4",
+        "Enter FUN_7ff72bb6ea00: node flags +0x178 &= ~8 (INFERENCE hidden, the bit FUN_7ff72bb67cc0(0) clears for the warp-gun hold); body +0xc bit 0 cleared (out of every overlap / solid pass); FUN_7ff72bc13a50 ends all contacts. No walk-in / fade; not destroyed",
+        "Update FUN_7ff72bb6eab0: first tick zeroes +0x118 (velocity) and pushes it to attachments; a 1.0 timer counts down by dt (1/60, DAT_7ff72bc7d790) -> phase 2. Input FUN_7ff72bb6eb80: in phase 2 an UP press (FUN_7ff72bb68510(cat, 3)) with FUN_7ff72bc1d3a0(world, body, -1) == 0 (no active body on its spot) -> state 2: the cat comes back out where it entered; exit FUN_7ff72bb6ea60 restores the draw bit and body bit 0",
+        "Clear FUN_7ff72bb7bbe0: each frame counts avatars with +0x410 == 4 (plus riders via +0xc98, FUN_7ff72bb7c950) into scene +0x6b2b8; == player count (+0x6b240) -> scene flag |= 4. Live count, not latched",
+        "Order (review F1): FUN_7ff72bb7bbe0 runs the actors (FUN_7ff72bbe7720, decompile line 52), then the world step (FUN_7ff72bc1da80, line 53; the Goal overlap callback requests state 4 here), then the state-4 count and the clear flag (lines 65-137): once per frame, after every state change, no timer or wait. The port runs every entered cat's exit input before any cat moves, so a same-frame exit is never lost to an earlier cat's entry. Not ported: the native request (+0x414) is applied in the next PRE, so natively the clear lands one frame after the last entry (INFERENCE from FUN_7ff72bb69be0 being called from PRE FUN_7ff72bb690d0); the port clears on the entry frame",
+        "Press edge on the wire (review F3): the relay zeroes a silent peer after 1500 ms; deriving the edge from held UP made the resumed heartbeat a new press (an entered cat came out with no key release). The campaign carries a real UP press edge (bit 512, latched one authoritative tick like jump 32 / action 256), decoded to InputState.upPressed; the runtime uses it when present and derives the edge from held UP only for inputs without the field",
+        "Port (b14 snapshot): checkGoals (11362) entered on HELD up and latched goalClearedPlayers; the cat kept input, physics, view and body; only 5908 / 7014 / 11266 / 11292 filtered it, so entered cats blocked the doorway (the driver walked them aside, campaign-solve/driver.mjs:277-278)",
+        "Camera: stepScrollCamera (2419) still counts every non-helper cat: native camera membership of a state-4 cat NOT traced, left unchanged"
+      ],
+      "behavior": "Every stage with a Goal / KeyGoal: a cat enters only on an UP press edge (UP held from before does not enter) while it overlaps the sensor of an OPEN door; a closed door does nothing. On entering it is hidden at once and loses its body: one predicate isBodyOff(cat) = collision-off OR entered replaces the collision-off test at every other-cat site (standing on a cat, cat-vs-cat, lift / wall step bodies and carries, weighted-lift load, push chains and carried boxes, switch occupancy, jump switches, dead switch, ball bodies, balance riders, judges, magnet field / solids, blink-block occupancy, rope stacks) and it is excluded from the warp-gun launch / placement / target checks and push intent; its own update is skipped with velocity 0. After 1.0 s inside, an UP press while no active body overlaps its spot brings it back out where it entered (visible, solid); the exit of every entered cat is handled before any cat moves or enters, so the result never depends on player order, and a cat that came out does not use the same press to go back in. In the campaign the press edge is wire bit 512 (sent only on a real key-down), so an input timeout never fakes a press. The stage clears when the live count of entered cats equals the eligible cats (entered cats still count). A reset puts an entered cat back out at its spawn. KeyGoal follows the same entry rule (INFERENCE: its callback was not traced)."
+    },
+    {
+      "id": "death-restarts-stage",
+      "files": [
+        "src/engine/GameRuntime.ts"
+      ],
+      "evidence": [
+        "Fatal hit: avatar command dispatcher 0x7ff72bb69440 (vtable +0x78), cmd 4 (enemies, DamageRect, DeadBallPitcher, hazards) / cmd 5 (Thunder): \"hit\", player +0x420 -= 1, at 0 FUN_7ff72bb67800(player, 3) (0x7ff72bb69885); blocked while +0x3f8 & 0x80 or FUN_7ff72bc1a260 reports the scene blocked (ENGINE_SPEC pass 8)",
+        "State 3 FUN_7ff72bb6eda0: phase 0 velocity 0, body contact bit +0xc & 1 cleared, dead animation 4; phase 1 waits DAT_7ff72bcff538 = 1.0 s then vy = -9.0 (+0x11c = 0xc1100000); phase 2 waits until y > (DAT_7ff72bc7db90 720 / scale) * DAT_7ff72bcff650 4.0 = 2880 / scale; then, when FUN_7ff72bb7b8a0(stage) (the stage id is in the level DB DAT_7ff72c62a028, FUN_7ff72bb8a050), stage +0xc |= 2, and in every case state 1 (ctor FUN_7ff72bb70630, no update). No position write, no checkpoint read: the cat is never respawned on its own",
+        "Off-screen FUN_7ff72bb6f0e0 (decompile lines 314-327): feet below the fail line stage +0xd5a1 * 8 or above failUp (< 0) -> cmd 4, then at once state 1 (the request at +0x414 overwrites the pending state 3) and stage +0xc |= 2: no 1 s hold and no fall, the flag is raised on the same tick. INFERENCE: the ctrl +0x20 / +0x24 velocity test (> DAT_7ff72bc7d458 = 1.19e-7 only zeroes the cat velocity via FUN_7ff72bb37d00) is not modelled",
+        "Backstop FUN_7ff72bb7bbe0 (level-DB stages, flag 0x40 clear, not everyone in state 4): stage flag 8, or every avatar in state 1 / out (+0x3f8 & 0x10) -> stage +0xc |= 2. The puzzle fail FUN_7ff72bb60000 and RetryTimer raise the same bit. Correction: the stage restart flag is stage +0xc bit 2 (value 2); FUN_7ff72bc210a0 is a physics contact flag, not a stage-fail check",
+        "Flag 2 -> rebuild: scene FSM FUN_7ff72bb2bbf0 play state 0xb calls FUN_7ff72bb2cd50 every frame; flag 2 with no higher bit: route d620 = 2, d624 = current level, scene state 0x32 = a fade-out of DAT_7ff72bcff4fc = 0.5 s (30 ticks); 0x33 waits for the fade (FUN_7ff72bb1fbc0) then FUN_7ff72bb25940(sceneMgr, 2, level): route 2 has no cached scene (only 4 / 0xb reuse one), so FUN_7ff72bb26810 creates a NEW scene; its state 0 loads the level from the DB (FUN_7ff72bb8a330: a fresh Stage from the Lua rows, every createTable actor re-created, the map grid rebuilt FUN_7ff72bc27dc0), state 1 waits DAT_7ff72bcff5c0 = 2.0 s. Network: FUN_7ff72bb29880 -> FUN_7ff72bb29e20(scene, 2), states 0x23 / 0x24 -> FUN_7ff72bb25940(.., 2, level)",
+        "Survives: only the CheckPoint table DAT_7ff72c629fa8 + 0xcc98 (100 slots, stride 0xa0), carried by FUN_7ff72bb29880 / 29a30 and applied as the spawn by FUN_7ff72bb774a0 when the new avatars are created (elapsed-time dword reset to 0)",
+        "Port bugs (b15 snapshot): advancePlayerDeathFall (3496-3507) ended in resetPlayerToSpawn for the one cat and rebuilt nothing (probe stage_fall01 party 2: 27 FallBoxes at load, 9 after cat 0 respawned, 19 never back, key not reset); the off-screen kill line (3468) used the 1 s hold + fall; stageResultFlags (857 / 1592 / 10541) was never read; resetStage (2485) reloaded this.stage, the PRIVATE map copy (1583-1584), so a chip changed in play survived a reset on stages without map variants (fall01, jump02); the comment \"It is NOT a full-stage retry\" (3462-3466) was wrong",
+        "DeadSwitch (review fix): ctor FUN_7ff72bb3f080 installs FUN_7ff72bb3f1f0; on press it BROADCASTS command 3 to the scene with a null payload (0x7ff72bb3f247..256); the avatar dispatcher (0x7ff72bb6948b..694dd) decrements +0x420 and a null payload goes to 0x7ff72bb69885 -> FUN_7ff72bb67800(player, 3) -> FUN_7ff72bb6eda0 -> stage +0xc |= 2. Every avatar receives it: each live cat takes the fatal hit (the hazard lifecycle: 1 s hold, fall, restart). Port bug (b16 first pass): applyDeadSwitches respawned the presser alone (6-4 repro: cat 0 back at spawn, partner alive, nothing rebuilt). INFERENCE: a cat already inside the door (state 4) is left alone (its command handling in state 4 is untraced; the restart rebuilds it anyway)",
+        "PlaneObstacle (review fix): road FUN_7ff72bb3e070 -> 3e730 creates DamageRect children (FUN_7ff72bb487c0 -> 48ab0) whose contact scan FUN_7ff72bb35f50 dispatches avatar command 4 -> state 3 -> FUN_7ff72bb6eda0: the same fatal-hit lifecycle as the DamageRect path (4-2). Port bug: resetPlayerIfTouchingPlaneObstacle respawned the cat alone",
+        "Kept, cited: the third applyDeadBallPitchers branch (resetPlayerToSpawn) is unreachable, only DeadBallPitcher (FUN_7ff72bb37d70 mode 3 -> projectile mode 2 -> FUN_7ff72bb4ea70 cmd 4, already a death) and EndlessLaserBallPitcher (command 6 score, no damage) rows enter deadBallPitchers; Laser / Bound / Physics pitchers are separate cannons (FUN_7ff72bb37d70 modes 1 / 0, FUN_7ff72bb55c30) with no resetPlayerToSpawn; resetPressed (global and per cat) is unreachable in the campaign (decodeInput sets resetPressed false). No other resetPlayerToSpawn caller remains"
+      ],
+      "behavior": "Every stage: a cat death is a stage restart. A fatal hit keeps the native 1.0 s hold and the collisionless fall; when the falling cat passes 2880 / scale it raises the stage restart flag (native stage +0xc bit 2) instead of respawning alone. Falling off the screen (or above failUp) plays \"hit\" and raises the flag on the same tick (the cat leaves every pass at once, no hold). A DeadSwitch press is a fatal hit for every live cat (native command 3 broadcast) and a PlaneObstacle contact is a fatal hit (its DamageRect children send command 4), so both end in the restart too. The breakout everyone-out, the puzzle fail and an expired RetryTimer raise the same flag. After any update that ends with the flag set and the stage not cleared the stage freezes for the native 0.5 s fade (DAT_7ff72bcff4fc; GameRuntime.restartFadeSeconds counts down, 30 ticks at 60 Hz; INFERENCE that nothing ticks during the fade: native leaves play state 0xb) and then runs ONE restart (restartStage, also the old restartBreakoutStage name): a full loadStage from the ORIGINAL stage definition (loadStage keeps it as sourceStage; resetStage reloads it, so every reload gets a pristine private map) with the same party size and simplifyPassivePlaceholders. Kept: requiredPlayerCount (never touched by loadStage), the Desk teacher cats (same objects, slots and spawns, put back at their spawn), every CheckPoint target the cats reached (re-applied as the spawn after the reload; the CheckPoint actor itself comes back unactivated: INFERENCE) and the identity of the players array (new cats, same array, for readers holding it). Nothing else survives: keys, FallBoxes, boxes, switches, gates, lifts, enemies, timers, the camera and map chips are all rebuilt. No reseed: the restart keeps drawing from the journal-seeded random stream (a shuffled-player stage reshuffles from it, INFERENCE that native FUN_7ff72bb72960 re-runs in the new scene), so replays through a restart are identical. Not modelled: the 2.0 s intro of the new scene."
+    },
+    {
+      "id": "rope-native-swing",
+      "files": [
+        "src/engine/GameRuntime.ts",
+        "src/engine/actors/Player.ts"
+      ],
+      "evidence": [
+        "(a) Order: scene tick FUN_7ff72bc1b830 = actor pass FUN_7ff72bba62b0 (priority buckets ascending, insertion order within; FUN_7ff72bb9d140 -> vtable +0x10 FUN_7ff72bc16120), then the stage step vtable +0x30 FUN_7ff72bb7bbe0 -> world sweep FUN_7ff72bc1da80, then the late pass FUN_7ff72bba63e0 -> FUN_7ff72bc16460 -> 17ca0. Bucket = actor +0x74 (copied to +0x70 by FUN_7ff72bb9cfe0 from FUN_7ff72bc1bf50; the base ctor zeroes it, 0x7ff72bc15647); the avatar ctor writes +0x74 = 1 (0x7ff72bb67299), the rope ctor FUN_7ff72bb3f3a0 does not: the rope (bucket 0) runs BEFORE every cat on the positions the previous world step resolved. FUN_7ff72bb3f580 is one Jacobi pass per tick: L / R for every cat (0x7ff72bb3f6d8 / 3f71a), every correction (fce0 at 0x7ff72bb3f7b8), then apply all (0x7ff72bb3f7d2..3f8d2); idle while any player is in state 1 / 3; the cmd-0x29 latches +0x4c8 cleared at the end (0x7ff72bb3f8df)",
+        "(b) FUN_7ff72bb3ffe0 per neighbour: d = p_other - p_self (transform +0x44, 0x7ff72bb40057..63); nothing when |len| <= 1.19e-7 or len <= maxDist (+0x3e8, 0x7ff72bb40090..a6); share = (s2 + 1) / (s1 + s2 + 2) (0x7ff72bb400fd..40135), s1 = max(0, -n . selfFar), s2 = max(0, n . otherFar), 1 when the partner is in state 4; c = n * (len - maxDist) * share * 0.2 (0x7ff72bb40139..40146, DAT_7ff72c61f374): a linear soft spring, not squared, not iterated. Redirects on the self cat MAP normals only (40ba0 -> FUN_7ff72bc137b0, list body +0xa0; body contacts are +0x90), sx / sy taken first (0x7ff72bb4017a / 40188); y > eps blocked down: k = 1 or under the latch min(1, 1.2 / (run + 1)) (0x7ff72bb40259..89). Summed per cat in FUN_7ff72bb3fce0",
+        "(c) Loads L (40380) / R (40570): W = (0, (stackAbove + 1) * w) only for an unsupported cat (FUN_7ff72bb67850 -> 69dd0), plus the stretched-link terms unit(p_next - p) * (stack(next) + 1) (407a0); the R walk stops at j < N - 2 (0x7ff72bb40661..40670), its hanging-run count comes from the same loop. Wiring 0x7ff72bb3fd49..fdc6: pair(prev) selfFar = own R, otherFar = prev L, run = own L count; pair(next) selfFar = own L, otherFar = next R, run = own R count. CONFIRMED: a standing w = 1 anchor with its partner hanging straight below takes 2/3 and the hanging cat 1/3 (direction- and weight-dependent, not a constant: horizontal taut 1/2 : 1/2, w 0.5 vertical 0.6 : 0.4)",
+        "(d) Post rules in fce0: latch c.x * v.x < 0 and |v.x| < |c.x| + 0.1 -> c.x = -sgn(v.x)(|v.x| - 0.1) (0x7ff72bb3fe07..fe7b); c.y < -0.1 (0x7ff72bb3fe81): not grounded (13690(body, (0, 1), 1)) -> CLEAR avatar +0x3f8 bit 0 (0x7ff72bb3fecf); the redirect flag and c.y > v.y -> c.y = 0 with NO grounded test (0x7ff72bb3fedc..fef0); c.y < -eps, grounded, c.y + 0.65 > 0 -> c.y = 0 (0x7ff72bb3ff29..ff46, DAT_7ff72bcb69bc 0.65: CONFIRMED); |c.y| <= 20.15 (0x7ff72bb3ff72, DAT_7ff72bcb86e8), c.x uncapped. Apply 0x7ff72bb3f7f3 / 3f80f: position += c AND velocity += c",
+        "Avatar FUN_7ff72bb6f0e0: vx = bit0 ? 0 : vx * 0.98 (0x7ff72bb6f1de, DAT_7ff72bcbea28); L / R set +-3 only while bit 0 is set; supported -> vy = 0 and bit 0 := 1 (the only re-setter), else vy = min(vy + 0.65, 19.5): an airborne cat yanked upward loses steering and keeps its momentum (decaying 2 % / tick, gravity on y) until it lands = the pendulum; a standing anchor keeps only the position part of c. The avatar ctor writes +0x3f8 = 0 (spawn without steering until the first landing): NOT applied (only the rope clear is ported); other bit-0 clearers untraced",
+        "(e) Rest length: maxDist = p[2N - 4], w = p[2N - 3], N = party (FUN_7ff72bb40be0, DAT_7ff72c629fa8 + 0xcc08): verified the port already does it (selectDistanceConstraintLinkForPlayerCount, N = the cat count): 2-1 170 / 1 (N 2), 160 / 0.7 (3), 150 / 0.5 (4-5), 140 / 0.5 (6-8); 2-3 310 / 1 (2-3), 160 / 0.4 (4-6), 110 / 0.3 (7-8). (f) No line-of-sight test anywhere: the pair uses the two origins; walls act only through the self cat map normals and the world sweep (the rope cuts through ledges, drawn straight). (g) A hanging cat cannot jump (down contact, the 0.07 s coyote +0x1c = 0x3d8f5c29, or multi-jump flag 2); an anchor jump moves the anchor alone (J = -5.1 DAT_7ff72bcbdf90)",
+        "Port divergence (b15 snapshot, traces scratchpad b16/rope/traces.json): applyDistanceConstraints ran after the player loop (2425 vs 2161-2281: the first taut tick saw the extra fall and yanked A 3 px at once); Player.update set vx = input every tick (browser_port actors/Player.ts:186), so the rope x velocity (7224) was erased and the hanging cat steered; 7194 tested !cat.grounded; farSide (7136-7146) walked the last link; a tile-supported cat kept a rope-added vy (Player.ts:215). Reference with \"rope after move + no coasting\" reproduces the old port swing trace to 0.0 px for 120 ticks; momentum is the dominant cause"
+      ],
+      "behavior": "Rope stages (2-1, 2-3): the rope runs once per tick BEFORE the cats move, on last tick's resolved positions (applyCollisionConstraintMoves stays after motion: the next tick's rope consumes its latch and clears it). Player.ropeCoast models native +0x3f8 bit 0 clear: the rope sets it when a cat's final pull is upward by more than 0.1 while the cat is not grounded; while it is set the cat ignores left / right and keeps its horizontal speed decaying x 0.98 per tick (the rope keeps adding position AND velocity), so a hanging cat swings like a pendulum and the anchor is dragged back and forth instead of off its ledge; it clears when the cat starts an update supported (tile, body or cat below; that landing tick still coasts, as native decides vx before the support test). A tile-supported cat starts its update with vy = 0. The flag zeroing for an upward redirect no longer tests grounded; the right-hand load walk stops at j < count - 2 (its hanging-run count too). Unchanged and confirmed: the share formula, the 0.2 spring, the map-only redirects, the 0.65 rule, the 20.15 y clamp, position + velocity apply, the solids sweep. Not applied: the spawn-without-steering of the avatar ctor; body-supported cats keep the port gravity-plus-resolution model (only tile support zeroes vy)."
+    },
+    {
+      "id": "native-camera",
+      "files": [
+        "src/engine/stageScrollCamera.ts",
+        "src/engine/GameRuntime.ts",
+        "src/engine/actors/WeightedLift.ts",
+        "src/engine/actors/Player.ts"
+      ],
+      "evidence": [
+        "One horizontal scroll value: projection FUN_7ff72bc1a830 translates the world by (-(scene +0xb0 + scene +0xa8), 0, 0) with a literal 0 for y; the latch writes (x, 0) (FUN_7ff72bb935d0) and the integrator only adds (dx, 0) (FUN_7ff72bb93620). No zoom: the view is 1280 / scale x 720 / scale (DAT_7ff72bc7db94 / DAT_7ff72bc7db90). The Desk presentation (campaign-engine.mjs render) keeps that whole y band on the canvas",
+        "Stage ctor FUN_7ff72bb7a9b0: autoScroll checked first -> mode 2, then autoScrollEndOffset is stored * (playerCount (DAT_7ff72c629fa8 + 0xcc08) - 2) (decompile lines 148-150; never read in the scrollable branch -> 0 in mode 1); scrollable -> mode 1; unlimitScroll flag 0x8, unreturnScroll 0x10; pan cap +0x6acf8 = 3.0 (0x40400000); follow accumulator +0x6acfc = 1.0. INFERENCE: cc08 is the party count (it scales autoScrollSpeedOffset the same way)",
+        "First frame FUN_7ff72bb7b9c0 (mode 1, flag 0x4 clear): scroll = max(0, (minX + maxX) * 0.5 - (1280 / scale) * 0.5), flag 0x4 set; no right clamp",
+        "Integrator FUN_7ff72bb7c150: room = (flag 0x8 ? W : mapW * chip + endOffset) - (scroll + W) from the frame-start scroll. Mode 1 (scene pause FUN_7ff72bb7d120 not modelled): goal = flag 0x1000 ? 0 : 1, accum += sign(goal - accum) * 0.05 (FUN_7ff72bb31b00, DAT_7ff72bc7d460: LINEAR, starting at 1.0), d = lerp(1.0, 0.1, accum) * (max(0, target) - scroll) (FUN_7ff72bb26bf0, DAT_7ff72bc7d464), cap = lerp(|d|, 3.0, accum), step = clamp(d, -cap, cap): 10 % of the gap per frame, at most 3 px per frame. Mode 2: step = FUN_7ff72bb7b610 = min(autoScrollSpeed, room), 0 while any player is in state 3 (dying). Tail: flag 0x10 -> step = max(0, step); |step| > 1.19e-7 -> step = clamp(step, -scroll, room); scroll = max(0, scroll + step). Mode 0 returns at once. INFERENCE: the +0x6acec scripted pan and the flag 0x80 freeze have no campaign writer",
+        "Flag 0x1000 (stage +0x6ace0) = a switch-driven Lift on its trip: the base Lift event handler FUN_7ff72bb55700 (command 9 while the lift +0x3f8 bit 8 is set) sets it with the lift moving bit 4; the Lift driver FUN_7ff72bb55370 clears it when the trip ends; FUN_7ff72bb55830 mirrors it for network clients. While it is set c150 ramps the accumulator to 0 (LINEAR float32 0.05 steps: it ends oscillating 0.05 / -1.6e-7 and lands exactly back on 1.0 afterwards), so the camera snaps to the group with no cap, and FUN_7ff72bb6f0e0 applies the left-edge rule with a 0 step (FUN_7ff72bb7b610 returns 0 outside mode 2). Port: the 11-4 Lift (WeightedLift baseLiftActive while it waits for its switch); the accumulator is float32 (Math.fround)",
+        "Follow set (c150 / FUN_7ff72bb7ca90 / b9c0): every player except one with +0x410 == 2 (live) whose active bit +0x178 & 8 (FUN_7ff72bae7c40) is clear; entered (state 4) and dying (state 3) cats count. Port: a live cat with view.visible false = the warp gun's held cat (command 0xe zero disables its draw path, FUN_7ff72bb580a0; INFERENCE that it clears the same active bit). Teacher helper cats stay out (Desk adaptation)",
+        "Screen clamp FUN_7ff72bb7b700, applied by FUN_7ff72bb6f0e0 to the walk move (both L / R branches, only while +0x3f8 bit 0 is set): |move| <= 1.19e-7 -> 0; mode 0 / 2, one player, or 0 < scroll + move (+0x6ace8 = 0 never rewritten, INFERENCE) -> screen x + move clamped to [0, 1280 / scale] (move = -screenX past the left edge, W - screenX past the right); otherwise (mode 1 at the left stop, walking left) the group spread is capped: slack = W - 32 (DAT_7ff72bc7d7f8) - (hi - lo) over the FUN_7ff72bb7ca90 screen extents; left past lo -> move = max(-slack, screenX + move - lo); right past hi with slack <= move -> slack. Screen x = position + offset +0x138 - (camera base + scroll) (FUN_7ff72bc15b90). INFERENCE: the port uses the cat's own centre (FUN_7ff72bb7cd20 takes the extreme of the stack of type-1 bodies touching it) and the resolved displacement as the move",
+        "Auto-scroll left edge FUN_7ff72bb6f0e0 (decompile lines 128-152; mode 2 or flag 0x1000): s = FUN_7ff72bb7b610; f = screenX + move - s; f < 0 -> move -= f (FUN_7ff72bb93620), so the cat keeps up with the edge, and FUN_7ff72bb34f30(cat, (-screenX, 0), dir 3) passes the push to the bodies touching its right side; then (DAT_7ff72bc7d1b8 64 * 0.5 + screenX) - move < 0 and the can-die vtable +0x80 -> vtable +0x78(4) (fatal hit, the batch-16 hold / fall / restart). Port: the extra move goes through the chips + solid-actor sweep (rope-pull-solids), so a cat a wall or a solid (6-2 Rect) stops is pinned behind the edge and dies by the formula, never embedded; FUN_7ff72bb34f30 -> FUN_7ff72bc17330 passes the push to the touching bodies whose type bit is in mask 2 (local_140 = 2: type 1 = cats only, not boxes), modelled as a chain push of the cats in front (INFERENCE: each is moved just clear of the one behind)",
+        "PlanePlayer update FUN_7ff72bb708d0 (disassembly 0x7ff72bb70981..70994): the plane velocity starts each tick as (FUN_7ff72bb7b610(stage), 0) = the auto-scroll step, then L / R add the FUN_7ff72bb7b700-clamped walk speed (0x7ff72bb70a20..70a30) and U / D the vertical speed: a plane is carried by the auto-scroll and holds its screen position when idle. The same left-edge rule follows (decompile lines 95-123; the death goes straight to state 3, FUN_7ff72bb67800(plane, 3)). Port: Player.scrollCarryX, set by the runtime before each plane update"
+      ],
+      "behavior": "Every stage. Presentation (campaign-engine.mjs render): the world is drawn so the whole native band y 0..720 / scale is on the 750-px canvas (world.y = min(700 - spawnFloor * 0.5, 750 - 720 / scale * 0.5)); stages that already showed it are unchanged, 2-3 / 2-4 / 3-1 / 3-2 / 4-2 / 6-3 / 11-2 / 11-4 / 12-3 now show their lower rows. Runtime camera: mode 1 snaps to the group midpoint at frame 0, then eases 10 % of the gap per frame capped at 3 px per frame (no zoom, no vertical follow); mode 2 advances min(speed, room) per frame and stops while any cat is dying; the right stop is mapW + autoScrollEndOffset * (party - 2) on auto-scroll stages (12-3: +300 at 4 cats, +900 at 8); clamped to >= 0. A hidden live cat (held by a warp gun) is not followed; entered and dying cats are. While a switch-driven Lift travels (11-4) the camera snaps to the group (no 3 px cap) and a cat left off the west edge is carried back onto it. Cats cannot walk off the screen: a walking cat's centre stays within [0, 1280 / scale] of the view (in mode 1 at the left stop, the group spread is capped at W - 32 instead). Planes (4-2, 12-3) move with the auto-scroll (speed + their own 3 per tick when held right, the scroll speed when idle). On auto-scroll stages the left edge carries a cat along (the chips + solid-actor sweep, so a wall or a solid Rect pins it, never embeds it), and a cat pinned far enough behind the edge ((32 + screenX) - move < 0, about 15 px behind) takes a fatal hit, which restarts the stage."
+    }
+  ],
+  "hashes": {
+    "src/engine/GameRuntime.ts": "3efbf77a0a23cb7d670801e0195e9e6958ee934ed11bd69294637e3222b4b96e",
+    "src/engine/TileMap.ts": "d2fee17ce39ad966aa28f5ebe709b5c6830e251069fe87a3689539c53104fa4c",
+    "src/engine/actors/BattleBreakoutBall.ts": "90e2a60092f538c3b9fb7069955ee9689ce4dea139e02dd40fe7b63ac85bfe01",
+    "src/engine/actors/BestScore.ts": "986e57b01fc708d776c8215208bb5d2a4aba3f31f885577d8cdef1721e8d7f42",
+    "src/engine/actors/BlinkBlock.ts": "b6c9113974103a8c0c13d582cd4a9a120d1fc2e08e1692cc819b82895a2878d1",
+    "src/engine/actors/BowwowEnemy.ts": "27ecc25a1cbcd6816065b974e992601207903e3a23d6854a420c2e2e993c0746",
+    "src/engine/actors/BreakoutBall.ts": "5cc9f5bb39e5d876c0402135fb246da9d0de1b72a46f92b6740ed6384e0602ee",
+    "src/engine/actors/Bridge.ts": "f53a98f65a8f8a5a396d5c946baccf5c9971c7350f29e3326c3dd4f34c8a6774",
+    "src/engine/actors/CheckPoint.ts": "6ee715c1db943f5a1bf486346f110bf9dadc91765610634b5e87d02c08056ca7",
+    "src/engine/actors/Coin.ts": "55606d0696c7db6b052a82fabc983db8e09085cffa976dd21507419ec6cebf99",
+    "src/engine/actors/CollisionConstraintMove.ts": "e7e854d67073b062ccf45ea47750b991568ab8f54a77406e7815762a422b8c49",
+    "src/engine/actors/ColorBox.ts": "f73a4e4a2f1936bfc871e7eabec6c36f62db8dda4c751f06781d58230e6184b6",
+    "src/engine/actors/CoopStopWatch.ts": "90ca33894bf21751ad6d86cc6fc81454cada73453508b936f07048b9ee8db7d7",
+    "src/engine/actors/DamageRect.ts": "f061b3f232d093a2f5ed9cf552a8369a8dde7ebf84b23725c398f81cab4e4469",
+    "src/engine/actors/DarknessRect.ts": "02caad6971044000d3a0fa2165e6b880c7c101cc3be0175c37a76f082258ed78",
+    "src/engine/actors/DeadBallPitcher.ts": "e7c7ac3304117b3b4ce41a27c636034aa6c696ac3805de23e0d66aa5a9c2335a",
+    "src/engine/actors/DeadSwitch.ts": "7cad4487fe4c78319015094ee866571a545bb7cb29938d8a0e5db20eec9614c0",
+    "src/engine/actors/DeadTimer.ts": "792c7624a95433175a9f04b7deb2fd0b94e3426eaae39a2d286bb14cef6e5007",
+    "src/engine/actors/DelaySwitch.ts": "a6730fb271dd55ae1712aa28cb8bd40446f9d18560298cfdefc078cce765910c",
+    "src/engine/actors/DistanceConstraint.ts": "28f58935b33d9cc5d9f8666e155c7aae38036979e3bcb5b9d39996dbcd9ec3b0",
+    "src/engine/actors/FallBox.ts": "ad8ebf905bb324a323693cc9f9a19fee54c180c7b1971877e06156c696b264fa",
+    "src/engine/actors/Ghost.ts": "bd40b3830ec41cbf88f102d9c0fff456c7158e59fd725471d19699dff3164b3c",
+    "src/engine/actors/Goal.ts": "396d45fc646a5747da2da8a53d4d3aaeaca20930ef161306e03f14f9089336b7",
+    "src/engine/actors/JumpArea.ts": "80d54863f833681fa3b06d5c920e4a912156fa6fbc26ecdc5adc32e72e8e5688",
+    "src/engine/actors/JumpStand.ts": "0d1463e72859173dcd76aa310eb76cfa60a0cf732edae67ee06a99e21eba9b7d",
+    "src/engine/actors/JumpSwitch.ts": "fbd2e255e0a9b15730d18093262bfdafae7e8a9e5b5e1efee091926a5eb6e78b",
+    "src/engine/actors/KeyGate.ts": "36f2549d039493b9aff967375c6e3210b22052d9a62ad8ce0e6cb8bf72f68992",
+    "src/engine/actors/NormalBox.ts": "f5417011009332b5a17929c13a9f78a96de0ffa364efa37b9b5ac53943ebe61e",
+    "src/engine/actors/PhysicsSwitch.ts": "c6c6a4f6f8e124edb1ce8a0b23f08780fc500dd16adb36e3a361a3548d7ee4e7",
+    "src/engine/actors/PlaneObstacle.ts": "b8fa77d5ec08406fb38a68df11d637b4456c5364b82ad2df5d6a3a6174a0f49c",
+    "src/engine/actors/Player.ts": "2de705e09a212791f7c842e1b4be20caa9fd50003b380080b09daf114796645e",
+    "src/engine/actors/PlayerGeometry.ts": "99184ee455d2fe670426935d1ec4f0290e73bdda155494fdf9b71b631bdbac2c",
+    "src/engine/actors/PushBox.ts": "562b14d11a7885779a4076aa69d226c01ddeaa246a2a4f54cd8a909a7b6dfde1",
+    "src/engine/actors/RecoveredText.ts": "74816096b58d846a1e310b636f9b7705c34be82ff016c53860b01c03bf08992a",
+    "src/engine/actors/Roulette.ts": "044195182f4768d931c76eab6ffb662a3bf674b2cdd229e9550857e6722bb628",
+    "src/engine/actors/RouletteLift.ts": "785d0dca1d368be5c62428c85ca2bf928d0482831fdc9b73f8afa0ae1d854c13",
+    "src/engine/actors/ScaleSwitch.ts": "6173ca19e2c913c95f97fba9e1f34c5659f8d61ee1f39f138268f50d2cf743ec",
+    "src/engine/actors/SmallBox.ts": "9d36cbb4bdfb2b3a20307267e294cba341df07927973d8912a2f6d8e4ac4eac6",
+    "src/engine/actors/StaticRect.ts": "430aa04e63139c472daa0658dcaf7ad7cb50305ad7f6751624fd7acc3b6fe8fc",
+    "src/engine/actors/StepEnemy.ts": "f268976d83a50a4ef86e43dd371adc857c4272f804e8751a2770a767218ac1f8",
+    "src/engine/actors/StopWatch.ts": "78ef3a8baa984ce433f0586ad819ff0d4261ddefa5028ffa8e6386725cdc0aa4",
+    "src/engine/actors/StopWatchJudge.ts": "850d5a06c772cef6c52ce0cbced260d1a59d7e3ecdd0d5934a1164ee71b791fd",
+    "src/engine/actors/Switch.ts": "aad590076950e672482a252f8fc93a48cfc0b6b0773945603e1bec2f5312ab9b",
+    "src/engine/actors/SwitchMediator.ts": "58addf4b54dea9fbb286716173fb6941ff1f099fc79d340af7a920bd21e0ce69",
+    "src/engine/actors/SwitchRect.ts": "3e193076b8244790ce4f24df06d14144b84cb64abb08829690ad5ee4a19c041b",
+    "src/engine/actors/SwitchTimer.ts": "60c7ff9650d1bf6a3efebffe3f14aeb2ad00a701b81f490e6a337591f94b8886",
+    "src/engine/actors/TerritoryBallJudge.ts": "078dbe9d52a460faf0b14d72aa5614fd28271fd28db5aa292b54de984e62627b",
+    "src/engine/actors/TerritoryBallJudgeGridRenderer.ts": "c1c16a394365162c876595a5ef202c70f557180db13c837a7be049b0789cb2a6",
+    "src/engine/actors/Thunder.ts": "b0c59fae70023b71f8fd7e9ccb66c136bd767e517a1947ab98a6cf7f15f0ae09",
+    "src/engine/actors/UpDownEnemy.ts": "08adc2cd9374d4d10db62b24fe5e54305f2847e501540e1ba53a7d3ecff108ce",
+    "src/engine/actors/Warp.ts": "f76009a2e76a19ac9a7dfcb6b570bff15f24c6e08be346a2199f055f92f799d3",
+    "src/engine/actors/WarpAll.ts": "901533be46ec265fb110b4a0d4eb02f1b4fedc51d6416c756a308bb47b1c1877",
+    "src/engine/actors/WeightedLift.ts": "2f70013374bf751aab8cff9614614d2ee58523a32b0870f652a46dd61ec7526a",
+    "src/engine/chips.ts": "e174f0e27d0d4a22820db8dd916e25c463c290b511bd16bf618742dd6ddd7b30",
+    "src/engine/createTableScheduler.ts": "5e7603d6c2739ad3e85aefb7d826c3fcd1542df884e0e540ae7d0b204f8f7b5d",
+    "src/engine/physics.ts": "362485f184ab49cb5031587a124ee6c1bff899c0ee063de105edd19add9ee73b",
+    "src/engine/picoStyle.ts": "dff73363f836c1b63eb82bb2dcc055a248ba0bfbd145f2e768763e25d27152a8",
+    "src/engine/playPreviewCamera.ts": "45d715de1b5bd2f23ba28def4ebcfbb5030121a2478bfc3c6a230fae22d37e50",
+    "src/engine/sprites.ts": "9163bb5097d115e6dc93bb9c768485c77c455db938c92611b9318515e1353f7c",
+    "src/engine/stageScrollCamera.ts": "14e8cab9d0c084612824271593885bb5b472c3b741d300de20f11fec3ab1cccc"
+  }
+}

@@ -1,0 +1,165 @@
+// Same build as whoever imported this module: the board imports panel.mjs?v=<APP_BUILD> and every
+// park module passes its own query on, so a deploy never mixes old and new modules (HTTP/CDN cache).
+const V = new URL(import.meta.url).search;
+const { ParkReplica } = await import('./replica.mjs' + V);
+const { mountBoardScene } = await import('./board-scene.mjs' + V);
+const { mountCampaign } = await import('./campaign-panel.mjs' + V);
+
+// Protocol 5 adds level 6 (PICO PARK 1-1); the relay still serves protocol-4 levels 0-5 to it.
+export const PARK_CLIENT_PROTOCOL = 5;
+export const PARK_LEVEL_PROTOCOLS = [4, 5];
+const PARK_LEGACY_LEVELS = [0, 1, 2, 3, 4, 5];   // protocol-4 levels, no calendar door
+const PARK_LEVELS = [...PARK_LEGACY_LEVELS, 6];
+// Which side is out of date decides what helps: an old relay needs time, an old page a reload.
+export const PARK_RELAY_OLD = 'The park is updating. Try again in a few minutes.';
+export const PARK_CLIENT_OLD = 'A newer park is ready. Reload the calendar to enter it.';
+// After PARK_UPDATE_REQUIRED: a relay whose lobby reply lists fewer levels than the one asked for
+// (or does not answer it) predates this page; otherwise this page is the old side.
+export function updateMessage(lobbyLevels, levelIndex) {
+  return Array.isArray(lobbyLevels) && lobbyLevels.length > levelIndex ? PARK_CLIENT_OLD : PARK_RELAY_OLD;
+}
+
+// Transport and lifecycle only. The board owns the canvas, controls and sprites,
+// and the puzzle doors: the panel opens straight into `levelIndex`.
+export function mountParkPanel({ container, getSocket, board, levelIndex = 0, onClose = () => {} }) {
+  if (levelIndex === 7) return mountCampaign({ container, getSocket, board, onClose });
+  const doc = container.ownerDocument;
+  const status = doc.createElement('span');
+  status.setAttribute('role', 'status');
+  status.setAttribute('data-park-status', '');
+  status.style.cssText = 'position:absolute;bottom:4px;left:8px;right:8px;font:inherit;font-size:12px;pointer-events:none';
+  container.append(status);
+  container.setAttribute('data-park-active', '');
+  let replica = new ParkReplica();
+  const pending = new Map();
+  let selectedLevel = null, selectionVersion = 0;
+  const completionKey = 'apstat-park-completed-v4:' + board.username;
+  let completed = [];
+  try { const saved = JSON.parse(doc.defaultView.localStorage.getItem(completionKey)); if (Array.isArray(saved)) completed = saved.filter(index => PARK_LEVELS.includes(index)); } catch {}
+  function remember(index) {
+    if (completed.includes(index)) return;
+    completed.push(index);
+    try { doc.defaultView.localStorage.setItem(completionKey, JSON.stringify(completed)); } catch {}
+  }
+  const freshId = () => 'park_' + crypto.randomUUID().replaceAll('-', '');
+  let clientId;
+  try { clientId = doc.defaultView.sessionStorage.getItem('apstat-park-client'); } catch {}
+  if (!clientId) clientId = freshId();
+  function saveClient() { try { doc.defaultView.sessionStorage.setItem('apstat-park-client', clientId); } catch {} }
+  saveClient();
+  const requestPrefix = freshId();
+  let socket = null, requestId = 0, disposed = false, game = null, joining = false, joinedSocket = null;
+  let retryAt = 0, lastStatusAt = 0, incompatible = false;
+
+  function request(type, data = {}) {
+    if (!socket || socket.readyState !== 1 || socket.bufferedAmount > 4096 || pending.size >= 8) return Promise.reject(new Error('Waiting for the classroom connection'));
+    const id = requestPrefix + '_' + ++requestId;
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => { pending.delete(id); reject(new Error('Connection delayed; trying again')); }, 8000);
+      pending.set(id, { resolve, reject, timeout });
+      socket.send(JSON.stringify({ type, requestId: id, ...data }));
+    });
+  }
+
+  function onMessage(event) {
+    let message;
+    try { message = JSON.parse(event.data); } catch { return; }
+    if (!message?.type?.startsWith('park_')) return;
+    if (message.type === 'park_event') {
+      if (message.kind === 'motion') replica.peerMotion(message);
+      else replica.event(message);
+      return;
+    }
+    if (message.status) { replica.acknowledge(message); return; }
+    if (message.type === 'park_error') {
+      if (!message.requestId || message.code === 'PARK_STREAM_CHANGED') replica.needsResume = true;
+      if (message.code === 'PARK_UPDATE_REQUIRED') {
+        // Both an old relay (it only knows protocol 4) and a newer one (this page is too old) send
+        // this code; ask its lobby which one it is before telling the student what to do.
+        incompatible = true;
+        message = { ...message, message: 'Checking the park version...' };
+        const asked = selectedLevel;
+        request('park_lobby').then(reply => reply.levels, () => null).then(levels => {
+          if (!disposed && asked === selectedLevel) status.textContent = updateMessage(levels, asked);
+        });
+      }
+      status.textContent = message.message;
+    }
+    const job = pending.get(message.requestId);
+    if (!job) return;
+    pending.delete(message.requestId); clearTimeout(job.timeout);
+    if (message.type === 'park_error') job.reject(new Error(message.message)); else job.resolve(message);
+  }
+
+  function bindSocket() {
+    const next = getSocket();
+    if (next === socket) return;
+    socket?.removeEventListener('message', onMessage);
+    for (const job of pending.values()) { clearTimeout(job.timeout); job.reject(new Error('Reconnecting to your classroom')); }
+    pending.clear(); socket = next; joinedSocket = null;
+    socket?.addEventListener('message', onMessage);
+  }
+
+  async function join() {
+    if (joining || disposed || selectedLevel === null || socket?.readyState !== 1) return;
+    joining = true; const current = socket, version = selectionVersion;
+    try {
+      const response = await request(replica.state ? 'park_resume' : 'park_join', { protocol: PARK_CLIENT_PROTOCOL, levelIndex: selectedLevel, clientId, epoch: replica.state?.epoch,
+        since: replica.state ? replica.revision : null });
+      if (disposed || current !== socket || version !== selectionVersion) return;
+      if (response.mode === 'summary' && !PARK_LEVEL_PROTOCOLS.includes(response.level?.protocol)) {
+        incompatible = true;          // the relay serves a level protocol this page does not know
+        throw new Error(PARK_CLIENT_OLD);
+      }
+      replica.resume(response); joinedSocket = socket;
+      if (response.clientId && response.clientId !== clientId) { clientId = response.clientId; saveClient(); }
+      status.textContent = '';
+    } catch (error) { if (!disposed && !(incompatible && error.message === 'Checking the park version...')) status.textContent = error.message; }
+    finally { joining = false; retryAt = performance.now() + 2000; }
+  }
+
+  async function pump() {
+    if (disposed || incompatible || selectedLevel === null) return;
+    bindSocket();
+    if (socket?.readyState !== 1) {
+      status.textContent = replica.state ? 'Reconnecting. Your saved puzzle progress stays here.' : 'Connecting to your classroom...';
+      return;
+    }
+    if (performance.now() >= retryAt && (joinedSocket !== socket || replica.needsResume)) await join();
+    if (disposed || socket?.readyState !== 1 || joinedSocket !== socket) return;
+    for (const packet of replica.outgoing({ connected: true, bufferedAmount: socket.bufferedAmount })) socket.send(JSON.stringify(packet));
+    // A small revision probe recovers a lost final event.
+    if (performance.now() - lastStatusAt >= 15000 && !joining) {
+      lastStatusAt = performance.now();
+      try {
+        const response = await request('park_status');
+        if (response.epoch !== replica.state?.epoch || response.revision > replica.revision) replica.needsResume = true;
+      } catch { replica.needsResume = true; }
+    }
+  }
+
+  function dispose() {
+    if (disposed) return;
+    disposed = true;
+    if (socket?.readyState === 1 && selectedLevel !== null) socket.send(JSON.stringify({ type: 'park_leave', epoch: replica.state?.epoch }));
+    clearInterval(timer); game?.dispose();
+    socket?.removeEventListener('message', onMessage);
+    for (const job of pending.values()) { clearTimeout(job.timeout); job.reject(new Error('Park closed')); }
+    pending.clear(); status.remove();
+    container.removeAttribute('data-park-active');
+    onClose();
+  }
+  function showScene(index) {
+    selectionVersion++;
+    game?.dispose();
+    selectedLevel = index; replica = new ParkReplica(); joinedSocket = null;
+    retryAt = 0; incompatible = false;
+    game = mountBoardScene({ board, replica, member: board.username, onExit: dispose, completed, remember, status,
+      connected: () => !incompatible && socket?.readyState === 1 && joinedSocket === socket });
+    status.textContent = 'Entering your classroom puzzle...';
+  }
+  showScene(PARK_LEVELS.includes(levelIndex) ? levelIndex : 0);
+  bindSocket();
+  const timer = setInterval(() => { pump().catch(error => { if (!disposed) status.textContent = error.message; }); }, 100);
+  return { dispose, get replica() { return replica; }, getGame: () => game };
+}

@@ -1,0 +1,109 @@
+\documentclass[11pt]{article}
+\usepackage{preamble}
+\setlength{\parskip}{4pt}
+
+\begin{document}
+
+\daybanner{AP Statistics \textperiodcentered\ Unit 1 \textperiodcentered\ Topic 1.9 \textperiodcentered\ TEACHER KEY}{Which Class Did Better?}
+
+\sectionbanner{CED TETHER}
+
+{\small
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item \textbf{Skill 2.D} --- Compare distributions or relative positions of points within a distribution.
+  \item \textbf{Enduring Understanding UNC-1} --- Graphical representations and statistics allow us to identify and represent key features of data.
+  \item \textbf{LO UNC-1.N} --- Compare graphical representations for multiple sets of quantitative data. [Skill 2.D]
+  \item \textbf{EK UNC-1.N.1} --- Any of the graphical representations, e.g., histograms, side-by-side boxplots, etc., can be used to compare two or more independent samples on center, variability, clusters, gaps, outliers, and other features.
+  \item \textbf{LO UNC-1.O} --- Compare summary statistics for multiple sets of quantitative data. [Skill 2.D]
+  \item \textbf{EK UNC-1.O.1} --- Any of the numerical summaries (e.g., mean, standard deviation, relative frequency, etc.) can be used to compare two or more independent samples.
+\end{itemize}
+}
+\textbf{Essential question:} What does `did better' mean for a whole class, and which feature of a plot answers it?\par
+\textbf{DOK-3 skill:} 4.B \textperiodcentered\ \textbf{FRQ pattern:} {\small\texttt{compare-\allowbreak{}two-\allowbreak{}boxplots-\allowbreak{}adjudicate-\allowbreak{}competing-\allowbreak{}claims-\allowbreak{}then-\allowbreak{}choose-\allowbreak{}one-\allowbreak{}statistic}}\par
+\textbf{DOK rationale:} Part (c) requires weighing two competing claims about which class did better against several features of two boxplots at once, then committing to a single statistic and defending it; either claim can be supported by one feature alone, so the answer depends on coordinating center, variability, and an outlier rather than on any single procedure.\par
+
+\textbf{Self-paced bonus sheet.} Students take it when they choose and turn it in when they finish. Everything they need is printed on the sheet. Score part (c) only, E / P / I, by hand --- never AI-graded or auto-scored. (a) and (b) are the ladder up; use them to see where a thin (c) came from.\par
+
+\textbf{Questions to ask}
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item How many students does the top of a whisker represent? How many does the median line represent?
+  \item If the 40 in Period B were a 33 instead, would Sam's claim change? Would Tia's?
+  \item Point at the box widths. Which class would you rather be a random student in? Why?
+  \item Your parent asks `how did the class do?' --- which number answers that question?
+\end{itemize}
+
+\begin{callout}{\IconWarn\ LOOK FOR}{calloutred}
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item Sentences that describe one plot at a time with no comparison word.
+  \item Reading the whisker end as `most students'.
+  \item Choosing the mean for Period B without noticing the outlier at 5.
+\end{itemize}
+\end{callout}
+
+\sectionbanner{SCORING PART (c) --- E / P / I}
+
+\textbf{Expected elements}
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item \textbf{tia-center} (required) --- Chooses Tia using medians 31 versus 27
+  \item \textbf{compares-spread} (required) --- Uses IQR 8 versus 11, overall ranges 20 versus 35, or B's low outlier as further evidence
+  \item \textbf{median-over-max} (required) --- Chooses median and explains a maximum describes an extreme observation rather than the class center
+\end{itemize}
+
+{\small\renewcommand{\arraystretch}{1.25}
+\noindent\begin{tabular}{|p{0.5in}|p{5.9in}|}
+\hline
+\textbf{E} & All three elements are correct and linked to this problem. Accept equivalent plain-language reasoning. \\ \hline
+\textbf{P} & At least one element includes a correct evidence-to-reason link, but another is missing or incorrect. \\ \hline
+\textbf{I} & No correct evidence-to-reason link; only a choice, copied numbers, or unsupported statements. \\ \hline
+\end{tabular}}
+
+\textbf{Common mistakes}
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item Reading the maximum as `the class did better'
+  \item Describing each boxplot separately instead of comparing (no comparative language)
+  \item Calling the wider box `more scores' rather than `more variable'
+  \item Choosing the mean for Period B without noticing the outlier at 5 pulls it down
+\end{itemize}
+
+\bankitem{Optional \#1 --- not collected}{\dokbadge{2}~Two bus routes were timed for 20 mornings each. Route 1: mean 24.0 min, SD 6.5 min, median 22 min. Route 2: mean 24.5 min, SD 1.8 min, median 24 min. Write two sentences comparing the routes for a student who must not be late, using comparative language and the statistics given.}{}
+\answer{The means are nearly the same (24.0 versus 24.5 minutes), while Route 2 has much lower SD (1.8 versus 6.5 minutes), so it is more consistent. A student concerned about unpredictable travel could prefer Route 2, but these summaries alone do not give the worst delay or the probability of being late.}
+
+\clearpage
+\focusbanner{THE PROBLEM --- annotated}
+
+Two AP Statistics classes took the same 40-point quiz. The side-by-side boxplots show the scores. Two students read them differently. \textbf{Sam:} ``Period B did better --- its highest score is 40 and Period E's is only 38.'' \textbf{Tia:} ``Period E did better --- its median is higher and its scores are more consistent.''\par
+\begin{center}
+\begin{tikzpicture}
+\begin{axis}[
+  width=0.68\linewidth,
+  height=1.60in,
+  ytick={2,1}, yticklabels={{Period B},{Period E}}, ymin=0.4, ymax=2.6,
+  axis x line=bottom, axis y line*=left, y axis line style={draw=none}, boxplot/box extend=0.5, xmajorgrids, enlarge x limits=0.06,
+  xlabel={Quiz score (out of 40)}, tick label style={font=\small}, label style={font=\small},
+  ytick style={draw=none}, yticklabel style={font=\small\bfseries}
+]
+\addplot[boxplot prepared={lower whisker=12, lower quartile=22, median=27, upper quartile=33, upper whisker=40, draw position=2}, fill=calloutblue, draw=dayblue] coordinates {};
+\addplot[only marks, mark=*, color=warmred] coordinates {(5,2)};
+\addplot[boxplot prepared={lower whisker=18, lower quartile=26, median=31, upper quartile=34, upper whisker=38, draw position=1}, fill=calloutblue, draw=dayblue] coordinates {};
+\end{axis}
+\end{tikzpicture}
+\end{center}
+\begin{firsttakebox}{FIRST TAKE --- one sentence before you work the parts}
+Which class did better on the quiz? One sentence, and name ONE feature of the plot you used.\par
+\answer{Not graded. Expect a split toward Sam (the 40 is eye-catching); that split is the lesson.}
+\end{firsttakebox}
+
+\begin{callout}{\IconBook\ COMPARING DISTRIBUTIONS (keep on the page)}{calloutgreen}
+Use comparative words such as higher, lower, more variable, or similar. Compare center (median), variability ($\mathrm{IQR}=Q_3-Q_1$, range $=$ maximum minus minimum), apparent shape, and unusual features in context. Include plotted outliers when finding the overall range. A boxplot hides values within each quartile, so qualify shape claims with `appears.' A median describes center; a maximum describes the highest observed value.
+\end{callout}
+
+\dokbadge{1}~\textbf{(a)} Read the median for each class.\par
+\answer{Period B: 27 points. Period E: 31 points.}
+
+\dokbadge{2}~\textbf{(b)} In two or three sentences, compare the quiz scores' center, spread, apparent shape, and unusual features. Use points and comparative words.\par
+\answer{E has a higher median (31 versus 27 points) and a smaller IQR (8 versus 11 points). B's overall range is $40-5=35$ points, versus E's $38-18=20$, and B has the low outlier at 5. B is fairly balanced within its box but extends farther on the low side overall; E also appears more spread toward low scores. Boxplots cannot establish detailed shape.}
+
+\dokbadge{3}~\textbf{(c)} Whose claim is better supported, Sam's or Tia's? Cite two specific features of the boxplots that settle it. Then: if you could report only ONE statistic per class to a parent asking `how did the class do?', which statistic would you choose, and why that one rather than the maximum?\par
+\answer{Tia's. Two settling features: the medians (31 vs. 27 --- the typical student in E scored higher) and the spread (E's IQR 8 vs. B's 11, plus B's outlier at 5). Sam's evidence is a single value: one student in B scored 40, which says nothing about the class. Report the median: it describes the typical student and is less affected by extreme scores; the maximum describes exactly one student and would make Period B look better because of one paper.}
+
+\end{document}

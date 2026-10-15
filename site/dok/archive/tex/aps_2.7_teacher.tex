@@ -1,0 +1,112 @@
+\documentclass[11pt]{article}
+\usepackage{preamble}
+\setlength{\parskip}{4pt}
+
+\begin{document}
+
+\daybanner{AP Statistics \textperiodcentered\ Unit 5 \textperiodcentered\ Topic 5.4 \textperiodcentered\ TEACHER KEY}{One Line, Two Model Diagnostics}
+
+\sectionbanner{CED TETHER}
+
+{\small
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item ENDURING UNDERSTANDING: DAT-1 Regression models may allow us to predict responses to changes in an explanatory variable.
+  \item SKILLS:
+  \item \textbf{Skill 2.B} --- Construct numerical or graphical representations of distributions.
+  \item \textbf{Skill 2.A} --- Describe data presented numerically or graphically.
+  \item LO DAT-1.E Represent differences between measured and predicted responses using residual plots. [Skill 2.B]
+  \item EK DAT-1.E.1 The residual is the difference between the actual value and the predicted value: residual = y - $\widehat{y}$.
+  \item EK DAT-1.E.2 A residual plot is a plot of residuals versus explanatory variable values or predicted response values.
+  \item LO DAT-1.F Describe the form of association of bivariate data using residual plots. [Skill 2.A]
+  \item EK DAT-1.F.1 Apparent randomness in a residual plot for a linear model is evidence of a linear form to the association between the variables.
+  \item EK DAT-1.F.2 Residual plots can be used to investigate the appropriateness of a selected model.
+\end{itemize}
+}
+\textbf{Essential question:} How should correlation and residuals be reconciled when judging a model for safety planning?\par
+\textbf{DOK-3 skill:} 4.B \textperiodcentered\ \textbf{FRQ pattern:} {\small\texttt{correlation-\allowbreak{}residuals-\allowbreak{}model-\allowbreak{}choice-\allowbreak{}and-\allowbreak{}scope}}\par
+\textbf{DOK rationale:} Part (c) weighs competing claims using the day's numerical or graphical evidence and explains a limitation or consequence; the judgment requires linked reasoning beyond a calculation.\par
+
+\textbf{Self-paced bonus sheet.} Students take it when they choose and turn it in when they finish. Everything they need is printed on the sheet. Score part (c) only, E / P / I, by hand --- never AI-graded or auto-scored. (a) and (b) are the ladder up; use them to see where a thin (c) came from.\par
+
+\textbf{Questions to ask}
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item Which number or visible feature supports your claim?
+  \item Why does the other claim go beyond that evidence?
+  \item What would you tell someone who chose the other claim?
+\end{itemize}
+
+\begin{callout}{\IconWarn\ LOOK FOR}{calloutred}
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item A choice with copied numbers but no explanation of how they support it.
+  \item Treating a model or average as a guaranteed individual outcome.
+\end{itemize}
+\end{callout}
+
+\sectionbanner{SCORING PART (c) --- E / P / I}
+
+\textbf{Expected elements}
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item \textbf{reasoning-1} (required) --- Supports June by reconciling the large correlation with the U-shaped residuals
+  \item \textbf{reasoning-2} (required) --- Links the 4-foot underprediction to a stopping-distance consequence
+  \item \textbf{reasoning-3} (required) --- Requires a replacement residual check in the stated vehicle/surface setting
+\end{itemize}
+
+{\small\renewcommand{\arraystretch}{1.25}
+\noindent\begin{tabular}{|p{0.5in}|p{5.9in}|}
+\hline
+\textbf{E} & Includes all three required reasoning elements above, with correct contextual evidence. \\ \hline
+\textbf{P} & Includes at least one substantive correct reasoning link above, but omits or misstates another required element. \\ \hline
+\textbf{I} & Includes no substantive correct reasoning link above; an unsupported choice or copied number alone is insufficient. \\ \hline
+\end{tabular}}
+
+\clearpage
+\focusbanner{THE PROBLEM --- annotated}
+
+Suppose a road-safety lab records braking distance $y$ at speeds $x$ from 10 through 50 mph on one vehicle and dry surface. The line is $\hat y=-10+2.5x$, the correlation is $r=0.997$, and the residual plot is shown. A residual is actual distance minus the line's prediction. At 50 mph, the actual distance is 119 feet.\par\smallskip \textbf{Ezra:} The large correlation and residuals on both sides of 0 justify using the line across the tested speeds.\par \textbf{June:} I would use where the residuals occur and the 50-mph error to judge safety, then check any replacement model separately.\par
+\begin{center}
+\begin{tikzpicture}
+\begin{axis}[
+  width=0.52\linewidth,
+  height=1.40in,
+  xmin=5, xmax=55, ymin=-5, ymax=5,
+  xlabel={Speed (mph)}, ylabel={Residual (ft)}, grid=major,
+  tick label style={font=\small}, label style={font=\small}
+]
+\addplot[only marks, mark=*, mark size=1.3pt, color=dayblue] coordinates {
+  (10,4)
+  (15,1)
+  (20,-1)
+  (25,-2)
+  (30,-4)
+  (35,-2)
+  (40,-1)
+  (45,1)
+  (50,4)
+};
+\end{axis}
+\end{tikzpicture}
+\end{center}
+\begin{firsttakebox}{FIRST TAKE --- one sentence before you work the parts}
+Would you trust this line to plan a safe stopping distance? Give one number or visible pattern in one sentence.\par
+\answer{Not graded. Students should decide what each diagnostic establishes before judging the line.}
+\end{firsttakebox}
+
+\begin{callout}{\IconBook\ READING A RESIDUAL PLOT (keep on the page)}{calloutgreen}
+A residual is $y-\hat y$. A positive residual means the model underpredicted;
+a negative residual means it overpredicted. Plot residuals against $x$ or $\hat y$.
+Random scatter around 0 supports a linear form. Curvature, trends, clusters, or
+changing spread show structure the line missed. Correlation measures the direction
+and strength of linear association, but even a large $|r|$ does not replace checking
+residual locations. Check a replacement model with its own residual plot.
+\end{callout}
+
+\dokbadge{1}~\textbf{(a)} Read the residual at 50 mph. Does the line predict too high or too low there?\par
+\answer{The residual is 4 feet, so the line predicts too low.}
+
+\dokbadge{2}~\textbf{(b)} Verify the 50-mph residual using the equation. Describe where the residual plot is above and below zero.\par
+\answer{At 50 mph, $\hat y=-10+2.5(50)=115$ feet, so the residual is $119-115=4$ feet. Residuals are positive at 10--15 and 45--50 mph, and negative at 20--40 mph, forming a U-shaped pattern.}
+
+\dokbadge{3}~\textbf{(c)} Whose judgment is supported? Explain why the residual pattern matters even with the large correlation, and connect the 50-mph error to safety. State what you would check in a replacement model for this vehicle and dry surface. Write 3--4 sentences.\par
+\answer{June is supported: $r=0.997$ shows a strong positive linear association, but the U-shaped residuals show a pattern of errors the line misses. Having both signs is not enough when the signs occur in a predictable order. At 50 mph the 4-foot underprediction could make a stopping zone too short. For this vehicle and dry surface, check that a replacement model's residuals have no clear pattern around zero before trusting it.}
+
+\end{document}

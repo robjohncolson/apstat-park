@@ -1,0 +1,55 @@
+\documentclass[11pt]{article}
+\usepackage{preamble}
+\renewcommand{\answer}[1]{}
+
+\begin{document}
+
+\ladderheading{AP Statistics \textperiodcentered\ Unit 3 \textperiodcentered\ Topic 3.15}{Interpreting a Chi-Square Result}
+
+\focusbanner{THE PROBLEM}
+
+Suppose a city library takes an SRS of 240 of its 6,000 active adult cardholders. It records each person's chosen notification method and whether the person returned an item late in the previous six months.\par\smallskip \textbf{Nia:} ``Email/Late has the largest raw gap, 13.75; I think that cell drives the statistic and the result shows email prevents late returns.''\par \textbf{Omar:} ``Expected counts differ, so raw gaps may not settle cell influence. I would calculate contributions and examine how notification methods were obtained before interpreting.''\par
+\begin{center}
+\textbf{Late returns}\par\smallskip
+\begin{tabular}{|l|c|c|c|}
+\hline
+\textbf{Method} & \textbf{Late} & \textbf{Not late} & \textbf{Total} \\ \hline
+\textbf{Email} & 15 & 85 & 100 \\ \hline
+\textbf{Text} & 24 & 56 & 80 \\ \hline
+\textbf{None} & 30 & 30 & 60 \\ \hline
+\textbf{Total} & 69 & 171 & 240 \\ \hline
+\end{tabular}
+\end{center}
+\begin{firsttakebox}{FIRST TAKE --- one sentence before you work the parts}
+Can this study show that choosing email causes fewer late returns? Give one reason from how the study was done.
+\workspace{0.9in}
+\end{firsttakebox}
+
+\begin{callout}{\IconBook\ SCALE EACH GAP, THEN BOUND THE CONCLUSION (keep on the page)}{calloutgreen}
+For independence, $H_0$ says the two categorical variables are not associated in the population;
+$H_a$ says they are associated. Use $E=(\text{row total})(\text{column total})/(\text{table total})$,
+and add cell contributions $(O-E)^2/E$ to obtain $\chi^2$.
+With $r$ rows and $c$ columns, excluding totals, $df=(r-1)(c-1)$.
+The p-value is the upper-tail probability assuming $H_0$. Reject $H_0$ if $p\leq\alpha$;
+otherwise fail to reject. Random sampling supports population claims; random assignment supports causation.
+\end{callout}
+
+\newpage
+\textbf{Work (a)--(c).}\par\smallskip
+
+\dokbadge{1}~\textbf{(a)} State the degrees of freedom, excluding the totals row and column.\par
+\workspace{0.7in}
+
+\dokbadge{2}~\textbf{(b)} Expected counts are 28.75 for Email/Late and 17.25 for None/Late. Calculate these two contributions using $(O-E)^2/E$.\par
+\workspace{1.4in}
+
+\dokbadge{3}~\textbf{(c)} Technology gives $\chi^2=22.5172$ and $p=0.0000129$. In 3--4 sentences, judge the accounts: compare the two contributions, use $\alpha=0.05$ for a population conclusion, and explain why the study does not show prevention.\par
+\workspace{2.0in}
+
+\begin{sentenceframebox}\raggedright\textbf{Frame:} The two contributions are \blank[0.8in] and \blank[0.8in], so \blank[1.8in] adds more to the statistic.\end{sentenceframebox}
+
+\begin{sentenceframebox}\raggedright\textbf{Frame:} The p-value supports \blank[1.7in] for \blank[1.7in]. This does not establish cause because \blank[2.0in].\end{sentenceframebox}
+
+\textbf{Turn this sheet in whenever you finish --- bonus credit. Part (c) is scored E / P / I.}\par
+
+\end{document}

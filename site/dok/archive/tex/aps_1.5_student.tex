@@ -1,0 +1,83 @@
+\documentclass[11pt]{article}
+\usepackage{preamble}
+\renewcommand{\answer}[1]{}
+
+\begin{document}
+
+\ladderheading{AP Statistics \textperiodcentered\ Unit 1 \textperiodcentered\ Topic 1.5}{Same Data, Different Bins}
+
+\focusbanner{THE PROBLEM}
+
+Suppose a student recorded steps for 30 days. Histograms F and C show the same data with 1-thousand- and 5-thousand-step bins. A coach asks, ``Does this student move differently on school days and weekends?''\par\smallskip \textbf{Priya:} ``Use C. F has too many short and empty bars; C gives the clearer summary.''\par \textbf{Leo:} ``Use F. C combines values that should not be treated as one group.''\par
+\begin{center}
+\def\auditplotheight{1.4in}\ifdim\linewidth<5in\def\auditplotheight{1.15in}\fi
+\def\auditplotwidth{0.46\linewidth}\ifdim\linewidth<5in\def\auditplotwidth{0.98\linewidth}\fi
+\noindent
+\begin{minipage}[t]{\auditplotwidth}
+\centering
+\textbf{F: 1-thousand-step bins}\par\smallskip
+\begin{tikzpicture}
+\begin{axis}[
+  width=\linewidth, height=\auditplotheight,
+  ybar interval, bar shift=0pt,
+  xmin=4, xmax=20, ymin=0, ymax=8,
+  xtick={4,6,8,10,12,14,16,18,20}, ytick={0,4,8},
+  xlabel={Daily steps (thousands)}, ylabel={Days},
+  tick label style={font=\scriptsize}, label style={font=\scriptsize},
+  ymajorgrids, x tick label as interval=false
+]
+\addplot[fill=calloutblue, draw=dayblue] coordinates {
+  (4,0) (5,5) (6,6) (7,7) (8,3) (9,0) (10,0) (11,3)
+  (12,3) (13,2) (14,0) (15,0) (16,0) (17,0) (18,0) (19,1) (20,0)
+};
+\end{axis}
+\end{tikzpicture}
+\end{minipage}\ifdim\linewidth<5in\par\smallskip\else\hfill\fi
+\begin{minipage}[t]{\auditplotwidth}
+\centering
+\textbf{C: 5-thousand-step bins}\par\smallskip
+\begin{tikzpicture}
+\begin{axis}[
+  width=\linewidth, height=\auditplotheight,
+  ybar interval, bar shift=0pt,
+  xmin=0, xmax=20, ymin=0, ymax=23,
+  xtick={0,5,10,15,20}, ytick={0,10,20},
+  xlabel={Daily steps (thousands)}, ylabel={Days},
+  tick label style={font=\scriptsize}, label style={font=\scriptsize},
+  ymajorgrids, x tick label as interval=false
+]
+\addplot[fill=calloutblue, draw=dayblue] coordinates {
+  (0,0) (5,21) (10,8) (15,1) (20,0)
+};
+\end{axis}
+\end{tikzpicture}
+\end{minipage}
+\end{center}
+\begin{firsttakebox}{FIRST TAKE --- one sentence before you work the parts}
+Which histogram is more useful to the coach, F or C? Name one visible feature.
+\workspace{0.9in}
+\end{firsttakebox}
+
+\begin{callout}{\IconBook\ READING HISTOGRAMS (keep on the page)}{calloutgreen}
+A histogram groups observations into intervals; each bar gives the count in its interval. Values at a boundary go in the interval that starts there. Changing interval widths changes the appearance, not the observations. Narrow intervals can reveal separated groups and empty intervals; wide intervals summarize broad counts. A histogram does not show each exact value or attach a group label to each observation.
+\end{callout}
+
+\newpage
+\textbf{Work (a)--(c).}\par\smallskip
+
+\dokbadge{1}~\textbf{(a)} State each bin width and the number of days in F's 19--20-thousand interval.\par
+\workspace{0.7in}
+
+\dokbadge{2}~\textbf{(b)} In two sentences, describe where F's days are grouped and where its empty intervals are. Use thousands of steps.\par
+\workspace{1.4in}
+
+\dokbadge{3}~\textbf{(c)} Choose Priya's or Leo's display for a first look at the coach's question. Cite one feature that the other display hides and explain how that changes the impression. What information would you still need to tell school days from weekends?\par
+\workspace{2.0in}
+
+\begin{sentenceframebox}\raggedright\textbf{Frame:} I would show histogram \blank[0.6in] because it preserves \blank[1.9in], while the other merges \blank[1.6in].\end{sentenceframebox}
+
+\begin{sentenceframebox}\raggedright\textbf{Frame:} The other display could make a reader think \blank[2in]. To tell which days are weekends, I still need \blank[2in].\end{sentenceframebox}
+
+\textbf{Turn this sheet in whenever you finish --- bonus credit. Part (c) is scored E / P / I.}\par
+
+\end{document}

@@ -1,0 +1,40 @@
+# Topic 7.2 — Constructing a Confidence Interval for a Population Mean
+topic: "7.2"
+ced2026: { unit: 4, topic: "4.2", label: "Constructing a CI for a Mean or Mean Difference" }
+title: "Two Interfaces, Twelve Specialists"
+essential_question: "How do linked measurements choose an interval and bound a causal claim?"
+worksheet: "u7_lesson2_live.html"
+
+rules_callout:
+  title: "ONE-SAMPLE MEAN INTERVALS (keep on the page)"
+  body: |
+    For paired measurements, define every difference in the same order and treat the $n$ pairs as
+    one sample: $\bar d\pm t^*(s_d/\sqrt n)$ with $df=n-1$. Check conditions on the differences:
+    random sampling or random assignment, $n\leq0.10N$ when sampling without replacement, and,
+    for $n<30$, no strong skew or outliers. Two readings from each person are not two independent
+    samples. Random sampling supports generalization to the sampled population; random assignment
+    or an adequate randomized comparison is needed to isolate causation from practice or time effects.
+
+focus: aps-7.2-d3-1
+reinforcement: []
+space: { first_take: 0.9in, a: 0.7in, b: 1.4in, c: 2.0in }
+
+teacher:
+  questions_to_ask:
+  - Which specific number or study detail supports your choice?
+  - What claim would go beyond the evidence, and why?
+  watch_for:
+  - Choosing a speaker without a reason.
+  - Copying numbers without explaining what they support.
+  first_take_note: Ungraded commitment; accept any evidence-based first impression.
+tether:
+  - '\textbf{UNC-4.O / EK O.1, O.3 [Skill 1.D]} Use a one-sample $t$ interval for a mean with unknown population SD. Matched-pair differences form one sample.'
+  - '\textbf{UNC-4.P / EK P.1 [Skill 4.C]} Check random sampling or assignment, the 10 percent condition, and shape on the differences.'
+  - '\textbf{UNC-4.Q / EK Q.1--Q.3 [Skill 3.D]} With $df=n-1$, $SE=s_d/\sqrt n$ and margin of error is $t^*SE$.'
+  - '\textbf{UNC-4.R / EK R.1--R.2 [Skill 3.D]} Use $\bar d$ as the estimate and calculate $\bar d\pm t^*SE$ for the population mean difference.'
+
+visuals:
+  interface_difference_dotplot:
+    kind: dotplot
+    values: [-1, 0, 1, 1, 2, 2, 2, 2, 3, 3, 4, 5]
+    xlabel: "Current time minus redesigned time (seconds)"

@@ -1,0 +1,48 @@
+\documentclass[14pt]{extarticle}
+\usepackage{preamble}
+\geometry{letterpaper, landscape, margin=0.5in}
+\renewcommand{\answer}[1]{}
+\setlength{\parskip}{4pt}
+
+\begin{document}
+\pagestyle{empty}
+
+\daybanner{Unit 4 \textperiodcentered\ Topic 4.9 \textperiodcentered\ THE PROBLEM}{Two Test Plans for Cure Time}
+
+\noindent\begin{minipage}[t]{0.57\linewidth}
+\vspace{0pt}
+Suppose line N uses a new formula for sealant, a material that closes gaps. Line S uses the standard formula. A team takes independent simple random samples of 18 of 600 recent N batches and 18 of 540 recent S batches. Mean cure times are 41.2 and 44.0 minutes; the boxplots are shown. Before sampling, the team asked, ``Do the two populations differ in mean cure time?'' Formula was not randomly assigned to lines.\par\smallskip \textbf{Rhea:} ``Keep the original question and use population means. A difference between lines may have other causes.''\par \textbf{Sol:} ``Since $41.2<44.0$, use a lower tail with sample means. A significant result proves the formula caused faster curing.''\par
+\end{minipage}\hfill
+\begin{minipage}[t]{0.40\linewidth}
+\vspace{0pt}
+\begin{center}
+\begin{tikzpicture}
+\begin{axis}[
+  width=0.61\linewidth,
+  height=1.44in,
+  ytick={2,1}, yticklabels={{Line N},{Line S}}, ymin=0.4, ymax=2.6,
+  axis x line=bottom, axis y line*=left, y axis line style={draw=none}, boxplot/box extend=0.5, xmajorgrids, enlarge x limits=0.06,
+  xlabel={Cure time (min)}, tick label style={font=\small}, label style={font=\small},
+  ytick style={draw=none}, yticklabel style={font=\small\bfseries}
+]
+\addplot[boxplot prepared={lower whisker=34, lower quartile=38.5, median=41, upper quartile=44, upper whisker=48.5, draw position=2}, fill=calloutblue, draw=dayblue] coordinates {};
+\addplot[boxplot prepared={lower whisker=35.5, lower quartile=40, median=44, upper quartile=48, upper whisker=52.5, draw position=1}, fill=calloutblue, draw=dayblue] coordinates {};
+\end{axis}
+\end{tikzpicture}
+\end{center}
+\end{minipage}
+
+\begin{firsttakebox}{FIRST TAKE --- one sentence before you work the parts}
+Did the team originally ask whether N was faster or whether the lines differed in either direction? Explain in one sentence.
+\end{firsttakebox}
+
+\begin{description}[leftmargin=1.15in, labelwidth=1in, itemsep=2pt, topsep=2pt]
+  \item[\dokbadge{1}~(a)] Define $\mu_N$ and $\mu_S$ in context.
+  \item[\dokbadge{2}~(b)] State $H_0$ and $H_a$ in N-minus-S order to match the question asked before sampling.
+  \item[\dokbadge{3}~(c)] In 3--4 sentences, judge the two plans. Explain why the original question sets the tail, why hypotheses use population means, and why these two lines cannot isolate the formula as the cause.
+\end{description}
+
+\vfill
+\textbf{Self-paced bonus problem. Work (a)--(c) from this sheet; turn it in whenever you finish.}
+
+\end{document}

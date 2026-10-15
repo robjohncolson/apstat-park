@@ -1,0 +1,34 @@
+{
+  "name": "apstats-live-worksheet",
+  "version": "1.0.0",
+  "description": "AP Statistics live worksheet with AI grading and class aggregation",
+  "type": "module",
+  "scripts": {
+    "build:ti84": "node ti84-trainer-v2/build.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "gitnexus:shadow": "node scripts/gitnexus-shadow.mjs",
+    "gitnexus:analyze": "node scripts/gitnexus-shadow.mjs && GITNEXUS_MAX_FILE_SIZE=4096 npx gitnexus analyze --force",
+    "test:park": "node --test apstat-park/*.test.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.0",
+    "aws4fetch": "^1.0.20",
+    "fast-check": "^4.8.0",
+    "jsdom": "^23.0.0",
+    "planck": "1.5.0",
+    "qrcode": "^1.5.4",
+    "typescript": "^6.0.3",
+    "vitest": "^1.2.0"
+  },
+  "keywords": [
+    "ap-statistics",
+    "education",
+    "ai-grading",
+    "worksheet"
+  ],
+  "author": "",
+  "license": "MIT"
+}

@@ -1,0 +1,92 @@
+\documentclass[11pt]{article}
+\usepackage{preamble}
+\setlength{\parskip}{4pt}
+
+\begin{document}
+
+\daybanner{AP Statistics \textperiodcentered\ Unit 3 \textperiodcentered\ Topic 3.14 \textperiodcentered\ TEACHER KEY}{A Two-Way Table Before Inference}
+
+\sectionbanner{CED TETHER}
+
+{\small
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item \textbf{Skill 3.A} --- Determine relative frequencies, proportions, or probabilities using simulation or calculations.
+  \item \textbf{EU VAR-8} --- The chi-square distribution may be used to model variation.
+  \item \textbf{LO VAR-8.H} --- Calculate expected counts for two-way tables of categorical data. [Skill 3.A]
+  \item \textbf{EK VAR-8.H.1} --- The expected count in a particular cell of a two-way table of categorical data can be calculated using the formula: expected count = (row total)(column total) / table total.
+\end{itemize}
+}
+\textbf{Essential question:} Why is a chi-square condition judged from expected counts rather than the observed cells?\par
+\textbf{DOK-3 skill:} 4.C \textperiodcentered\ \textbf{FRQ pattern:} {\small\texttt{expected-\allowbreak{}count-\allowbreak{}boundary-\allowbreak{}and-\allowbreak{}remedy}}\par
+\textbf{DOK rationale:} Part (c) coordinates the null-table calculation, a strict boundary condition, sampling evidence, and the meaning of possible remedies to adjudicate two claims and explain why the tempting observed-count rule is unreliable.\par
+
+\textbf{Self-paced bonus sheet.} Students take it when they choose and turn it in when they finish. Everything they need is printed on the sheet. Score part (c) only, E / P / I, by hand --- never AI-graded or auto-scored. (a) and (b) are the ladder up; use them to see where a thin (c) came from.\par
+
+\textbf{Questions to ask}
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item Which specific number or study detail supports your choice?
+  \item What claim would go beyond the evidence, and why?
+\end{itemize}
+
+\begin{callout}{\IconWarn\ LOOK FOR}{calloutred}
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item Choosing a speaker without a reason.
+  \item Copying numbers without explaining what they support.
+\end{itemize}
+\end{callout}
+
+\sectionbanner{SCORING PART (c) --- E / P / I}
+
+\textbf{Expected elements}
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item \textbf{expected-not-observed} (required) --- Explains why expected counts rather than observed counts determine this check
+  \item \textbf{boundary} (required) --- Uses expected 5 and applies the printed greater-than-5 rule correctly
+  \item \textbf{next-step} (required) --- Suggests a larger random sample with rechecking, retaining the categories
+\end{itemize}
+
+{\small\renewcommand{\arraystretch}{1.25}
+\noindent\begin{tabular}{|p{0.5in}|p{5.9in}|}
+\hline
+\textbf{E} & Explains the count distinction, applies the printed boundary rule, and gives a next step preserving the categories. \\ \hline
+\textbf{P} & Shows substantive valid reasoning for at least one required element, but does not meet all E requirements. Credit correct reasoning even when another claim is wrong. \\ \hline
+\textbf{I} & Shows no substantive valid reasoning for any required element; a name, unsupported choice, or copied number alone does not count. \\ \hline
+\end{tabular}}
+
+\clearpage
+\focusbanner{THE PROBLEM --- annotated}
+
+Suppose a membership association has 5,000 new members and takes an SRS of 120. Each member is classified by orientation status and preferred support channel. The association may test whether the variables are associated.\par\smallskip \textbf{Nico:} ``Every observed cell is at least 6, and the data came from an SRS, so the usual chi-square setup is ready.''\par \textbf{Priya:} ``The margins may produce a different boundary check; I would calculate that table before deciding.''\par
+\begin{center}
+\textbf{Support channel}\par\smallskip
+\begin{tabular}{|l|c|c|c|c|}
+\hline
+\textbf{Status} & \textbf{Chat} & \textbf{Email} & \textbf{Phone} & \textbf{Total} \\ \hline
+\textbf{Done} & 42 & 34 & 24 & 100 \\ \hline
+\textbf{Not done} & 8 & 6 & 6 & 20 \\ \hline
+\textbf{Total} & 50 & 40 & 30 & 120 \\ \hline
+\end{tabular}
+\end{center}
+\begin{firsttakebox}{FIRST TAKE --- one sentence before you work the parts}
+Would you decide from the recorded counts alone or also work out what the totals predict? Explain in one sentence.\par
+\answer{Ungraded commitment; accept any evidence-based first impression.}
+\end{firsttakebox}
+
+\begin{callout}{\IconBook\ EXPECTED COUNTS UNDER NO ASSOCIATION (keep on the page)}{calloutgreen}
+Expected counts describe the table under no relationship between the variables.
+For an interior cell, $E=(\text{row total})(\text{column total})/(\text{table total})$.
+Expected counts keep the same row and column totals; they need not be whole numbers.
+For this problem, use the course's conservative chi-square check: every expected count must be
+greater than 5. This check concerns expected counts, not observed counts. If it fails, gather more
+random data and recheck; a larger sample does not guarantee that every new expected count will pass.
+\end{callout}
+
+\dokbadge{1}~\textbf{(a)} Which row total, column total, and table total are needed for Not done/Phone?\par
+\answer{The row total is 20, the Phone column total is 30, and the table total is 120.}
+
+\dokbadge{2}~\textbf{(b)} Calculate the expected counts for Done/Chat and Not done/Phone. The other four expected counts are all greater than 5.\par
+\answer{Done/Chat: $(100)(50)/120=41.6667$. Not done/Phone: $(20)(30)/120=5$.}
+
+\dokbadge{3}~\textbf{(c)} In 3--4 sentences, decide whose claim follows the printed rule. Compare observed 6 with the expected Phone count, explain why the kind of count matters, and suggest one next step that keeps the same support-channel categories.\par
+\answer{Priya is justified: the rule checks expected counts, and the Not-done/Phone expected count is 5, which is not greater than 5. The observed count of 6 does not satisfy a rule about what the no-association model predicts. Under this sheet's stated rule, do not proceed with the usual approximation yet. Collect a larger random sample and recheck the expected counts while retaining the same categories.}
+
+\end{document}

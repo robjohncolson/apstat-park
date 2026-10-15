@@ -1,0 +1,230 @@
+import { randomUUID } from 'node:crypto';
+import { createCalculatorService } from './calculator-service.mjs';
+import { createCampaignService } from './campaign-service.mjs';
+import { createCampaignWallet } from './campaign-wallet.mjs';
+import { createCalculatorClears } from './calculator-clears.mjs';
+import { ParkSession } from './session.mjs';
+import { createParkRegistry, eligibleParkLevels, parkSection, SHARED_PARK } from './shared-classroom.mjs';
+import { PARK_PROTOCOL, PARK_LEVEL_COUNT, parkLevelMinProtocol } from './levels.mjs';
+
+const types = new Set(['park_start', 'park_join', 'park_resume', 'park_leave', 'park_lobby', 'park_command', 'park_motion', 'park_run', 'park_next', 'park_stop', 'park_status']);
+const retired = new Set(['park_start', 'park_run', 'park_next', 'park_stop']);
+types.add('park_watch');
+const RETENTION_MS = 2 * 60 * 60 * 1000;
+const ABANDON_MS = 3 * 60 * 1000;   // a room empty this long (dropped sockets, closed lids) may rotate
+
+// B and E share the park; classroom identity and controls stay in their own registry.
+// keyStore: optional campaign-key store (campaign-key-store.mjs); without one keys are memory-only.
+// One wallet (keys, cleared stages, open stages) is shared by the calculator and campaign services.
+// clearsStore: optional calculator-clears store (calculator-clears-store.mjs); without one the hint
+// rungs' clear counts are memory-only.
+export function createParkService({ registry, send, now = () => performance.now(), wallNow = () => Date.now(), calculatorOptions = {}, keyStore = null,
+  clearsStore = null }) {
+  const classrooms = registry;
+  registry = createParkRegistry(classrooms);
+  const rooms = new Map(), bindings = new Map();
+  const logOption = calculatorOptions.log ? { log: calculatorOptions.log } : {};
+  const wallet = createCampaignWallet({ store: keyStore, now, ...logOption });
+  const clears = createCalculatorClears({ store: clearsStore, now, ...logOption });
+  const calculator = createCalculatorService({ wallet, clears, ...calculatorOptions, registry, send, now, wallNow,
+    available: (section, date) => eligibleParkLevels(section, date, calculatorOptions.available),
+    varyProblems: calculatorOptions.varyProblems ?? !calculatorOptions.available });
+  const campaign = createCampaignService({ registry, send, now, wallet, canEnter: who => calculator.canEnterCampaign(who) });
+
+  function identity(ws, cache) {
+    const entry = registry._wsEntry(ws);
+    if (!entry) throw new Error('Join the classroom first');
+    let members = cache?.get(entry.section);
+    if (!members) {
+      members = registry.stateFor(entry.section, 'student', entry.username)?.members ?? [];
+      cache?.set(entry.section, members);
+    }
+    if (!members.some(member => member.username === entry.username && member.online !== false)) throw new Error('Classroom member is offline');
+    return entry;
+  }
+
+  // Bindings also vanish when an identity check fails (here and in syncPresence), not only in
+  // unbind. Whichever path empties a room starts its abandon clock (used by level 6).
+  function markEmpty(room) {
+    if (room.emptySince == null && ![...bindings.values()].some(binding => binding.room === room)) room.emptySince = now();
+  }
+
+  function broadcast(room, event) {
+    const cache = new Map();
+    for (const [ws, binding] of bindings) {
+      if (binding.room !== room) continue;
+      let who;
+      try { who = identity(ws, cache); } catch { bindings.delete(ws); continue; }
+      if (who.section !== room.section || who.username !== binding.member) { bindings.delete(ws); continue; }
+      if (event.kind === 'motion' && binding.member === event.member) continue;
+      if (ws.bufferedAmount > 32768) continue;
+      send(ws, { type: 'park_event', ...event });
+    }
+    markEmpty(room);
+  }
+
+  function syncPresence(room) {
+    const online = [], cache = new Map();
+    for (const [ws, binding] of bindings) {
+      if (binding.room !== room) continue;
+      let who;
+      try { who = identity(ws, cache); } catch { bindings.delete(ws); continue; }
+      if (who.section !== room.section || who.username !== binding.member) { bindings.delete(ws); continue; }
+      online.push(binding.member);
+    }
+    for (const event of room.session.setOnline(online)) broadcast(room, event);
+    markEmpty(room);
+  }
+
+  function sweep() {
+    for (const [section, room] of rooms) {
+      if (now() - room.lastActivity < RETENTION_MS) continue;
+      syncPresence(room);
+      if (!room.session.online.length) rooms.delete(section);
+    }
+  }
+
+  function unbind(ws, voluntary = false) {
+    const binding = bindings.get(ws);
+    bindings.delete(ws);
+    if (binding) {
+      syncPresence(binding.room);
+      if (!binding.room.session.online.length) {
+        // Empty by choice → rotate at the next hour boundary right away. Empty by a dropped socket or
+        // a closed lid → keep the attempt for ABANDON_MS, then treat it as abandoned; otherwise every
+        // period after the first inherited the previous hour's finished puzzle.
+        // emptySince is tracked for both; only level 6 resets on it (rotateIfReady), after ABANDON_MS.
+        if (voluntary) binding.room.allowEmptyRotation = true;
+        if (binding.room.emptySince == null) binding.room.emptySince = now();
+      }
+    }
+  }
+
+  // This timer only expires leases / finishes finite block movements. It never simulates physics.
+  const maintenance = setInterval(() => {
+    for (const room of rooms.values()) {
+      for (const event of room.session.expireHolds()) broadcast(room, event);
+    }
+  }, 250);
+  maintenance.unref?.();
+
+  return {
+    accepts: message => types.has(message?.type) || calculator.accepts(message) || campaign.accepts(message),
+    handle(ws, message) {
+      if (calculator.accepts(message)) return calculator.handle(ws, message);
+      if (campaign.accepts(message)) return campaign.handle(ws, message);
+      if (!types.has(message?.type)) return null;
+      const reply = value => ({ type: 'park_result', requestId: message.requestId, ...value });
+      try {
+        if (retired.has(message.type)) return { type: 'park_error', requestId: message.requestId,
+          code: 'PARK_SELF_DIRECTED', message: 'Enter the park doorway on the calendar. Teacher groups are retired.' };
+        const who = identity(ws);
+        if (message.type === 'park_watch') {
+          const classroom = registry.stateFor(who.section);
+          const member = classrooms.stateFor(who.classroomSection, 'student', who.username)?.members
+            .find(member => member.username === who.username);
+          if (member?.role !== 'teacher') throw new Error('Teacher spectator access only.');
+          return { type: 'park_watch_state', section: who.classroomSection,
+            gameLabel: who.section === SHARED_PARK ? 'B + E shared park' : null,
+            students: classroom.members.filter(member => member.role === 'student' && member.online !== false)
+              .map(({ username, hue, pos }) => ({ username, hue, pos })),
+            campaign: campaign.watch(who.section, message), calculator: calculator.watch(who.section) };
+        }
+        if (message.type === 'park_leave') {
+          // WebSocket ordering makes a leave during the initial handshake safe.
+          // The client may not have received its epoch yet.
+          if (message.epoch == null || bindings.get(ws)?.room.session.epoch === message.epoch) unbind(ws, true);
+          return reply({ left: true });
+        }
+        if (message.type === 'park_lobby') {
+          const levels = [];
+          for (let levelIndex = 0; levelIndex < PARK_LEVEL_COUNT; levelIndex++) {
+            const room = rooms.get(JSON.stringify([who.section, levelIndex]));
+            if (room) syncPresence(room);
+            levels.push({ levelIndex, online: room ? [...room.session.online].sort() : [] });
+          }
+          return reply({ levels, campaign: { levelIndex: 7, online: campaign.occupants(who.section) } });
+        }
+        const joining = message.type === 'park_join' || message.type === 'park_resume';
+        const updateRequired = () => ({ type: 'park_error', requestId: message.requestId,
+          code: 'PARK_UPDATE_REQUIRED', message: 'Reload the calendar to enter the updated park.' });
+        // Protocol 4 clients keep levels 0-5; level 6 needs protocol 5 or later.
+        if (joining && !(Number.isInteger(message.protocol) && message.protocol >= PARK_PROTOCOL)) return updateRequired();
+        if (joining && Number.isInteger(message.levelIndex ?? 0) && (message.levelIndex ?? 0) >= 0 && (message.levelIndex ?? 0) < PARK_LEVEL_COUNT
+          && message.protocol < parkLevelMinProtocol(message.levelIndex ?? 0)) return updateRequired();
+        // Validate before allocating a room or member slot.
+        if (joining && (typeof message.clientId !== 'string' || !/^[a-zA-Z0-9_-]{8,64}$/.test(message.clientId))) throw new Error('Invalid park client');
+        sweep();
+        const levelIndex = message.levelIndex ?? 0;
+        if (joining && (!Number.isInteger(levelIndex) || levelIndex < 0 || levelIndex >= PARK_LEVEL_COUNT)) throw new Error('Unknown park level');
+        const roomKey = JSON.stringify([who.section, levelIndex]);
+        let room = joining ? rooms.get(roomKey) : bindings.get(ws)?.room;
+        if (room && room.section !== who.section) room = null;
+        if (!room && joining) {
+          // Seven levels per period; rooms are small (bounded history), so the cap is generous.
+          if (rooms.size >= 128) throw new Error('The park is busy. Try entering again shortly.');
+          room = { section: who.section, lastActivity: now(), session: new ParkSession({ epoch: randomUUID(), levelIndex, now, wallNow }) };
+          rooms.set(roomKey, room);
+        }
+        const changed = () => ({ type: 'park_error', requestId: message.requestId, code: 'PARK_STREAM_CHANGED', message: 'Rejoining your park connection' });
+        if (!room) return changed();
+        if (joining) {
+          const prior = bindings.get(ws);
+          if (prior && prior.room !== room) unbind(ws);
+          syncPresence(room);
+          const abandoned = room.emptySince != null && now() - room.emptySince >= ABANDON_MS;
+          for (const event of room.session.rotateIfReady({ empty: room.allowEmptyRotation || abandoned, abandoned })) broadcast(room, event);
+          const activeKeys = new Set([...bindings.values()].filter(binding => binding.room === room).map(binding => binding.key));
+          const requestedKey = JSON.stringify([who.username, message.clientId]);
+          const shared = [...bindings].some(([socket, binding]) => socket !== ws && binding.room === room && binding.key === requestedKey);
+          const clientId = shared ? randomUUID() : message.clientId;
+          const events = room.session.addMember(who.username);
+          const key = room.session.open(who.username, clientId, activeKeys);
+          if (message.type === 'park_join') events.push(...room.session.enter(who.username));
+          for (const event of events) broadcast(room, event);
+          bindings.set(ws, { room, member: who.username, key });
+          room.allowEmptyRotation = false;
+          room.emptySince = null;
+          room.lastActivity = now();
+          syncPresence(room);
+          return reply({ groupId: 'classroom-park', member: who.username, clientId,
+            ...room.session.resume(key, message.epoch === room.session.epoch ? message.since : null) });
+        }
+        const binding = bindings.get(ws);
+        if (!binding || binding.room !== room || binding.member !== who.username) return changed();
+        room.lastActivity = now();
+        if (message.type !== 'park_motion') {
+          syncPresence(room);
+          for (const event of room.session.rotateIfReady()) broadcast(room, event);
+        }
+        if (message.type === 'park_status') return reply({ epoch: room.session.epoch, revision: room.session.revision, clockMs: room.session.sceneClock() });
+        const streamId = room.session.stream(binding.key).id;
+        if (message.streamId !== streamId) return changed();
+        if (message.type === 'park_motion') {
+          const event = room.session.motion(binding.key, message);
+          if (event) broadcast(room, event);
+          return null;
+        }
+        const { events, ...receipt } = room.session.command(binding.key, message);
+        for (const event of events) broadcast(room, event);
+        return reply({ epoch: room.session.epoch, streamId, ...receipt });
+      } catch (error) {
+        return { type: 'park_error', requestId: message.requestId, message: error.message };
+      }
+    },
+    // A key bought with candy (roster-server POST /wallet/buy-key → relay POST /park/campaign/keys/grant).
+    // section/role are the buyer's roster section and role; the key lands in the same park room the
+    // player's classroom identity maps to (the teacher in PeriodX shares the B + E park). The new
+    // count reaches the room at once: campaign players get campaign_progress now, and the calculator
+    // lobby publishes campaignKeys on its next tick.
+    async grantKey({ username, section, role, receiptId }) {
+      const teacherHome = role === 'teacher' && ['PeriodX', 'X'].includes(section);
+      const room = teacherHome ? SHARED_PARK : parkSection(section);
+      const result = await wallet.grant(room, username, receiptId);
+      if (result.granted) campaign.refresh(room);
+      return { ...result, section: room };
+    },
+    detached(ws) { unbind(ws); calculator.detached(ws); campaign.detached(ws); },
+    close() { clearInterval(maintenance); bindings.clear(); rooms.clear(); calculator.close(); campaign.close(); },
+  };
+}

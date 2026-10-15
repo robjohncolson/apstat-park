@@ -1,0 +1,98 @@
+\documentclass[11pt]{article}
+\usepackage{preamble}
+\setlength{\parskip}{4pt}
+
+\begin{document}
+
+\daybanner{AP Statistics \textperiodcentered\ Unit 4 \textperiodcentered\ Topic 4.8 \textperiodcentered\ TEACHER KEY}{A Controller Comparison}
+
+\sectionbanner{CED TETHER}
+
+{\small
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item \textbf{Skill 4.B} --- Interpret statistical calculations and findings to assign meaning or assess a claim.
+  \item \textbf{Skill 4.D} --- Justify a claim based on a confidence interval.
+  \item \textbf{Skill 4.A} --- Make an appropriate claim or draw an appropriate conclusion.
+  \item \textbf{EU UNC-4} --- An interval of values should be used to estimate parameters, in order to account for uncertainty.
+  \item \textbf{LO UNC-4.Z} --- Interpret a confidence interval for a difference of population means. [Skill 4.B]
+  \item \textbf{EK UNC-4.Z.1} --- In repeated random sampling with the same sample size, approximately C\% of confidence intervals created will capture the difference of population means.
+  \item \textbf{EK UNC-4.Z.2} --- An interpretation for a confidence interval for the difference of two population means should include a reference to the samples taken and details about the populations they represent.
+  \item \textbf{LO UNC-4.AA} --- Justify a claim based on a confidence interval for a difference of population means. [Skill 4.D]
+  \item \textbf{EK UNC-4.AA.1} --- A confidence interval for a difference of population means provides an interval of values that may provide sufficient evidence to support a particular claim in context.
+  \item \textbf{LO UNC-4.AB} --- Identify the effects of sample size on the width of a confidence interval for the difference of two means. [Skill 4.A]
+  \item \textbf{EK UNC-4.AB.1} --- When all other things remain the same, the width of the confidence interval for the difference of two means tends to decrease as the sample sizes increase.
+\end{itemize}
+}
+\textbf{Essential question:} How can one interval support a population difference while leaving a practical threshold and causal explanation unresolved?\par
+\textbf{DOK-3 skill:} 4.D \textperiodcentered\ \textbf{FRQ pattern:} {\small\texttt{mean-\allowbreak{}difference-\allowbreak{}threshold-\allowbreak{}and-\allowbreak{}scope}}\par
+\textbf{DOK rationale:} Part (c) coordinates zero, a practical threshold, random sampling, and treatment assignment to adjudicate competing claims and trace a concrete budgeting consequence.\par
+
+\textbf{Self-paced bonus sheet.} Students take it when they choose and turn it in when they finish. Everything they need is printed on the sheet. Score part (c) only, E / P / I, by hand --- never AI-graded or auto-scored. (a) and (b) are the ladder up; use them to see where a thin (c) came from.\par
+
+\textbf{Questions to ask}
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item Which specific number or study detail supports your choice?
+  \item What claim would go beyond the evidence, and why?
+\end{itemize}
+
+\begin{callout}{\IconWarn\ LOOK FOR}{calloutred}
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item Choosing a speaker without a reason.
+  \item Copying numbers without explaining what they support.
+\end{itemize}
+\end{callout}
+
+\sectionbanner{SCORING PART (c) --- E / P / I}
+
+\textbf{Expected elements}
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item \textbf{zero} (required) --- Uses zero outside the interval to support a positive mean difference
+  \item \textbf{threshold} (required) --- Uses values below 2 to reject the minimum-saving claim
+  \item \textbf{causal-limit} (required) --- Explains that no random controller assignment leaves other differences as possible causes
+\end{itemize}
+
+{\small\renewcommand{\arraystretch}{1.25}
+\noindent\begin{tabular}{|p{0.5in}|p{5.9in}|}
+\hline
+\textbf{E} & Uses zero and the 2-kWh cutoff correctly and explains why the study does not establish replacement-caused savings. \\ \hline
+\textbf{P} & Shows substantive valid reasoning for at least one required element, but does not meet all E requirements. Credit correct reasoning even when another claim is wrong. \\ \hline
+\textbf{I} & Shows no substantive valid reasoning for any required element; a name, unsupported choice, or copied number alone does not count. \\ \hline
+\end{tabular}}
+
+\clearpage
+\focusbanner{THE PROBLEM --- annotated}
+
+Suppose a food cooperative has 1{,}200 refrigerated display cases with conventional controllers and 900 with adaptive controllers that adjust cooling automatically. It takes independent random samples of 40 cases from each group; controller type was not assigned. A 95\% interval for conventional minus adaptive mean daily use is $(1.219,4.781)$ kWh per case. Replacing controllers is worthwhile only if mean savings are at least 2.0 kWh.\par\smallskip \textbf{Rhea:} ``Zero is excluded and 2 is inside, so replacing controllers is shown to cause savings of at least 2 kWh.''\par \textbf{Sol:} ``I would compare the interval with both 0 and 2, then check how the groups were formed.''\par
+\begin{center}
+\textbf{Daily kWh samples}\par\smallskip
+\begin{tabular}{|l|c|c|c|c|}
+\hline
+\textbf{Controller} & \textbf{$N$} & \textbf{$n$} & \textbf{$\bar x$} & \textbf{$s$} \\ \hline
+\textbf{Conv.} & 1,200 & 40 & 18.6 & 4.0 \\ \hline
+\textbf{Adaptive} & 900 & 40 & 15.6 & 4.0 \\ \hline
+\end{tabular}
+\end{center}
+\begin{firsttakebox}{FIRST TAKE --- one sentence before you work the parts}
+Does this range seem to promise savings of at least 2 kWh? Explain in one sentence.\par
+\answer{Ungraded commitment; accept any evidence-based first impression.}
+\end{firsttakebox}
+
+\begin{callout}{\IconBook\ CHECK ZERO, THE CLAIM'S THRESHOLD, AND THE DESIGN (keep on the page)}{calloutgreen}
+A confidence interval for $\mu_1-\mu_2$ describes plausible values for a difference in
+population means in the stated subtraction order, not a range containing a percent of individual
+observations. If 0 is excluded, the interval supports a population mean difference; a practical
+claim such as $\mu_1-\mu_2\geq c$ requires the entire interval to lie at or beyond $c$.
+For a fixed interval, say ``we are confident,'' not ``there is a probability.'' Random sampling
+supports population scope, while random assignment is needed to isolate a causal treatment effect.
+\end{callout}
+
+\dokbadge{1}~\textbf{(a)} Locate 0 and 2 relative to the interval.\par
+\answer{Zero is below $(1.219,4.781)$; 2 is inside it.}
+
+\dokbadge{2}~\textbf{(b)} Interpret the supplied 95\% interval in one sentence about the two populations of display cases.\par
+\answer{We are 95\% confident that the mean daily energy use of the cooperative's current conventional cases exceeds that of its current adaptive cases by 1.219 to 4.781 kWh per case.}
+
+\dokbadge{3}~\textbf{(c)} In 3--4 sentences, decide whose account is justified. Use 0 and the 2-kWh cutoff, then explain why the way controllers were chosen limits a cause-and-effect claim.\par
+\answer{Sol is justified: the interval excludes 0, supporting a positive current population mean difference. It includes values below 2, so a saving of at least 2 kWh is not established. The samples represent the cooperative's current groups, but controller types were not randomly assigned, so other differences between the cases could explain the gap. Rhea's claim could lead the cooperative to budget for savings that replacing controllers has not been shown to cause.}
+
+\end{document}

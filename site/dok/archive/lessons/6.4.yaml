@@ -1,0 +1,40 @@
+# Topic 6.4 — Setting Up a Test for a Population Proportion (B: 2026-12-03)
+topic: "6.4"
+ced2026: { unit: 3, topic: "3.5", label: "Setting Up a Test for a Proportion" }
+title: "Which Test Answers the Question Asked?"
+essential_question: "How do the research direction and null model determine a valid one-proportion test setup?"
+worksheet: "u6_lesson4_live.html"
+
+rules_callout:
+  title: "SET UP THE QUESTION BEFORE USING THE SAMPLE (keep on the page)"
+  body: |
+    Define $p$ as the \textbf{population proportion}. For a benchmark $p_0$, use $H_0:p=p_0$.
+    Choose $H_a:p>p_0$, $p<p_0$, or $p\neq p_0$ from the research question stated \emph{before} seeing data;
+    $\hat p$ is sample evidence and never belongs in the hypotheses. For one categorical variable and one sample,
+    use a one-sample $z$-test for a population proportion. Verify random data, $n\leq0.10N$ when sampling without
+    replacement, and the null-expected counts $np_0\geq10$ and $n(1-p_0)\geq10$.
+
+focus: aps-6.4-d3-1
+reinforcement: []
+space: { first_take: 0.9in, a: 0.7in, b: 1.4in, c: 2.0in }
+
+teacher:
+  questions_to_ask:
+    - "What do $p$ and $84/180$ each describe?"
+    - "Would a lower current sample proportion count as evidence that ridership increased?"
+    - "Does large counts model the null or the observed sample?"
+  watch_for:
+    - "Choosing two-sided merely because samples vary both ways."
+    - "Putting the sample proportion in a hypothesis."
+    - "Using observed rather than null-expected counts."
+  first_take_note: "Not graded. Separate the question asked from the sample observed."
+
+visuals:
+  ridership_sample:
+    kind: two_way_table
+    col_label: "Current SRS counts"
+    row_label: "Group"
+    cols: ["Bus", "Other", "Total"]
+    rows: ["Students"]
+    cells:
+      - ["84", "96", "180"]

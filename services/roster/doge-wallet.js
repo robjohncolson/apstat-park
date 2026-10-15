@@ -1,0 +1,1261 @@
+// doge-wallet.js — DOGE Effort Wallet routes (DOGE_WALLET_SPEC, Phase 2).
+//
+// Student earns CANDY (effort, from the ledger) → eats it (consumed) or buys
+// DOGE at the server's LIVE price (candy→DOGE floats). Custodial-tracked balances
+// here; the real on-chain send to the kid's paper-wallet address is Phase 3 (the
+// teacher marks DOGE "sent" once deposited). Teacher paper-wallet custody is
+// isolated in wallet-custody.js; student wallet responses remain public-only.
+//
+// All routes 503 gracefully until migration 0019 runs (doge_account/doge_ledger).
+
+import { requirePayoutTeacher, requireTeacher } from './teacher-auth.js';
+import {
+  computeEffort, candyPerDoge, dogeFromCandy, candyFromDoge,
+  MIN_MATERIALIZE_DOGE, DAILY_GIFT_CAP, SELL_HOLD_HOURS, keyPrice,
+} from './doge-econ.js';
+import { PHASE3_CONFIG } from './grade-config.js';
+import { todayInTz } from './lesson-grade.js';
+import { fetchChainBalance as defaultChainFetch, detectNetwork, DOGE_MAIN_RE } from './doge-chain.js';
+import { mountWalletCustody } from './wallet-custody.js';
+
+function extractToken(req) {
+  const h = req.headers['authorization'] || req.headers['Authorization'];
+  if (typeof h === 'string' && /^Bearer\s+/i.test(h)) return h.replace(/^Bearer\s+/i, '').trim() || null;
+  if (typeof req.query.token === 'string' && req.query.token) return req.query.token;
+  return null;
+}
+
+// Migration 0019 not run yet → Postgres 42P01 / PostgREST PGRST205 schema-cache miss.
+function isDogeMissing(e) {
+  if (!e) return false;
+  const code = String(e.code || '');
+  const msg = String(e.message || '').toLowerCase();
+  // 42P01 undefined_table, 42883 undefined_function (doge_spend pre-0019),
+  // PGRST205 schema-cache miss (table), PGRST202 function-not-found.
+  if (['42P01', '42883', 'PGRST205', 'PGRST202'].includes(code)) return true;
+  return (msg.includes('doge_account') || msg.includes('doge_ledger') || msg.includes('doge_spend'))
+    && (msg.includes('schema cache') || msg.includes('does not exist') || msg.includes('could not find'));
+}
+function notProvisioned(res) {
+  return res.status(503).json({ ok: false, error: 'doge_wallet not provisioned (run migration 0019)' });
+}
+
+// Migration 0034 is independently deployable after the wallet. Match its RPC
+// and column names specifically so a missing return migration cannot make an
+// unrelated wallet failure look like a candy-return readiness problem.
+function isCandyReturnMissing(e) {
+  if (!e) return false;
+  const code = String(e.code || '');
+  const msg = String(e.message || '').toLowerCase();
+  const missingCode = ['42703', '42883', 'PGRST202', 'PGRST204'].includes(code);
+  const returnName = msg.includes('candy_returned') || msg.includes('doge_give_back');
+  return missingCode && returnName;
+}
+function candyReturnNotProvisioned(res) {
+  return res.status(503).json({
+    ok: false,
+    error: 'candy return not provisioned (run migration 0034)',
+  });
+}
+
+// Migration 0033 is independently deployable after the existing wallet. Keep
+// its readiness failure specific so normal candy/DOGE routes continue working.
+function isWalletProposalMissing(e) {
+  if (!e) return false;
+  const code = String(e.code || '');
+  const msg = String(e.message || '').toLowerCase();
+  const missingCode = ['42703', '42883', 'PGRST202', 'PGRST204'].includes(code);
+  const proposalName = msg.includes('proposed_address')
+    || msg.includes('proposed_at')
+    || msg.includes('proposal_rejection_reason')
+    || msg.includes('doge_propose_address')
+    || msg.includes('doge_approve_address_proposal');
+  return missingCode && proposalName;
+}
+function walletProposalsNotProvisioned(res) {
+  return res.status(503).json({
+    ok: false,
+    error: 'wallet address proposals not provisioned (run migration 0033)',
+  });
+}
+function walletProposalPayoutNotProvisioned(res) {
+  return res.status(503).json({
+    ok: false,
+    error: 'wallet address approval requires the payout rail (run migration 0032 before 0033)',
+  });
+}
+
+// ── Pico Park keys bought with candy (PICO_DESK_SPEC "Candy economy", items 7-11) ──
+// Migration 0039 not run yet → its table / RPCs are missing. Checked BEFORE isDogeMissing,
+// whose generic codes would otherwise report it as "run migration 0019".
+function isKeyPurchaseMissing(e) {
+  if (!e) return false;
+  const code = String(e.code || '');
+  const msg = String(e.message || '').toLowerCase();
+  const missingCode = ['42P01', '42883', 'PGRST202', 'PGRST205'].includes(code);
+  return missingCode && msg.includes('park_key');
+}
+function keyPurchaseNotProvisioned(res) {
+  return res.status(503).json({ ok: false, error: 'key buying not provisioned (run migration 0039)' });
+}
+// Kill-switch (default ON), same falsey spellings as GIFTING_ENABLED.
+const keyPurchaseOff = () => ['false', '0', 'no', 'off'].includes(
+  String(process.env.KEY_PURCHASE_ENABLED || 'true').trim().toLowerCase());
+const parkRelayUrl = () => String(process.env.PARK_RELAY_URL || 'https://curriculumrender-production.up.railway.app')
+  .trim().replace(/\/+$/, '');
+const parkGrantSecret = () => String(process.env.PARK_KEY_GRANT_SECRET || '').trim();
+const GRANT_TIMEOUT_MS = 8000;
+
+// Server-to-server grant on the relay (idempotent on receiptId there). Three outcomes:
+//   granted  the relay answered 2xx { ok: true }                          → stamp granted
+//   refused  the relay answered 4xx { rejected: true } (it granted nothing) → refund
+//   pending  anything else: network error, timeout, truncated body, 5xx. The relay MAY have
+//            committed the key, so the candy stays debited and the receipt is retried later.
+// Never refund on "pending": a refund after a lost-but-committed grant gives a free key.
+async function relayGrantKey(payload) {
+  const secret = parkGrantSecret();
+  // Nothing was sent, so nothing can have been granted.
+  if (!secret) return { outcome: 'refused', error: 'PARK_KEY_GRANT_SECRET is not set' };
+  let response;
+  let body;
+  try {
+    response = await fetch(parkRelayUrl() + '/park/campaign/keys/grant', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-park-grant-secret': secret },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(GRANT_TIMEOUT_MS),
+    });
+    body = await response.json();
+  } catch (error) {
+    return { outcome: 'pending', error: (error && error.message) || String(error) };
+  }
+  return classifyGrantReply(response.status, body);
+}
+
+export function classifyGrantReply(status, body) {
+  if (status >= 200 && status < 300 && body && body.ok === true) return { outcome: 'granted', keys: num(body.keys) };
+  const error = 'relay ' + status + ': ' + ((body && body.error) || 'no body');
+  if (status >= 400 && status < 500 && body && body.rejected === true) return { outcome: 'refused', error };
+  return { outcome: 'pending', error };
+}
+
+const STUDENT_WALLET_TRUE = new Set(['true', '1', 'yes', 'on']);
+const studentWalletOptInEnabled = () => STUDENT_WALLET_TRUE.has(
+  String(process.env.STUDENT_WALLET_OPTIN || '').trim().toLowerCase(),
+);
+const maskDogeAddress = (address) => {
+  const value = String(address || '');
+  return value ? `${value.slice(0, 4)}…${value.slice(-4)}` : null;
+};
+const activePayoutBlocksAddress = (error) => String(error && error.message || '')
+  .toLowerCase().includes('wallet address change blocked by active payout batch');
+const proposalChanged = (error) => {
+  const message = String(error && error.message || '').toLowerCase();
+  return message.includes('wallet address proposal changed')
+    || message.includes('wallet address proposal not found');
+};
+const proposalStudentIneligible = (error) => String(error && error.message || '')
+  .toLowerCase().includes('student is not eligible to propose an address');
+const proposalAlreadyApproved = (error) => String(error && error.message || '')
+  .toLowerCase().includes('wallet address is already approved');
+const proposalApprovalIneligible = (error) => String(error && error.message || '')
+  .toLowerCase().includes('student is not eligible to approve an address proposal');
+const walletProposalPayoutMissing = (error) => {
+  const message = String(error && error.message || '').toLowerCase();
+  return String(error && error.code || '') === '42P01' && message.includes('payout_batch');
+};
+
+const num = (v) => { const n = Number(v); return isFinite(n) ? n : 0; };
+
+// ── Study Break stakes (STUDY_BREAK_STAKES_SPEC) ─────────────────────────────
+const BET_STAKE = 1;            // 1 candy per player (D1; fixed)
+const BET_TIMEOUT_MIN = 30;     // an un-resolved bet older than this is swept → refund. Comfortably
+                                // exceeds a real best-of-3 (D3) so the sweep can't refund a live match.
+// Candy the teacher is treated as holding for Tetris bets (they earn no effort candy). 2026-09-29.
+const TEACHER_STAKE_ALLOWANCE = Number(process.env.TEACHER_STAKE_ALLOWANCE || 100);
+const stakesOff = () => ['false', '0', 'no', 'off'].includes(String(process.env.STAKES_ENABLED || 'true').trim().toLowerCase());
+// Gold premium (TETRIS_SQUARES_SPEC §3, migration 0041): each player also holds 1 premium candy;
+// it moves to the winner only when BOTH reports say the winner made >= 1 gold square clear,
+// otherwise it is refunded. Kill-switch STAKES_GOLD_PREMIUM (default on; off = escrow 1, no premium).
+const BET_PREMIUM = 1;
+const premiumOff = () => ['false', '0', 'no', 'off'].includes(String(process.env.STAKES_GOLD_PREMIUM || 'true').trim().toLowerCase());
+// Before 0041 runs, the RPCs only know their old parameter lists: call those (no premium).
+const isMissingRpcSignature = (error) => {
+  const code = String((error && error.code) || '');
+  const message = String((error && error.message) || '').toLowerCase();
+  return code === 'PGRST202' || code === '42883' || (message.includes('function') && message.includes('does not exist'));
+};
+// The reporter's count of the WINNER's gold lines from { username: n } (null when absent / bad).
+function winnerGoldOf(goldClears, winnerUsername) {
+  if (!goldClears || typeof goldClears !== 'object' || Array.isArray(goldClears)) return null;
+  const want = String(winnerUsername).toLowerCase();
+  for (const [name, value] of Object.entries(goldClears)) {
+    if (String(name).toLowerCase() !== want) continue;
+    const n = Number(value);
+    return Number.isInteger(n) && n >= 0 && n <= 1000 ? n : null;
+  }
+  return null;
+}
+// Per-student win/loss/net from the settled-bet rows (Casino Stats; EV/variance computed client-side).
+function tallyCasino(bets, sid) {
+  let wins = 0, losses = 0, net = 0;
+  for (const b of bets) {
+    if (b.player_a !== sid && b.player_b !== sid) continue;
+    const stake = num(b.stake) + (b.premium_paid ? num(b.premium) : 0);   // a paid gold premium moved too
+    if (b.winner === sid) { wins++; net += stake; } else { losses++; net -= stake; }
+  }
+  return { wins, losses, games: wins + losses, netCandy: net };
+}
+
+// Teacher routes take a studentId from the body. A malformed (non-uuid) id would
+// otherwise reach Postgres and raise 22P02 (not caught by isDogeMissing) → a bare
+// 500. Guard the shape so bad input is a clean 404 instead of a leaked DB error.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const badId = (id) => typeof id !== 'string' || !UUID_RE.test(id.trim());
+
+// Map a watch-only chain record (doge-chain.js) → the cache columns (migration 0020).
+function chainColumns(rec) {
+  return {
+    chain_doge: num(rec.confirmedDoge),
+    chain_unconfirmed: num(rec.unconfirmedDoge),
+    chain_tx_count: num(rec.txCount),
+    chain_synced_at: rec.syncedAt || new Date().toISOString(),
+  };
+}
+// Reverse of chainColumns: a stored cache row (migration 0020) → a watch-only
+// record, served STALE when the LIVE explorer read fails so a cold start / outage
+// still shows the last good balance. Null when nothing is cached (pre-0020 or
+// never synced) — the caller then returns the live error record.
+function chainFromRow(addr, a) {
+  if (!a || a.chain_synced_at == null) return null;
+  return {
+    address: addr, network: detectNetwork(addr),
+    confirmedDoge: num(a.chain_doge), unconfirmedDoge: num(a.chain_unconfirmed),
+    txCount: num(a.chain_tx_count), source: 'cache', syncedAt: a.chain_synced_at,
+    stale: true, cached: true,
+  };
+}
+
+// ── live DOGE/USD price (server-side, cached ~5 min) ─────────────────────────
+let _price = { usd: null, ts: 0 };
+async function getDogePrice() {
+  if (_price.usd && (Date.now() - _price.ts) < 300000) return _price.usd;
+  try {
+    const r = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=dogecoin&vs_currencies=usd');
+    if (r && r.ok) {
+      const d = await r.json();
+      const usd = d && d.dogecoin && d.dogecoin.usd;
+      if (typeof usd === 'number' && usd > 0) { _price = { usd, ts: Date.now() }; return usd; }
+    }
+  } catch (_) { /* fall through to stale */ }
+  return _price.usd; // may be null if never fetched
+}
+
+export function mountDogeWallet(app, { db, ledgerDb, verifyToken, getPrice, fetchChainBalance, grantKey, now }) {
+  mountWalletCustody(app, { db });
+  const priceFn = getPrice || getDogePrice;            // injectable for tests
+  const chainFetch = fetchChainBalance || defaultChainFetch;   // watch-only; injectable for tests
+  const grantKeyFn = grantKey || relayGrantKey;        // relay key grant; injectable for tests
+  const clock = now || (() => Date.now());             // injectable for the day-boundary tests
+  const schoolDay = () => todayInTz(PHASE3_CONFIG.schoolTz, clock());
+  // Buying needs the relay secret (or an injected grant) — otherwise every buy would refund.
+  const keyGrantConfigured = () => Boolean(grantKey) || Boolean(parkGrantSecret());
+  const sidOf = (req) => { const t = extractToken(req); try { return t ? verifyToken(t) : null; } catch (_) { return null; } };
+
+  // Resolve roster student_ids for an optional ?section= filter. Always resolves
+  // through the roster — including the unscoped (no-section) case — because
+  // listRoster excludes archived students by default, and that exclusion must
+  // hold on every class-wide wallet view (the payout worklist reads these).
+  // Returns [] when the roster/section is empty, or { error } on a DB problem.
+  async function sectionIds(section) {
+    const rr = await db.listRoster(section || null);
+    if (rr && rr.error) return { error: rr.error };
+    return ((rr && rr.data) || []).map((r) => r.student_id);
+  }
+  // Small concurrency-capped runner so a class chain refresh (~30 addresses)
+  // stays well under the explorer free-tier rate ceiling.
+  async function mapLimit(items, limit, fn) {
+    let i = 0;
+    async function worker() { while (i < items.length) { const idx = i++; await fn(items[idx], idx); } }
+    await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  }
+
+  // Earned candy (from the ledger) + the stored account.
+  async function loadState(sid) {
+    let rows = [];
+    try { const r = await ledgerDb.getLedgerByStudent(sid); rows = (r && r.data) || []; } catch (_) {}
+    const earned = computeEffort(rows);                 // { points, candy }
+    const accRes = await db.getDogeAccount(sid);        // { data, error }
+    return { earned, accRes };
+  }
+  function deriveBalances(earned, acc) {
+    const a = acc || {};
+    const giftedOut = num(a.candy_gifted_out);   // Gifted: candy sent to classmates (0 pre-migration-0021)
+    const giftedIn = num(a.candy_gifted_in);     // Received: candy received from classmates
+    const converted = num(a.doge_cost_basis);    // Converted: candy turned into DOGE
+    const materialized = num(a.candy_given);     // Materialized: real candy the teacher handed over
+    const realized = num(a.candy_realized);      // Realized: net P&L from cashing DOGE back to candy (signed; 0 pre-0023)
+    const escrowed = num(a.candy_escrowed);      // Escrowed: candy locked in a LIVE Tetris bet (0 pre-0024)
+    const bonus = num(a.candy_bonus);            // Bonus: review-reward candy MINTED by the teacher (0 pre-0025)
+    const returned = num(a.candy_returned);      // Returned: physical candy handed back to the teacher (0 pre-0034)
+    // CANDY_LEDGER_SPEC + CANDY_RETURN_SPEC — the 10-number model. The "eat"
+    // opt-in is RETIRED: the spendable pool a student can still gift/convert/bet
+    // IS the un-realized (Owed) candy, so spendable subtracts MATERIALIZED (candy_given) + ESCROWED (candy
+    // locked in a live bet), and adds Realized, Bonus, and Returned. Hence
+    // candyBalance === candyOwed. Identity: Earned + Received + Realized + Bonus + Returned
+    // = Gifted + Converted + Materialized + Escrowed + Owed.
+    const rawBalance = earned.candy + giftedIn - giftedOut - converted - materialized
+      + realized - escrowed + bonus + returned;
+    const candyBalance = Math.max(0, rawBalance);
+    return {
+      candyEarned: earned.candy,                 // Earned (monotonic)
+      effortPoints: earned.points,
+      candyBalance,
+      // Unclamped balance/owed. Normally === candyBalance, but goes NEGATIVE if a
+      // receipt-carrying ledger row is deleted AFTER spend/materialize (earned candy
+      // drops below gifted+converted+materialized). Surfaced so the wallet/dashboard
+      // can flag the reconciliation gap instead of silently showing 0.
+      candyBalanceRaw: rawBalance,
+      candyEaten: num(a.candy_eaten),            // vestigial (eat retired); kept for audit/back-compat
+      candyGiven: materialized,
+      candyMaterialized: materialized,           // headline alias for candy_given
+      candyGiftedOut: giftedOut,
+      candyGiftedIn: giftedIn,
+      candyReceived: giftedIn,                   // headline alias
+      candyConverted: converted,                 // headline alias for doge_cost_basis (candy units)
+      candyRealized: realized,                    // net realized P&L from DOGE cash-outs (signed)
+      candyEscrowed: escrowed,                    // candy locked in a live Tetris bet (STUDY_BREAK_STAKES_SPEC)
+      candyBonus: bonus,                          // review-reward candy minted by the teacher (NIGHTLY_REVIEW_SPEC)
+      candyReturned: returned,                    // physical candy cumulatively handed back (CANDY_RETURN_SPEC)
+      candyOwed: candyBalance,                    // inflows incl. Returned − Gifted − Converted − Materialized − Escrowed
+      dogeBalance: num(a.doge_balance),
+      dogeSent: num(a.doge_sent),
+      dogeToDeposit: Math.max(0, num(a.doge_balance) - num(a.doge_sent)), // teacher deposits
+      dogeCostBasis: converted,
+      dogeAddress: a.doge_address || null,
+      studentWalletOptInEnabled: studentWalletOptInEnabled(),
+      proposedAddressMasked: maskDogeAddress(a.proposed_address),
+      proposedAt: a.proposed_at || null,
+      proposalRejectionReason: a.proposal_rejection_reason || null,
+    };
+  }
+  // ── GET /wallet ── the student's own wallet ────────────────────────────────
+  app.get('/wallet', async (req, res) => {
+    const sid = sidOf(req);
+    if (!sid) return res.status(401).json({ ok: false, error: 'forbidden' });
+    const { earned, accRes } = await loadState(sid);
+    if (accRes.error) {
+      if (isDogeMissing(accRes.error)) return notProvisioned(res);
+      console.error('GET /wallet DB error:', accRes.error);
+      return res.status(500).json({ ok: false, error: 'Database error' });
+    }
+    const bal = deriveBalances(earned, accRes.data);
+    let studentWalletOnboardingEligible = false;
+    const hasOnboardingState = bal.studentWalletOptInEnabled
+      || bal.proposedAddressMasked
+      || bal.proposalRejectionReason;
+    if (hasOnboardingState) {
+      try {
+        const rosterResult = await db.findByStudentId(sid);
+        const student = rosterResult && !rosterResult.error && rosterResult.data;
+        studentWalletOnboardingEligible = Boolean(
+          student && student.status === 'active' && student.role === 'student',
+        );
+      } catch (_) {
+        // Fail closed for key generation without breaking the ordinary wallet.
+      }
+    }
+    const price = await priceFn();
+    let history = [];
+    try { const h = await db.listDogeLedger(sid, 50); history = (h && h.data) || []; } catch (_) {}
+    // In-app DOGE the kid can cash back to candy now (matured ≥ overnight; SELL_DOGE_SPEC).
+    const sellableDoge = bal.dogeBalance > 1e-9 ? await maturedSellable(sid, accRes.data) : 0;
+    // Settle any key purchase still pending for this student (idempotent relay retry).
+    if (!keyPurchaseOff() && keyGrantConfigured()) await reconcileKeyPurchases(sid);
+    const keyShop = await keyStatus(sid);
+    return res.json({
+      ok: true, ...bal, ...keyShop, studentWalletOnboardingEligible,
+      dogeUsd: price, candyPerDoge: price ? candyPerDoge(price) : null,
+      minBuyCandy: 0,            // no buy minimum (s16): any positive candy converts to a fraction of a DOGE
+      minMaterializeDoge: MIN_MATERIALIZE_DOGE, sellableDoge, history,
+    });
+  });
+
+  // ── GET /wallet/chain ── the student's OWN on-chain (watch-only) balance ─────
+  // Reads the kid's registered address off the chain (no key, no spend) so they
+  // can watch the teacher's real DOGE land. Works with migration 0019 + a
+  // registered address; the cache write-back needs 0020 but is best-effort.
+  app.get('/wallet/chain', async (req, res) => {
+    const sid = sidOf(req);
+    if (!sid) return res.status(401).json({ ok: false, error: 'forbidden' });
+    const accRes = await db.getDogeAccount(sid);
+    if (accRes.error) {
+      if (isDogeMissing(accRes.error)) return notProvisioned(res);
+      return res.status(500).json({ ok: false, error: 'Database error' });
+    }
+    const addr = accRes.data && accRes.data.doge_address;
+    if (!addr) return res.json({ ok: true, address: null });
+    const rec = await chainFetch(addr);
+    if (rec && !rec.error && db.updateDogeChain) { try { await db.updateDogeChain(sid, chainColumns(rec)); } catch (_) {} }
+    // Explorer down → serve the last cached read (migration 0020), else the error.
+    if (rec && rec.error) { const fb = chainFromRow(addr, accRes.data); if (fb) return res.json({ ok: true, ...fb }); }
+    return res.json({ ok: true, ...rec });
+  });
+
+  // earned candy from the ledger (no doge_account dependency).
+  async function earnedCandyOf(sid) {
+    let rows = [];
+    try { const r = await ledgerDb.getLedgerByStudent(sid); rows = (r && r.data) || []; } catch (_) {}
+    return computeEffort(rows);
+  }
+
+  // In-app DOGE a student may cash back RIGHT NOW (SELL_DOGE_SPEC). FIFO maturity:
+  // matured-bought (buy legs ≥ SELL_HOLD_HOURS old) − sold-back − sent, capped at the
+  // un-sent in-app balance (doge_balance − doge_sent; on-chain coins can't be reclaimed).
+  // This is the friendly preview/UI figure — doge_sell re-enforces the same gate atomically.
+  async function maturedSellable(sid, acc) {
+    const a = acc || {};
+    const inApp = Math.max(0, num(a.doge_balance) - num(a.doge_sent));
+    if (inApp <= 1e-9) return 0;
+    const cutoff = Date.now() - SELL_HOLD_HOURS * 3600 * 1000;
+    let rows = [];
+    try { const r = await db.dogeCoinFlows(sid); rows = (r && r.data) || []; } catch (e) { console.error('maturedSellable dogeCoinFlows:', e); return 0; }
+    let maturedBought = 0, sold = 0;
+    for (const r of rows) {
+      if (r.kind === 'buy_doge') { if (new Date(r.ts).getTime() <= cutoff) maturedBought += num(r.doge_delta); }
+      else if (r.kind === 'sell_doge') { sold += Math.abs(num(r.doge_delta)); }
+    }
+    return Math.max(0, Math.min(inApp, maturedBought - sold - num(a.doge_sent)));
+  }
+
+  // ── POST /wallet/eat ── RETIRED (CANDY_LEDGER_SPEC) ─────────────────────────
+  // The "eat" opt-in is gone: candy you don't gift or convert is simply Owed, and the
+  // teacher materializes it (mark-given). Kept as a no-op so a stale client call returns
+  // the wallet instead of erroring; it no longer writes candy_eaten.
+  app.post('/wallet/eat', async (req, res) => {
+    const sid = sidOf(req);
+    if (!sid) return res.status(401).json({ ok: false, error: 'forbidden' });
+    const { earned, accRes } = await loadState(sid);
+    if (accRes.error) { if (isDogeMissing(accRes.error)) return notProvisioned(res); return res.status(500).json({ ok: false, error: 'Database error' }); }
+    return res.json({ ok: true, deprecated: true, ...deriveBalances(earned, accRes.data) });
+  });
+
+  // ── POST /wallet/buy-doge ── convert candy → DOGE at the live price ─────────
+  // NOTE (custodial price-window, DOGE_WALLET_SPEC §3): coins are priced HERE at
+  // buy-time, but the teacher funds/sends them LATER (mark-sent / doge-send.mjs).
+  // The $300 budget caps candy-dollars forgone, NOT the coin-dollar cost at
+  // deposit — if DOGE rises between buy and send, sourcing the banked coins costs
+  // more. Mitigation: deposit promptly, or hold a DOGE float bought near buy-time.
+  app.post('/wallet/buy-doge', async (req, res) => {
+    const sid = sidOf(req);
+    if (!sid) return res.status(401).json({ ok: false, error: 'forbidden' });
+    const candy = num(req.body && req.body.candy);
+    // NO buy minimum (user 2026-06-17): even 1 candy buys a fraction of a DOGE. The only floor is
+    // candy > 0; the atomic SQL guard caps it at the student's spendable candy. (On-chain dust is
+    // still prevented separately by the 5-DOGE materialize threshold — in-app buys never touch the chain.)
+    if (!(candy > 0)) return res.status(400).json({ ok: false, error: 'enter how much candy to convert' });
+    const price = await priceFn();
+    if (!price) return res.status(503).json({ ok: false, error: 'DOGE price unavailable' });
+    const cpd = candyPerDoge(price);
+    const coins = dogeFromCandy(candy, price);
+    const earned = await earnedCandyOf(sid);
+    // ATOMIC guard+debit: banks coins + cost_basis in one UPDATE, stamping the price.
+    const r = await db.dogeSpend({ p_sid: sid, p_earned: earned.candy, p_candy: candy, p_kind: 'buy_doge', p_doge: coins, p_price: price, p_cpd: cpd });
+    if (r.error) { if (isDogeMissing(r.error)) return notProvisioned(res); console.error('POST /wallet/buy-doge:', r.error); return res.status(500).json({ ok: false, error: 'Database error' }); }
+    if (!r.data || !r.data.student_id) return res.status(400).json({ ok: false, error: 'not enough candy' });
+    return res.json({ ok: true, ...deriveBalances(earned, r.data), boughtCoins: coins, candyPerDoge: cpd, dogeUsd: price });
+  });
+
+  // ── POST /wallet/sell-doge ── cash IN-APP DOGE back to candy at the live rate ──
+  // The REVERSE of buy-doge (reverses DOGE_WALLET_SPEC #4 ON PURPOSE; SELL_DOGE_SPEC). A
+  // student realizes an appreciation gain: held DOGE is worth more candy than it cost. HONEST
+  // P&L — payout = coins × liveRate regardless of cost basis, so a fallen coin returns less.
+  // Guards: only un-sent, in-app coins held ≥ SELL_HOLD_HOURS are sellable (on-chain coins are
+  // self-custodied and can't be reclaimed; the overnight hold kills 5-min-window churn). UNCAPPED
+  // — backed by the teacher's real node DOGE appreciating in parallel. doge_sell re-enforces both
+  // guards atomically under a row lock; the JS checks here are the friendly-error / preview path.
+  app.post('/wallet/sell-doge', async (req, res) => {
+    // Kill-switch (default ON), same falsey-spelling handling as gifting.
+    const sellOff = ['false', '0', 'no', 'off'].includes(String(process.env.BUYBACK_ENABLED || 'true').trim().toLowerCase());
+    if (sellOff) return res.status(403).json({ ok: false, error: 'cash-out is turned off' });
+    const sid = sidOf(req);
+    if (!sid) return res.status(401).json({ ok: false, error: 'forbidden' });
+    const doge = num(req.body && req.body.doge);
+    if (!(doge > 0)) return res.status(400).json({ ok: false, error: 'enter how much DOGE to cash out' });
+    const price = await priceFn();
+    if (!price) return res.status(503).json({ ok: false, error: 'DOGE price unavailable' });
+    const rate = candyPerDoge(price);
+    const accRes = await db.getDogeAccount(sid);
+    if (accRes.error) { if (isDogeMissing(accRes.error)) return notProvisioned(res); console.error('POST /wallet/sell-doge load:', accRes.error); return res.status(500).json({ ok: false, error: 'Database error' }); }
+    // Maturity gate (friendly message). The SQL doge_sell re-checks this on the live row.
+    const sellable = await maturedSellable(sid, accRes.data || {});
+    if (doge > sellable + 1e-9) {
+      return res.status(400).json({ ok: false, error: sellable > 1e-9
+        ? 'you can cash out ' + (Math.round(sellable * 10) / 10) + ' Ɖ right now (the rest unlocks ~a day after you buy)'
+        : 'no DOGE ready to cash out yet — it unlocks ~a day after you buy' });
+    }
+    const earned = await earnedCandyOf(sid);
+    // ATOMIC guard+unwind: un-sent + matured check, decrement balance/cost-basis, book P&L.
+    const r = await db.dogeSell({ p_sid: sid, p_doge: doge, p_rate: rate, p_price: price, p_hold_hours: SELL_HOLD_HOURS });
+    if (r.error) { if (isDogeMissing(r.error)) return notProvisioned(res); console.error('POST /wallet/sell-doge:', r.error); return res.status(500).json({ ok: false, error: 'Database error' }); }
+    if (!r.data || !r.data.student_id) return res.status(400).json({ ok: false, error: 'not enough DOGE' });
+    const balances = deriveBalances(earned, r.data);
+    const candySaleProceeds = candyFromDoge(doge, price);
+    return res.json({
+      ok: true,
+      ...balances,
+      soldCoins: doge,
+      candySaleProceeds,
+      // Back-compat: SELL_DOGE_SPEC used candyReturned for this transaction's
+      // proceeds before 0034 gave that name to the cumulative wallet counter.
+      // Fresh wallet reads use candyReturned; this response also exposes the
+      // cumulative value without ambiguity as candyReturnedTotal.
+      candyReturned: candySaleProceeds,
+      candyReturnedTotal: balances.candyReturned,
+      candyPerDoge: rate,
+      dogeUsd: price,
+    });
+  });
+
+  // ── POST /wallet/gift ── send candy to another player (free in-app ledger move) ──
+  // Custodial within the app, so a transfer is just a guarded debit+credit — no
+  // on-chain tx, no fee. Guardrails: whole candy, active recipient, not self, rolling
+  // 24h cap, teacher kill-switch. The earned/effort metric is untouched (a gift
+  // moves SPENDABLE candy, not earned credit). DOGE_GIFTING_SPEC.
+  // Teacher 2026-10-08 (PICO_DESK_SPEC "Candy economy", item 6): gifts cross period
+  // (any active roster member, PeriodB / PeriodE / X) and the teacher may RECEIVE
+  // gifts (the teacher still earns no effort candy).
+  app.post('/wallet/gift', async (req, res) => {
+    // Kill-switch (default ON). Accept the common falsey spellings so an emergency
+    // class-wide disable can't silently fail on GIFTING_ENABLED=0/FALSE/no/off.
+    const giftingOff = ['false', '0', 'no', 'off'].includes(String(process.env.GIFTING_ENABLED || 'true').trim().toLowerCase());
+    if (giftingOff) return res.status(403).json({ ok: false, error: 'gifting is turned off' });
+    const sid = sidOf(req);
+    if (!sid) return res.status(401).json({ ok: false, error: 'forbidden' });
+    // Recipient is picked by their PUBLIC username (the roster endpoint never
+    // exposes student_ids); resolve it to a student_id + section server-side.
+    const toUsername = String((req.body && req.body.toUsername) || '').trim();
+    const candy = num(req.body && req.body.candy);
+    if (!toUsername) return res.status(400).json({ ok: false, error: 'toUsername required' });
+    if (!Number.isInteger(candy) || candy <= 0) return res.status(400).json({ ok: false, error: 'candy must be a whole number > 0' });
+    const themRes = await db.findByUsername(toUsername);
+    // Split a real DB outage (→ 500 + log) from a genuine no-such-user (→ 404),
+    // instead of reporting an outage as "unknown classmate". (.single() → PGRST116 on no row.)
+    if (themRes && themRes.error && themRes.error.code !== 'PGRST116') {
+      console.error('POST /wallet/gift findByUsername:', themRes.error);
+      return res.status(500).json({ ok: false, error: 'Database error' });
+    }
+    if (!themRes || !themRes.data) return res.status(404).json({ ok: false, error: 'unknown classmate' });
+    const toStudentId = themRes.data.student_id;
+    if (toStudentId === sid) return res.status(400).json({ ok: false, error: "can't gift yourself" });
+    // Any ACTIVE roster member is a valid recipient (either period, or the teacher);
+    // never an archived row.
+    if (themRes.data.status && themRes.data.status !== 'active') {
+      return res.status(400).json({ ok: false, error: 'can only gift an active player' });
+    }
+    // Rolling 24h cap on candy gifted OUT (anti-farming/coercion). The JS check
+    // gives a friendly 429 in the common case; the SAME cap is re-enforced inside
+    // doge_gift() under a row lock (p_cap), so a concurrent burst can't exceed it.
+    const since = new Date(Date.now() - 86400000).toISOString();
+    const g = await db.dogeGiftedSince(sid, since);
+    if (g && g.error) { if (isDogeMissing(g.error)) return notProvisioned(res); return res.status(500).json({ ok: false, error: 'Database error' }); }
+    const giftedToday = ((g && g.data) || []).reduce((s, r) => s + Math.abs(num(r.candy_delta)), 0);
+    if (giftedToday + candy > DAILY_GIFT_CAP) return res.status(429).json({ ok: false, error: 'daily gift limit (' + DAILY_GIFT_CAP + ' candy/day)' });
+    // Atomic guarded debit+credit (doge_gift RPC) — guards spendable AND the cap.
+    const earned = await earnedCandyOf(sid);
+    const r = await db.dogeGift({ p_from: sid, p_to: toStudentId, p_candy: candy, p_earned_from: earned.candy, p_cap: DAILY_GIFT_CAP });
+    if (r.error) { if (isDogeMissing(r.error)) return notProvisioned(res); console.error('POST /wallet/gift:', r.error); return res.status(500).json({ ok: false, error: 'Database error' }); }
+    if (!r.data || !r.data.student_id) return res.status(400).json({ ok: false, error: 'not enough candy' });
+    return res.json({ ok: true, ...deriveBalances(earned, r.data), giftedTo: themRes.data.real_name || toUsername });
+  });
+
+  // ── Pico Park keys bought with candy (PICO_DESK_SPEC "Candy economy", items 7-11) ──
+  // The key-shop numbers GET /wallet and POST /wallet/buy-key report:
+  //   keyPrice        the price of the NEXT key today (5, 8, 13, 21, ...; resets each school day)
+  //   keysBoughtToday live (not refunded) purchases on today's America/New_York calendar day
+  //   candyKeySpent   all candy spent on keys (already inside candyGiftedOut; see migration 0039)
+  //   keyPurchaseEnabled / keyPurchaseOffReason  whether the BUY button works, and why not
+  // Before migration 0039 the purchase list is missing: buying is reported off.
+  function keyOffReason() {
+    if (keyPurchaseOff()) return 'key buying is turned off';
+    if (!keyGrantConfigured()) return 'key buying is not set up yet';
+    return null;
+  }
+  async function keyStatus(sid) {
+    let rows = null;
+    if (typeof db.listKeyPurchases === 'function') {
+      try {
+        const r = await db.listKeyPurchases(sid);
+        if (r && !r.error) rows = r.data || [];
+      } catch (_) { /* treated as not provisioned */ }
+    }
+    if (!rows) {
+      return { keyPrice: null, keysBoughtToday: 0, keysPending: 0, candyKeySpent: 0,
+        keyPurchaseEnabled: false, keyPurchaseOffReason: keyOffReason() || 'key buying is not set up yet' };
+    }
+    const today = schoolDay();
+    const live = rows.filter((p) => !p.voided_at);
+    const boughtToday = live.filter((p) => String(p.school_day || '').slice(0, 10) === today).length;
+    const offReason = keyOffReason();
+    return {
+      keyPrice: keyPrice(boughtToday + 1),
+      keysBoughtToday: boughtToday,
+      // Paid for, but the relay has not confirmed the key yet (candy held; retried automatically).
+      keysPending: live.filter((p) => !p.granted_at).length,
+      candyKeySpent: live.reduce((sum, p) => sum + num(p.price), 0),
+      keyPurchaseEnabled: !offReason,
+      keyPurchaseOffReason: offReason,
+    };
+  }
+
+  // Ask the relay for the key. One retry when the outcome is indeterminate (the reply may have been
+  // lost; the relay is idempotent on receiptId, so a retry never grants twice).
+  async function grantWithRetry(payload) {
+    const first = await grantKeyFn(payload);
+    if (first.outcome !== 'pending') return first;
+    return grantKeyFn(payload);
+  }
+
+  function grantPayload(me, receiptId) {
+    return { studentId: me.student_id, receiptId, username: me.login_username, section: me.section,
+      role: me.role === 'teacher' ? 'teacher' : 'student' };
+  }
+
+  // Drive one purchase to its next state. Returns { outcome, keys, account }:
+  //   granted  stamped granted_at                 refused  voided + candy refunded (account = refunded row)
+  //   pending  left as is (candy stays debited; retried by reconcileKeyPurchases)
+  //   stuck    the relay refused but the refund failed (teacher reconciles by hand)
+  async function resolvePurchase(me, purchase) {
+    const receiptId = purchase.receipt_id;
+    const grant = await grantWithRetry(grantPayload(me, receiptId));
+    if (grant.outcome === 'granted') {
+      const stamped = await db.parkKeyGranted(receiptId);
+      if (stamped && stamped.error) console.error('park key granted_at not stamped:', receiptId, stamped.error);
+      return { outcome: 'granted', keys: grant.keys };
+    }
+    if (grant.outcome === 'pending') {
+      console.error('park key grant indeterminate; candy held, will retry', receiptId, grant.error);
+      return { outcome: 'pending' };
+    }
+    console.error('park key grant refused by the relay; refunding', receiptId, grant.error);
+    const refund = await db.parkKeyRefund(receiptId);
+    if (refund.error || !refund.data || !refund.data.student_id) {
+      console.error('park key REFUND FAILED — reconcile receipt', receiptId, refund.error);
+      return { outcome: 'stuck' };
+    }
+    return { outcome: 'refused', account: refund.data };
+  }
+
+  // Retry every pending purchase (neither granted nor voided) of one student, or of everyone
+  // (studentId null). Idempotent; best-effort. Returns the pending rows it could not settle.
+  async function reconcileKeyPurchases(studentId) {
+    if (typeof db.listPendingKeyPurchases !== 'function') return [];
+    let rows = [];
+    try {
+      const r = await db.listPendingKeyPurchases(studentId);
+      if (!r || r.error) return [];
+      rows = r.data || [];
+    } catch (_) { return []; }
+    const left = [];
+    for (const purchase of rows) {
+      const meRes = await db.findByStudentId(purchase.student_id);
+      const me = meRes && meRes.data;
+      if (!me || !me.login_username || !me.section) { left.push(purchase); continue; }
+      const result = await resolvePurchase(me, purchase);
+      if (result.outcome === 'pending' || result.outcome === 'stuck') left.push(purchase);
+    }
+    return left;
+  }
+  // Background reconcile so a held purchase settles even if the buyer never comes back.
+  // Skipped under test (like the bet sweep); unref'd so it never blocks shutdown.
+  if (typeof setInterval === 'function' && process.env.NODE_ENV !== 'test') {
+    const _keyTimer = setInterval(() => { reconcileKeyPurchases(null).catch(() => {}); }, 2 * 60000);
+    if (_keyTimer && _keyTimer.unref) _keyTimer.unref();
+  }
+
+  // Answer the buyer for one purchase. `account` is the buyer's row after the debit.
+  async function settleKeyPurchase(res, me, earned, purchase, account) {
+    const receiptId = purchase.receipt_id;
+    const price = num(purchase.price);
+    const result = await resolvePurchase(me, purchase);
+    if (result.outcome === 'granted') {
+      const shop = await keyStatus(me.student_id);
+      return res.json({ ok: true, ...deriveBalances(earned, account), ...shop, receiptId, price, parkKeys: result.keys });
+    }
+    if (result.outcome === 'pending') {
+      const shop = await keyStatus(me.student_id);
+      return res.status(202).json({ ok: true, pending: true, ...deriveBalances(earned, account), ...shop, receiptId, price,
+        message: 'your key is on its way — the candy is held until the park confirms' });
+    }
+    if (result.outcome === 'stuck') {
+      return res.status(502).json({ ok: false, error: 'the park did not take the key — ask your teacher (receipt ' + receiptId + ')',
+        refunded: false, receiptId });
+    }
+    return res.status(502).json({ ok: false, error: 'the park did not take the key — your candy was given back',
+      refunded: true, receiptId, ...deriveBalances(earned, result.account) });
+  }
+
+  // Retry the grant of an earlier purchase: body { receiptId }. Safe to repeat.
+  async function retryKeyPurchase(res, me, receiptId) {
+    if (badId(receiptId)) return res.status(404).json({ ok: false, error: 'no such purchase' });
+    const p = await db.getKeyPurchase(receiptId);
+    if (p && p.error) {
+      if (isKeyPurchaseMissing(p.error)) return keyPurchaseNotProvisioned(res);
+      return res.status(500).json({ ok: false, error: 'Database error' });
+    }
+    const purchase = p && p.data;
+    if (!purchase || purchase.student_id !== me.student_id) return res.status(404).json({ ok: false, error: 'no such purchase' });
+    if (purchase.voided_at) return res.status(409).json({ ok: false, error: 'that purchase was refunded', refunded: true, receiptId });
+    const { earned, accRes } = await loadState(me.student_id);
+    if (accRes.error) return res.status(500).json({ ok: false, error: 'Database error' });
+    if (purchase.granted_at) {
+      const shop = await keyStatus(me.student_id);
+      return res.json({ ok: true, alreadyGranted: true, ...deriveBalances(earned, accRes.data), ...shop,
+        receiptId, price: num(purchase.price) });
+    }
+    return settleKeyPurchase(res, me, earned, purchase, accRes.data);
+  }
+
+  // ── teacher: purchases whose key is still pending (candy held, relay not yet confirmed) ──
+  // GET lists them; POST retries them all now. Optional ?section= scope on the list.
+  app.get('/class/key-purchases/pending', async (req, res) => {
+    if (!await requireTeacher(req, db)) return res.status(401).json({ ok: false, error: 'forbidden' });
+    if (typeof db.listPendingKeyPurchases !== 'function') return keyPurchaseNotProvisioned(res);
+    const r = await db.listPendingKeyPurchases(null);
+    if (r && r.error) {
+      if (isKeyPurchaseMissing(r.error)) return keyPurchaseNotProvisioned(res);
+      return res.status(500).json({ ok: false, error: 'Database error' });
+    }
+    const section = (req.query.section && String(req.query.section).trim()) || null;
+    let rows = (r && r.data) || [];
+    if (section) {
+      const ids = await sectionIds(section);
+      if (ids && ids.error) return res.status(500).json({ ok: false, error: 'Database error' });
+      rows = rows.filter((p) => ids.includes(p.student_id));
+    }
+    return res.json({ ok: true, pending: rows.map((p) => ({ receiptId: p.receipt_id, studentId: p.student_id,
+      price: num(p.price), schoolDay: p.school_day, purchasedAt: p.purchased_at })) });
+  });
+  app.post('/class/key-purchases/reconcile', async (req, res) => {
+    if (!await requireTeacher(req, db)) return res.status(401).json({ ok: false, error: 'forbidden' });
+    const left = await reconcileKeyPurchases(null);
+    return res.json({ ok: true, stillPending: left.map((p) => p.receipt_id) });
+  });
+
+  // ── POST /wallet/buy-key ── buy one Pico Park campaign key with candy ──────────
+  // Body {} buys the next key at today's price. Body { receiptId } retries the grant of an
+  // earlier purchase (idempotent). Flow: atomic debit + purchase row (park_key_buy, under the
+  // account row lock) → relay grant → 200 granted; 202 pending when the relay's answer is
+  // indeterminate (candy stays held, retried later); refund + 502 ONLY on a definitive refusal.
+  app.post('/wallet/buy-key', async (req, res) => {
+    const offReason = keyOffReason();
+    if (keyPurchaseOff()) return res.status(403).json({ ok: false, error: offReason });
+    const sid = sidOf(req);
+    if (!sid) return res.status(401).json({ ok: false, error: 'forbidden' });
+    if (offReason) return res.status(503).json({ ok: false, error: offReason });
+
+    const meRes = await db.findByStudentId(sid);
+    if (meRes && meRes.error) return res.status(500).json({ ok: false, error: 'Database error' });
+    const me = meRes && meRes.data;
+    if (!me || (me.status && me.status !== 'active') || !me.login_username || !me.section) {
+      return res.status(403).json({ ok: false, error: 'forbidden' });
+    }
+
+    const retryReceipt = req.body && req.body.receiptId;
+    if (retryReceipt != null) return retryKeyPurchase(res, me, String(retryReceipt).trim());
+
+    // The teacher earns no effort candy: they buy with candy received (item 6) or won.
+    const earned = await earnedCandyOf(sid);
+    const r = await db.parkKeyBuy({ p_sid: sid, p_earned: earned.candy, p_day: schoolDay() });
+    if (r.error) {
+      if (isKeyPurchaseMissing(r.error)) return keyPurchaseNotProvisioned(res);
+      if (isDogeMissing(r.error)) return notProvisioned(res);
+      console.error('POST /wallet/buy-key:', r.error);
+      return res.status(500).json({ ok: false, error: 'Database error' });
+    }
+    const buy = r.data;
+    if (!buy || buy.status !== 'bought' || !buy.receipt_id) {
+      const price = buy ? num(buy.price) : null;
+      return res.status(400).json({ ok: false, error: 'not enough candy' + (price ? ' (the next key costs ' + price + ')' : ''),
+        keyPrice: price });
+    }
+    return settleKeyPurchase(res, me, earned, buy, buy.account);
+  });
+
+  // ── Study Break stakes (STUDY_BREAK_STAKES_SPEC) ───────────────────────────
+  // Refund/void any bet stuck past the timeout (crash/abandon safety). Best-effort;
+  // called opportunistically from the bet routes so cleanup happens with use.
+  async function sweepStaleBets() {
+    try {
+      const cutoff = new Date(Date.now() - BET_TIMEOUT_MIN * 60000).toISOString();
+      const s = await db.listStaleBets(cutoff);
+      for (const row of (s && s.data) || []) { try { await db.tetrisBetRefund(row.match_id); } catch (_) {} }
+    } catch (_) { /* sweep is best-effort */ }
+  }
+  // F2: the opportunistic sweep (from bet/open + bet/resolve) only fires while the class is
+  // actively betting. Add a periodic sweep so an abandoned match's escrow still refunds even if
+  // betting stops entirely. unref'd → never blocks process shutdown/tests; no-op when stakes off.
+  // Skip under test (NODE_ENV==='test') so the suite's many mountDogeWallet() calls don't pile up
+  // idle intervals; in production it's one unref'd timer for the process lifetime.
+  if (typeof setInterval === 'function' && process.env.NODE_ENV !== 'test') {
+    const _sweepTimer = setInterval(() => { if (!stakesOff()) sweepStaleBets(); }, BET_TIMEOUT_MIN * 60000);
+    if (_sweepTimer && _sweepTimer.unref) _sweepTimer.unref();
+  }
+
+  // POST /wallet/bet/open — JOIN a staked match (consent handshake). BOTH players POST this
+  // with the same matchId; the escrow (debit 1 candy each) fires only when both have joined.
+  app.post('/wallet/bet/open', async (req, res) => {
+    if (stakesOff()) return res.status(403).json({ ok: false, error: 'stakes are turned off' });
+    const sid = sidOf(req);
+    if (!sid) return res.status(401).json({ ok: false, error: 'forbidden' });
+    const matchId = String((req.body && req.body.matchId) || '').trim();
+    const opponentUsername = String((req.body && req.body.opponentUsername) || '').trim();
+    if (!matchId || !opponentUsername) return res.status(400).json({ ok: false, error: 'matchId + opponentUsername required' });
+    const themRes = await db.findByUsername(opponentUsername);
+    if (themRes && themRes.error && themRes.error.code !== 'PGRST116') { console.error('bet/open findByUsername:', themRes.error); return res.status(500).json({ ok: false, error: 'Database error' }); }
+    if (!themRes || !themRes.data) return res.status(404).json({ ok: false, error: 'unknown classmate' });
+    const oppId = themRes.data.student_id;
+    if (oppId === sid) return res.status(400).json({ ok: false, error: "can't bet yourself" });
+    // 2026-09-29 (teacher): anyone active on the roster can be played — other sections AND the
+    // teacher. The old "classmate only / same section" guards are gone for BETS (gifts keep theirs).
+    if (themRes.data.status && themRes.data.status !== 'active') {
+      return res.status(400).json({ ok: false, error: 'can only play an active player' });
+    }
+    const meRes = await db.findByStudentId(sid);
+    if (!meRes || meRes.error || !meRes.data) return res.status(500).json({ ok: false, error: 'Database error' });
+    await sweepStaleBets();
+    // Both players need a wallet row for the escrow to land (the SQL UPDATEs no-op on a missing
+    // row and the balance check reads NULL). Idempotent DO-NOTHING inserts.
+    if (typeof db.ensureDogeAccount === 'function') { await db.ensureDogeAccount(sid); await db.ensureDogeAccount(oppId); }
+    // Pass ONLY the caller's own earned (server-computed from THEIR token); the opponent's is
+    // captured when THEY join, so neither client can forge the other's balance (anti-cheat).
+    // The teacher earns no effort candy, so a fixed allowance stands in as their stake budget —
+    // "the rules apply to the teacher too": they can win candy from students and lose it to them.
+    const ea = meRes.data.role === 'teacher' ? { candy: TEACHER_STAKE_ALLOWANCE } : await earnedCandyOf(sid);
+    const base = { p_match: matchId, p_caller: sid, p_opp: oppId, p_stake: BET_STAKE, p_earned_caller: ea.candy };
+    let premium = premiumOff() ? 0 : BET_PREMIUM;
+    let r = await db.tetrisBetOpen(premium ? { ...base, p_premium: premium } : base);
+    if (r.error && premium && isMissingRpcSignature(r.error)) { premium = 0; r = await db.tetrisBetOpen(base); }   // 0041 not run yet
+    if (r.error) { if (isDogeMissing(r.error)) return notProvisioned(res); console.error('POST /wallet/bet/open:', r.error); return res.status(500).json({ ok: false, error: 'Database error' }); }
+    const status = r.data;   // 'waiting' | 'opened' | 'insufficient' | 'bad' | 'not-a-player' | resolved status
+    if (status === 'insufficient') return res.status(400).json({ ok: false, error: 'both players need ' + (BET_STAKE + premium) + ' candy to play' });
+    // Opaque 404 for not-a-player (a 3rd party guessed/collided a matchId) so it can't be told
+    // apart from a non-existent match — a non-participant learns nothing about others' matches.
+    if (status === 'not-a-player') return res.status(404).json({ ok: false, error: 'no such match' });
+    if (status === 'bad') return res.status(400).json({ ok: false, error: 'bad bet' });
+    const { earned, accRes } = await loadState(sid);
+    return res.json({ ok: true, status, stake: BET_STAKE, premium, escrow: BET_STAKE + premium, matchId, ...(accRes && accRes.data ? deriveBalances(earned, accRes.data) : {}) });
+  });
+
+  // POST /wallet/bet/resolve — report the match winner. When BOTH players report: agree → the
+  // winner takes the pot; disagree → refund both. The server has NO game truth (P2P match), so a
+  // lone report just waits. winnerUsername is one of the two players (yourself or your opponent).
+  app.post('/wallet/bet/resolve', async (req, res) => {
+    if (stakesOff()) return res.status(403).json({ ok: false, error: 'stakes are turned off' });
+    const sid = sidOf(req);
+    if (!sid) return res.status(401).json({ ok: false, error: 'forbidden' });
+    const matchId = String((req.body && req.body.matchId) || '').trim();
+    const winnerUsername = String((req.body && req.body.winnerUsername) || '').trim();
+    if (!matchId || !winnerUsername) return res.status(400).json({ ok: false, error: 'matchId + winnerUsername required' });
+    await sweepStaleBets();   // F2: a match ending is a natural moment to refund other abandoned escrow
+    const winRes = await db.findByUsername(winnerUsername);
+    if (winRes && winRes.error && winRes.error.code !== 'PGRST116') { console.error('bet/resolve findByUsername:', winRes.error); return res.status(500).json({ ok: false, error: 'Database error' }); }
+    if (!winRes || !winRes.data) return res.status(404).json({ ok: false, error: 'unknown winner' });
+    // goldClears (optional, { username: lines }): this reporter's count of the winner's gold lines.
+    // The server pays the premium only when BOTH reports put the winner at >= 1 (migration 0041).
+    const winnerGold = winnerGoldOf(req.body && req.body.goldClears, winnerUsername);
+    const base = { p_match: matchId, p_reporter: sid, p_winner: winRes.data.student_id };
+    let r = await db.tetrisBetResolve({ ...base, p_winner_gold: winnerGold });
+    if (r.error && isMissingRpcSignature(r.error)) r = await db.tetrisBetResolve(base);   // 0041 not run yet
+    if (r.error) { if (isDogeMissing(r.error)) return notProvisioned(res); console.error('POST /wallet/bet/resolve:', r.error); return res.status(500).json({ ok: false, error: 'Database error' }); }
+    // 'pending' | 'settled' | 'settled-premium' | 'refunded' | 'no-bet' | 'not-a-player' | 'bad-winner'
+    const premiumPaid = r.data === 'settled-premium';
+    const status = premiumPaid ? 'settled' : r.data;
+    // Opaque 404 for both no-bet and not-a-player (don't reveal a match exists to a non-participant).
+    if (status === 'no-bet' || status === 'not-a-player') return res.status(404).json({ ok: false, error: 'no such match' });
+    if (status === 'bad-winner') return res.status(400).json({ ok: false, error: 'winner must be a player' });
+    const { earned, accRes } = await loadState(sid);
+    return res.json({ ok: true, status, premiumPaid, ...(accRes && accRes.data ? deriveBalances(earned, accRes.data) : {}) });
+  });
+
+  // GET /wallet/casino — the student's own Tetris-betting record (Casino Stats lab).
+  app.get('/wallet/casino', async (req, res) => {
+    const sid = sidOf(req);
+    if (!sid) return res.status(401).json({ ok: false, error: 'forbidden' });
+    const r = await db.listSettledBets();
+    if (r && r.error) { if (isDogeMissing(r.error)) return notProvisioned(res); console.error('GET /wallet/casino:', r.error); return res.status(500).json({ ok: false, error: 'Database error' }); }
+    return res.json({ ok: true, stake: BET_STAKE, ...tallyCasino((r && r.data) || [], sid) });
+  });
+
+  // GET /class/casino — every student's betting record (teacher; optional ?section= scope).
+  app.get('/class/casino', async (req, res) => {
+    if (!await requireTeacher(req, db)) return res.status(401).json({ ok: false, error: 'forbidden' });
+    const section = (req.query.section && String(req.query.section).trim()) || null;
+    const ids = await sectionIds(section);
+    if (ids && ids.error) { if (isDogeMissing(ids.error)) return notProvisioned(res); return res.status(500).json({ ok: false, error: 'Database error' }); }
+    const r = await db.listSettledBets();
+    if (r && r.error) { if (isDogeMissing(r.error)) return notProvisioned(res); console.error('GET /class/casino:', r.error); return res.status(500).json({ ok: false, error: 'Database error' }); }
+    const bets = (r && r.data) || [];
+    // The set of students to report: the section filter, or everyone who has a settled bet.
+    const seen = new Set();
+    bets.forEach((b) => { seen.add(b.player_a); seen.add(b.player_b); });
+    const studentIds = ids ? ids.filter((id) => seen.has(id)) : Array.from(seen);
+    const players = studentIds.map((id) => ({ studentId: id, ...tallyCasino(bets, id) }));
+    return res.json({ ok: true, stake: BET_STAKE, players });
+  });
+
+  // ── teacher: register a kid's paper-wallet address ─────────────────────────
+  app.post('/wallet/address', async (req, res) => {
+    if (!await requireTeacher(req, db)) return res.status(401).json({ ok: false, error: 'forbidden' });
+    const { studentId, address } = req.body || {};
+    if (!studentId) return res.status(400).json({ ok: false, error: 'studentId required' });
+    if (badId(studentId)) return res.status(404).json({ ok: false, error: 'unknown student' });
+    const addr = String(address || '').trim();
+    if (addr && !DOGE_MAIN_RE.test(addr)) {
+      return res.status(400).json({ ok: false, error: 'not a Dogecoin (D…) address' });
+    }
+    const accRes = await db.getDogeAccount(studentId);
+    if (accRes.error && !isDogeMissing(accRes.error)) return res.status(500).json({ ok: false, error: 'Database error' });
+    // Narrow single-column write (never the whole row) so registering an address
+    // can't clobber a concurrent spend — see WALLET_CONSERVATION_FINDINGS F1.
+    const up = await db.updateDogeField(studentId, 'doge_address', addr || null);
+    if (up.error) {
+      if (walletProposalPayoutMissing(up.error)) return walletProposalPayoutNotProvisioned(res);
+      if (isDogeMissing(up.error)) return notProvisioned(res);
+      if (activePayoutBlocksAddress(up.error)) {
+        return res.status(409).json({ ok: false, error: 'address change blocked by active payout batch' });
+      }
+      return res.status(500).json({ ok: false, error: 'Database error' });
+    }
+    return res.json({ ok: true, studentId, dogeAddress: addr || null });
+  });
+
+  // ── student: propose an address generated in their own browser ─────────────
+  // The request accepts ONE public value. Seed phrases and private keys have no
+  // field, no server representation, and no durable path by construction.
+  app.post('/wallet/address/propose', async (req, res) => {
+    const sid = sidOf(req);
+    if (!sid) return res.status(401).json({ ok: false, error: 'forbidden' });
+    if (!studentWalletOptInEnabled()) {
+      return res.status(403).json({ ok: false, error: 'self-custody wallet option is not enabled' });
+    }
+
+    const rosterResult = await db.findByStudentId(sid);
+    if (rosterResult && rosterResult.error) {
+      return res.status(500).json({ ok: false, error: 'Database error' });
+    }
+    const student = rosterResult && rosterResult.data;
+    if (!student || student.status !== 'active' || student.role !== 'student') {
+      return res.status(403).json({ ok: false, error: 'forbidden' });
+    }
+
+    const rawAddress = req.body && req.body.address;
+    if (typeof rawAddress !== 'string') {
+      return res.status(400).json({ ok: false, error: 'not a Dogecoin (D…) address' });
+    }
+    const address = rawAddress.trim();
+    if (!DOGE_MAIN_RE.test(address)) {
+      return res.status(400).json({ ok: false, error: 'not a Dogecoin (D…) address' });
+    }
+
+    const accountResult = await db.getDogeAccount(sid);
+    if (accountResult.error) {
+      if (isDogeMissing(accountResult.error)) return notProvisioned(res);
+      return res.status(500).json({ ok: false, error: 'Database error' });
+    }
+    if (accountResult.data && accountResult.data.doge_address === address) {
+      return res.status(409).json({ ok: false, error: 'that address is already approved' });
+    }
+
+    const proposed = await db.setDogeAddressProposal(sid, address);
+    if (proposed.error) {
+      if (isWalletProposalMissing(proposed.error)) return walletProposalsNotProvisioned(res);
+      if (isDogeMissing(proposed.error)) return notProvisioned(res);
+      if (proposalStudentIneligible(proposed.error)) {
+        return res.status(403).json({ ok: false, error: 'forbidden' });
+      }
+      if (proposalAlreadyApproved(proposed.error)) {
+        return res.status(409).json({ ok: false, error: 'that address is already approved' });
+      }
+      if (String(proposed.error.code || '') === '22023') {
+        return res.status(400).json({ ok: false, error: 'not a Dogecoin (D…) address' });
+      }
+      return res.status(500).json({ ok: false, error: 'Database error' });
+    }
+    if (!proposed.data || !proposed.data.student_id) {
+      return res.status(500).json({ ok: false, error: 'Database error' });
+    }
+
+    return res.json({
+      ok: true,
+      proposedAddressMasked: maskDogeAddress(proposed.data.proposed_address),
+      proposedAt: proposed.data.proposed_at,
+    });
+  });
+
+  // ── teacher: inspect and decide the pending address queue ──────────────────
+  app.get('/class/wallet-proposals', async (req, res) => {
+    // Match the payout rail's fail-closed teacher policy. The repository's
+    // published fallback key must never authorize key-adjacent decisions.
+    if (!await requirePayoutTeacher(req, db)) return res.status(401).json({ ok: false, error: 'forbidden' });
+    const section = (req.query.section && String(req.query.section).trim()) || null;
+    const rosterResult = await db.listRoster(section, { includeArchived: true });
+    if (rosterResult && rosterResult.error) {
+      return res.status(500).json({ ok: false, error: 'Database error' });
+    }
+    const roster = (rosterResult && rosterResult.data) || [];
+    if (!roster.length) return res.json({ ok: true, proposals: [] });
+
+    const byId = new Map(roster.map((student) => [student.student_id, student]));
+    const proposalResult = await db.listDogeAddressProposals(Array.from(byId.keys()));
+    if (proposalResult.error) {
+      if (isWalletProposalMissing(proposalResult.error)) return walletProposalsNotProvisioned(res);
+      if (isDogeMissing(proposalResult.error)) return notProvisioned(res);
+      return res.status(500).json({ ok: false, error: 'Database error' });
+    }
+
+    const proposals = ((proposalResult && proposalResult.data) || []).map((account) => {
+      const student = byId.get(account.student_id) || {};
+      return {
+        studentId: account.student_id,
+        studentName: student.real_name || student.login_username || account.student_id,
+        username: student.login_username || null,
+        rosterStatus: student.status || 'active',
+        maskedAddress: maskDogeAddress(account.proposed_address),
+        proposedAt: account.proposed_at,
+        change: Boolean(account.doge_address),
+      };
+    });
+    return res.json({ ok: true, proposals });
+  });
+
+  app.post('/wallet/address/approve', async (req, res) => {
+    if (!await requirePayoutTeacher(req, db)) return res.status(401).json({ ok: false, error: 'forbidden' });
+    const rawStudentId = req.body && req.body.studentId;
+    const rawProposedAt = req.body && req.body.proposedAt;
+    if (typeof rawStudentId !== 'string' || typeof rawProposedAt !== 'string') {
+      return res.status(400).json({ ok: false, error: 'studentId + proposedAt required' });
+    }
+    const studentId = rawStudentId.trim();
+    const proposedAt = rawProposedAt.trim();
+    if (!studentId || !proposedAt) {
+      return res.status(400).json({ ok: false, error: 'studentId + proposedAt required' });
+    }
+    if (badId(studentId)) return res.status(404).json({ ok: false, error: 'unknown student' });
+    if (proposedAt.length > 64 || !Number.isFinite(Date.parse(proposedAt))) {
+      return res.status(400).json({ ok: false, error: 'invalid proposal version' });
+    }
+
+    const rosterResult = await db.findByStudentId(studentId);
+    if (rosterResult && rosterResult.error) {
+      return res.status(500).json({ ok: false, error: 'Database error' });
+    }
+    if (!rosterResult || !rosterResult.data) {
+      return res.status(404).json({ ok: false, error: 'unknown student' });
+    }
+    if (rosterResult.data.status === 'archived' || rosterResult.data.role === 'teacher') {
+      return res.status(409).json({ ok: false, error: 'archived students cannot have proposals approved' });
+    }
+
+    const approved = await db.approveDogeAddressProposal(studentId, proposedAt);
+    if (approved.error) {
+      if (walletProposalPayoutMissing(approved.error)) return walletProposalPayoutNotProvisioned(res);
+      if (isWalletProposalMissing(approved.error)) return walletProposalsNotProvisioned(res);
+      if (activePayoutBlocksAddress(approved.error)) {
+        return res.status(409).json({ ok: false, error: 'address change blocked by active payout batch' });
+      }
+      if (proposalChanged(approved.error)) {
+        return res.status(409).json({ ok: false, error: 'proposal changed; refresh and verify it again' });
+      }
+      if (proposalApprovalIneligible(approved.error)) {
+        return res.status(409).json({ ok: false, error: 'only active students can have proposals approved' });
+      }
+      if (String(approved.error.code || '') === '22023') {
+        return res.status(400).json({ ok: false, error: 'not a Dogecoin (D…) address' });
+      }
+      return res.status(500).json({ ok: false, error: 'Database error' });
+    }
+    if (!approved.data || !approved.data.student_id) {
+      return res.status(409).json({ ok: false, error: 'proposal changed; refresh and verify it again' });
+    }
+
+    return res.json({
+      ok: true,
+      studentId,
+      dogeAddress: approved.data.doge_address,
+    });
+  });
+
+  app.post('/wallet/address/reject', async (req, res) => {
+    if (!await requirePayoutTeacher(req, db)) return res.status(401).json({ ok: false, error: 'forbidden' });
+    const rawStudentId = req.body && req.body.studentId;
+    const rawProposedAt = req.body && req.body.proposedAt;
+    const rawReason = req.body && req.body.reason;
+    if (typeof rawStudentId !== 'string'
+        || typeof rawProposedAt !== 'string'
+        || typeof rawReason !== 'string') {
+      return res.status(400).json({ ok: false, error: 'studentId + proposedAt + reason required' });
+    }
+    const studentId = rawStudentId.trim();
+    const proposedAt = rawProposedAt.trim();
+    const reason = rawReason.trim();
+    if (!studentId || !proposedAt || !reason) {
+      return res.status(400).json({ ok: false, error: 'studentId + proposedAt + reason required' });
+    }
+    if (badId(studentId)) return res.status(404).json({ ok: false, error: 'unknown student' });
+    if (proposedAt.length > 64 || !Number.isFinite(Date.parse(proposedAt))) {
+      return res.status(400).json({ ok: false, error: 'invalid proposal version' });
+    }
+    if (reason.length > 240) {
+      return res.status(400).json({ ok: false, error: 'reason must be 240 characters or fewer' });
+    }
+
+    const rejected = await db.rejectDogeAddressProposal(studentId, proposedAt, reason);
+    if (rejected.error) {
+      if (isWalletProposalMissing(rejected.error)) return walletProposalsNotProvisioned(res);
+      if (isDogeMissing(rejected.error)) return notProvisioned(res);
+      return res.status(500).json({ ok: false, error: 'Database error' });
+    }
+    if (!rejected.data || !rejected.data.student_id) {
+      return res.status(409).json({ ok: false, error: 'proposal changed; refresh and verify it again' });
+    }
+
+    return res.json({ ok: true, studentId, reason });
+  });
+
+  // ── teacher: mark candy physically GIVEN / DOGE SENT (disbursement done) ────
+  async function markEndpoint(req, res, field) {
+    if (!await requireTeacher(req, db)) return res.status(401).json({ ok: false, error: 'forbidden' });
+    const { studentId } = req.body || {};
+    const amount = num(req.body && req.body.amount);
+    if (!studentId || amount <= 0) return res.status(400).json({ ok: false, error: 'studentId + amount required' });
+    if (badId(studentId)) return res.status(404).json({ ok: false, error: 'unknown student' });
+    // ATOMIC clamp (migration 0024 doge_mark): the cap is recomputed from the LIVE row under a
+    // row lock, so a student escrow/buy committing between a read and write can't be missed —
+    // closes the mark-given × escrow MINT race (review s19) + the prior F1 mark residual.
+    //   • candy_given ≤ Owed-eligible = Earned + Received + Realized + Bonus + Returned
+    //     − Gifted − Converted − Escrowed.
+    //   • doge_sent   ≤ doge_balance.
+    // Clamps monotonically (never claws back) and logs the give/send leg, all inside doge_mark.
+    const earned = field === 'candy_given' ? (await earnedCandyOf(studentId)).candy : 0;
+    const r = await db.dogeMark({ p_sid: studentId, p_field: field, p_amount: amount, p_earned: earned });
+    if (r.error) { if (isDogeMissing(r.error)) return notProvisioned(res); console.error('POST /wallet/mark:', r.error); return res.status(500).json({ ok: false, error: 'Database error' }); }
+    if (!r.data || !r.data.student_id) return res.status(500).json({ ok: false, error: 'Database error' });
+    return res.json({ ok: true, studentId, [field]: num(r.data[field]) });
+  }
+  app.post('/wallet/mark-given', (req, res) => markEndpoint(req, res, 'candy_given'));
+  app.post('/wallet/mark-sent', (req, res) => markEndpoint(req, res, 'doge_sent'));
+
+  // ── teacher: record physical candy handed BACK ─────────────────────────────
+  // This never decrements candy_given. Migration 0034 advances the independent
+  // candy_returned counter under the row lock and clamps it to candy_given.
+  app.post('/wallet/mark-returned', async (req, res) => {
+    if (!await requireTeacher(req, db)) {
+      return res.status(401).json({ ok: false, error: 'forbidden' });
+    }
+    const rawStudentId = req.body && req.body.studentId;
+    const studentId = typeof rawStudentId === 'string' ? rawStudentId.trim() : rawStudentId;
+    const amount = num(req.body && req.body.amount);
+    if (!studentId || amount <= 0) {
+      return res.status(400).json({ ok: false, error: 'studentId + amount required' });
+    }
+    if (badId(studentId)) {
+      return res.status(404).json({ ok: false, error: 'unknown student' });
+    }
+
+    const result = await db.dogeGiveBack({ p_sid: studentId, p_amount: amount });
+    if (result.error) {
+      if (isCandyReturnMissing(result.error)) return candyReturnNotProvisioned(res);
+      if (isDogeMissing(result.error)) return notProvisioned(res);
+      console.error('POST /wallet/mark-returned:', result.error);
+      return res.status(500).json({ ok: false, error: 'Database error' });
+    }
+    if (!result.data || !result.data.student_id) {
+      return res.status(500).json({ ok: false, error: 'Database error' });
+    }
+    return res.json({
+      ok: true,
+      studentId,
+      candy_returned: num(result.data.candy_returned),
+    });
+  });
+
+  // ── teacher: GET /class/wallets ── accounts (joined with effort on the client) ─
+  // Optional ?section= scopes to one roster section (like /class/grades); omitted
+  // returns every account.
+  app.get('/class/wallets', async (req, res) => {
+    if (!await requireTeacher(req, db)) return res.status(401).json({ ok: false, error: 'forbidden' });
+    const section = (req.query.section && String(req.query.section).trim()) || null;
+    let ids;
+    if (req.query.includeArchived === '1') {
+      const roster = await db.listRoster(section, { includeArchived: true });
+      ids = roster && roster.error ? { error: roster.error }
+        : ((roster && roster.data) || []).map((student) => student.student_id);
+    } else {
+      ids = await sectionIds(section);
+    }
+    if (ids && ids.error) { if (isDogeMissing(ids.error)) return notProvisioned(res); return res.status(500).json({ ok: false, error: 'Database error' }); }
+    const price = await priceFn();
+    if (Array.isArray(ids) && !ids.length) return res.json({ ok: true, accounts: [], dogeUsd: price, candyPerDoge: price ? candyPerDoge(price) : null });
+    const r = await db.listDogeAccounts(ids || undefined);
+    if (r && r.error) { if (isDogeMissing(r.error)) return notProvisioned(res); return res.status(500).json({ ok: false, error: 'Database error' }); }
+    // CANDY_LEDGER_SPEC + CANDY_RETURN_SPEC: return the full 10-number ledger so
+    // the dashboard has a ready
+    // Owed worklist without a client-side effort join. Earned is recomputed per student
+    // (parallel; this is a cold teacher path) so candyOwed is the true
+    // Earned + Received + Realized + Bonus + Returned
+    // − Gifted − Converted − Materialized − Escrowed.
+    const accounts = await Promise.all(((r && r.data) || []).map(async (a) => {
+      const earned = await earnedCandyOf(a.student_id);
+      const materialized = num(a.candy_given), giftedOut = num(a.candy_gifted_out);
+      const giftedIn = num(a.candy_gifted_in), converted = num(a.doge_cost_basis);
+      const realized = num(a.candy_realized);
+      const escrowed = num(a.candy_escrowed);
+      const bonus = num(a.candy_bonus);
+      const returned = num(a.candy_returned);
+      return {
+        studentId: a.student_id,
+        dogeAddress: a.doge_address || null,
+        candyEarned: earned.candy,
+        candyEaten: num(a.candy_eaten),
+        candyGiven: materialized, candyMaterialized: materialized,
+        candyGiftedOut: giftedOut, candyGiftedIn: giftedIn, candyReceived: giftedIn,
+        candyConverted: converted, candyRealized: realized, candyEscrowed: escrowed, candyBonus: bonus,
+        candyReturned: returned,
+        candyOwed: Math.max(0, earned.candy + giftedIn - giftedOut - converted - materialized
+          + realized - escrowed + bonus + returned),
+        dogeBalance: num(a.doge_balance), dogeSent: num(a.doge_sent),
+        dogeToDeposit: Math.max(0, num(a.doge_balance) - num(a.doge_sent)),
+        dogeCostBasis: converted,
+      };
+    }));
+    return res.json({ ok: true, accounts, dogeUsd: price, candyPerDoge: price ? candyPerDoge(price) : null });
+  });
+
+  // ── teacher: GET /class/wallets/chain ── watch-only on-chain balances ────────
+  // Batch-reads every registered address off the chain so the dashboard shows
+  // real deposits landing. Optional ?section= scope. Live-fetch each call (cached
+  // ~1 min in doge-chain.js); best-effort cache write-back per migration 0020.
+  app.get('/class/wallets/chain', async (req, res) => {
+    if (!await requireTeacher(req, db)) return res.status(401).json({ ok: false, error: 'forbidden' });
+    const section = (req.query.section && String(req.query.section).trim()) || null;
+    const ids = await sectionIds(section);
+    if (ids && ids.error) { if (isDogeMissing(ids.error)) return notProvisioned(res); return res.status(500).json({ ok: false, error: 'Database error' }); }
+    if (Array.isArray(ids) && !ids.length) return res.json({ ok: true, addresses: {} });
+    const r = await db.listDogeAccounts(ids || undefined);
+    if (r && r.error) { if (isDogeMissing(r.error)) return notProvisioned(res); return res.status(500).json({ ok: false, error: 'Database error' }); }
+    const withAddr = ((r && r.data) || []).filter((a) => a.doge_address);
+    const addresses = {};
+    try {
+      await mapLimit(withAddr, 4, async (a) => {
+        const rec = await chainFetch(a.doge_address);
+        if (rec && !rec.error && db.updateDogeChain) { try { await db.updateDogeChain(a.student_id, chainColumns(rec)); } catch (_) {} }
+        // Explorer down → fall back to the stored cache row (already on `a`).
+        addresses[a.student_id] = (rec && rec.error) ? (chainFromRow(a.doge_address, a) || rec) : rec;
+      });
+    } catch (e) {
+      console.error('GET /class/wallets/chain mapLimit:', e);   // best-effort: return whatever resolved
+    }
+    return res.json({ ok: true, addresses });
+  });
+}

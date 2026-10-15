@@ -1,0 +1,3588 @@
+<!DOCTYPE html>
+<!-- Live Classroom v1b cockpit - LIVE_CLASSROOM_V1B_BUILD.md Section 5.
+     Teacher-only page launched from the Desk Teacher menu. Loads the classroom
+     board in teacher mode (real-name labels). v1b adds the control strip
+     (Arm Gate / Green Light / Reset) and the live checked-in panel.
+     Security posture: identity comes from rosterClient (sign-in session).
+     The page guards itself: if the role is not "teacher" or no session exists
+     it shows a friendly message and does not mount the board. The real-name
+     fetch from /roster/section/:section is teacher-cockpit-only; students
+     never make that call. -->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#161616">
+  <title>AP Stats - Live Classroom</title>
+  <style>
+    :root {
+      --sg-bg: #E5E3D2;        /* Tango: platinum */
+      --sg-text: #161616;
+      --sg-accent: #A8330A;    /* ink-tangerine */
+      --sg-bar-track: #D3D1C2;
+      --sg-bg-card: #F7F5EE;
+      --sg-border: #A9A79A;
+      --sg-text-dim: #6E6C62;
+      --sg-low: #B03A2E;
+      --sg-high: #25663F;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Arial, sans-serif;
+      background: var(--sg-bg);
+      color: var(--sg-text);
+      min-height: 100vh;
+    }
+    .page-header {
+      background: var(--sg-bg-card);
+      border-bottom: 3px solid #FF5B19;   /* Tango accent rule */
+      padding: 16px 24px;
+      display: flex;
+      align-items: baseline;
+      gap: 14px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .page-header h1 {
+      margin: 0;
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: var(--sg-accent);
+    }
+    .page-header .subtitle {
+      margin: 0;
+      font-size: 0.82rem;
+      color: var(--sg-text-dim);
+    }
+    .security-banner {
+      background: #fff0f0;
+      border: 1px solid var(--sg-low);
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-size: 0.88rem;
+      color: #6a1b1b;
+      line-height: 1.5;
+    }
+    .access-denied {
+      background: var(--sg-bg-card);
+      border: 1px solid var(--sg-border);
+      border-radius: 10px;
+      padding: 32px 28px;
+      font-size: 1rem;
+      color: var(--sg-text-dim);
+      text-align: center;
+    }
+    .access-denied strong {
+      display: block;
+      font-size: 1.1rem;
+      color: var(--sg-accent);
+      margin-bottom: 8px;
+    }
+    .main {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 24px 20px 60px;
+      display: grid;
+      gap: 24px;
+    }
+    .section {
+      background: var(--sg-bg-card);
+      border: 1px solid var(--sg-border);
+      border-radius: 10px;
+      padding: 20px 22px;
+      display: grid;
+      gap: 16px;
+    }
+    .section-title {
+      margin: 0;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      color: var(--sg-text-dim);
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--sg-border);
+    }
+    .form-row { display: grid; gap: 6px; }
+    .form-row label {
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--sg-text-dim);
+    }
+    select {
+      width: auto;
+      min-width: 160px;
+      padding: 9px 11px;
+      border: 1px solid var(--sg-border);
+      border-radius: 8px;
+      background: var(--sg-bg);
+      color: var(--sg-text);
+      font-size: 0.95rem;
+      font-family: inherit;
+    }
+    select:focus { outline: 2px solid var(--sg-accent); outline-offset: 2px; }
+    .meta-row {
+      font-size: 0.82rem;
+      color: var(--sg-text-dim);
+      line-height: 1.4;
+    }
+    .board-wrap {
+      /* The board component CSS-scales its 320x240 canvas to fill this width.
+         A max-width keeps it from becoming enormous on wide displays. */
+      width: 100%;
+      max-width: 640px;
+    }
+    .status-row {
+      font-size: 0.88rem;
+      color: var(--sg-text-dim);
+      min-height: 1.4em;
+    }
+    .hint { font-size: 0.8rem; color: var(--sg-text-dim); line-height: 1.5; }
+
+    /* --- v1b: control strip --- */
+    .control-strip {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .ctrl-btn {
+      padding: 9px 18px;
+      border: 1px solid var(--sg-border);
+      border-radius: 8px;
+      background: var(--sg-bg);
+      color: var(--sg-text);
+      font-size: 0.9rem;
+      font-family: inherit;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .ctrl-btn:hover { background: var(--sg-bar-track); }
+    .ctrl-btn:active { background: var(--sg-border); }
+    .ctrl-btn.primary {
+      background: var(--sg-accent);
+      color: #fff;
+      border-color: var(--sg-accent);
+    }
+    .ctrl-btn.primary:hover { opacity: 0.88; }
+    .ctrl-btn.danger {
+      background: var(--sg-low);
+      color: #fff;
+      border-color: var(--sg-low);
+    }
+    .ctrl-btn.danger:hover { opacity: 0.88; }
+
+    /* --- v1b: green-light indicator --- */
+    .greenlight-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.88rem;
+      color: var(--sg-text-dim);
+    }
+    .greenlight-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #ccc;
+      border: 1px solid var(--sg-border);
+      transition: background 0.3s;
+    }
+    .greenlight-dot.on { background: #25663F; border-color: #25663F; }
+
+    /* --- v1b: checked-in panel --- */
+    .checkin-panel {
+      display: grid;
+      gap: 10px;
+    }
+    .checkin-count {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--sg-accent);
+    }
+    .checkin-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .checkin-list li {
+      background: #e8f5e9;
+      color: #1b5e20;
+      border: 1px solid #a5d6a7;
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+    .checkin-empty {
+      font-size: 0.85rem;
+      color: var(--sg-text-dim);
+    }
+
+    /* --- v2: poll authoring form --- */
+    .poll-form { display: grid; gap: 12px; }
+    .poll-question-input {
+      width: 100%;
+      padding: 9px 11px;
+      border: 1px solid var(--sg-border);
+      border-radius: 8px;
+      background: var(--sg-bg);
+      color: var(--sg-text);
+      font-size: 0.95rem;
+      font-family: inherit;
+    }
+    .poll-question-input:focus { outline: 2px solid var(--sg-accent); outline-offset: 2px; }
+    .poll-options-list { display: grid; gap: 6px; }
+    .poll-option-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .poll-option-input {
+      flex: 1;
+      padding: 7px 10px;
+      border: 1px solid var(--sg-border);
+      border-radius: 8px;
+      background: var(--sg-bg);
+      color: var(--sg-text);
+      font-size: 0.88rem;
+      font-family: inherit;
+    }
+    .poll-option-input:focus { outline: 2px solid var(--sg-accent); outline-offset: 2px; }
+    .poll-remove-btn {
+      padding: 4px 8px;
+      border: 1px solid var(--sg-border);
+      border-radius: 6px;
+      background: var(--sg-bg);
+      color: var(--sg-text-dim);
+      font-size: 0.8rem;
+      cursor: pointer;
+    }
+    .poll-remove-btn:hover { background: var(--sg-bar-track); }
+    .poll-add-btn {
+      padding: 6px 14px;
+      border: 1px dashed var(--sg-border);
+      border-radius: 8px;
+      background: transparent;
+      color: var(--sg-text-dim);
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+    .poll-add-btn:hover { background: var(--sg-bar-track); }
+    .poll-blind-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.88rem;
+      color: var(--sg-text-dim);
+    }
+    .poll-action-strip {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .poll-tally {
+      display: grid;
+      gap: 8px;
+    }
+    .poll-tally-label {
+      font-size: 0.82rem;
+      color: var(--sg-text-dim);
+      min-height: 1.2em;
+    }
+    #poll-result-canvas {
+      width: 100%;
+      max-width: 480px;
+      height: 160px;
+      border: 1px solid var(--sg-border);
+      border-radius: 8px;
+      background: #0a0a0a;
+      display: block;
+    }
+
+    /* P4 Select Students (TEACHER_STUDENT_CONSOLE_SPEC.md section 11). */
+    canvas.classroom-select-mode {
+      filter: grayscale(0.7) brightness(0.85);
+      cursor: crosshair;
+    }
+    #select-bar {
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 9000;
+      background: var(--sg-bg-card); border-top: 2px solid var(--sg-accent);
+      padding: 10px 16px; display: flex; align-items: center; gap: 10px;
+      box-shadow: 0 -4px 16px rgba(0,0,0,0.18);
+      font-family: "Segoe UI", Arial, sans-serif;
+    }
+    #select-bar .sb-count {
+      font-weight: 700; color: var(--sg-accent); font-size: 0.95rem;
+      min-width: 110px;
+    }
+    #select-bar textarea {
+      flex: 1; resize: vertical; min-height: 40px; max-height: 100px;
+      border: 1px solid var(--sg-border); border-radius: 4px;
+      padding: 6px; font: inherit; box-sizing: border-box;
+    }
+    #select-markers {
+      position: fixed; top: 0; left: 0; pointer-events: none; z-index: 50;
+      width: 100vw; height: 100vh;
+    }
+    #select-markers .sel-marker {
+      position: absolute;
+      width: 40px; height: 40px; margin-left: -20px; margin-top: -32px;
+      border: 3px solid #d97706; border-radius: 4px;
+      background: rgba(217, 119, 6, 0.18);
+      box-sizing: border-box;
+      pointer-events: none;
+    }
+    #select-markers .sel-marker::after {
+      content: "\2713";  /* check mark */
+      position: absolute; top: -22px; left: 50%;
+      transform: translateX(-50%);
+      background: #d97706; color: #fff;
+      width: 18px; height: 18px; line-height: 18px;
+      border-radius: 50%; font-weight: 700; font-size: 12px;
+      text-align: center;
+    }
+
+    /* P8: broadcast nudge toggle (TEACHER_STUDENT_CONSOLE_P8_BUILD.md section 2.1) */
+    .nudge-broadcast-toggle {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 0.88rem; cursor: pointer; user-select: none;
+    }
+    .nudge-broadcast-toggle input { cursor: pointer; }
+    .nudge-recipient-broadcast-dim { opacity: 0.45; }
+    /* P9: Floating avatar popup (TEACHER_STUDENT_CONSOLE_SPEC.md section 4.1). */
+    /* P10 T2: fade-in keyframe. Fires each time the popup re-enters the rendering
+       tree (display:none -> display:block), so no JS change is needed. */
+    @keyframes avatar-popup-fade-in {
+      from { opacity: 0; transform: translateX(4px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+    .avatar-popup {
+      position: fixed;
+      z-index: 10000;
+      width: 220px;
+      background: var(--sg-bg-card, #fffbe6);
+      border: 1px solid var(--sg-border, #d97706);
+      border-radius: 8px;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.24);
+      padding: 10px 12px;
+      font: 13px "Geneva", "Lucida Grande", system-ui, sans-serif;
+      animation: avatar-popup-fade-in 140ms ease-out;
+    }
+    .avatar-popup .ap-close {
+      position: absolute; top: 6px; right: 8px;
+      background: transparent; border: 0; cursor: pointer;
+      font-size: 18px; line-height: 1; color: var(--sg-text-dim, #6E6C62);
+      padding: 0 4px;
+    }
+    .avatar-popup .ap-header {
+      display: flex; flex-direction: column; gap: 2px;
+      margin-bottom: 8px; padding-right: 22px;
+      border-bottom: 1px solid var(--sg-border, #d97706);
+      padding-bottom: 6px;
+    }
+    .avatar-popup .ap-name { color: var(--sg-accent, #92400e); font-size: 0.92rem; }
+    .avatar-popup .ap-meta { color: var(--sg-text-dim, #6E6C62); font-size: 0.78rem; }
+    .avatar-popup .ap-actions { display: grid; gap: 4px; }
+    .avatar-popup .ap-action {
+      text-align: left; padding: 6px 10px;
+      font: inherit; cursor: pointer;
+      background: var(--sg-bg, #fff);
+      border: 1px solid var(--sg-border, #d97706);
+      border-radius: 4px;
+    }
+    .avatar-popup .ap-action:hover {
+      background: var(--sg-bg-card, #fff5d6);
+      border-color: var(--sg-accent, #92400e);
+    }
+    .avatar-popup .ap-action[disabled] { opacity: 0.5; cursor: not-allowed; }
+    /* P11: popup grows when an inline view is active. */
+    .avatar-popup[data-view="nudge"],
+    .avatar-popup[data-view="remediation"],
+    .avatar-popup[data-view="gate"] { width: 280px; }
+    /* Form inputs (shared across the 3 inline views). */
+    .avatar-popup .ap-view { display: grid; gap: 6px; }
+    .avatar-popup .ap-form-label {
+      font-size: 0.78rem; color: var(--sg-text-dim, #6E6C62);
+      margin-top: 4px;
+    }
+    .avatar-popup .ap-form-input {
+      font: inherit; padding: 6px 8px;
+      border: 1px solid var(--sg-border, #d97706); border-radius: 4px;
+      background: var(--sg-bg, #fff); width: 100%; box-sizing: border-box;
+    }
+    .avatar-popup .ap-form-input:invalid { border-color: #b91c1c; }
+    .avatar-popup .ap-form-status {
+      min-height: 18px; font-size: 0.78rem;
+      color: var(--sg-text-dim, #6E6C62);
+    }
+    .avatar-popup .ap-form-status.is-error { color: #b91c1c; }
+    .avatar-popup .ap-form-status.is-success { color: #15803d; }
+    .avatar-popup .ap-form-actions {
+      display: flex; justify-content: space-between; gap: 6px;
+      margin-top: 6px;
+    }
+    .avatar-popup .ap-back, .avatar-popup .ap-submit {
+      padding: 6px 12px; font: inherit; cursor: pointer;
+      border: 1px solid var(--sg-border, #d97706); border-radius: 4px;
+      background: var(--sg-bg, #fff);
+    }
+    .avatar-popup .ap-submit {
+      background: var(--sg-accent, #92400e); color: #fff;
+      border-color: var(--sg-accent, #92400e);
+    }
+    .avatar-popup .ap-submit[disabled] { opacity: 0.55; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+
+  <div class="page-header">
+    <h1>AP Stats - Live Classroom</h1>
+    <p class="subtitle">Section presence board (v2)</p>
+  </div>
+
+  <div class="main">
+
+    <div class="security-banner">
+      &#9888; <strong>Teacher view only.</strong> This page shows real student names.
+      It must be opened from the Desk after signing in as a teacher.
+      Do <strong>not</strong> share this URL with students.
+    </div>
+
+    <!-- Access denied: shown only when role check fails -->
+    <div class="access-denied" id="access-denied-panel" style="display:none">
+      <strong>Access restricted</strong>
+      Open this from the Desk after signing in as a teacher.
+    </div>
+
+    <!-- Controls + board: shown only when role check passes -->
+    <div id="board-region" style="display:none">
+
+      <!-- v3 P1+P2: Global presence -- shown by default; hidden in Live mode. -->
+      <div class="section" id="global-presence-section">
+        <h2 class="section-title">Everyone online</h2>
+        <div id="global-presence-list">
+          <div class="hint" id="global-presence-empty">Connecting...</div>
+        </div>
+        <div class="form-row">
+          <button class="ctrl-btn primary" id="btn-go-live">Go Live</button>
+          <div class="hint" id="go-live-hint">
+            Pick a section to enter Live mode. The board mounts and students see a "Live" indicator.
+          </div>
+        </div>
+      </div>
+
+      <!-- v1b: Section + board -- hidden by default in v3, shown after Go Live. -->
+      <div class="section" id="section-region" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
+          <h2 class="section-title" id="section-region-title">Live -- Period <span id="live-section-label">?</span></h2>
+          <button class="ctrl-btn" id="btn-exit-live">Exit Live</button>
+          <button class="ctrl-btn" id="btn-class-sound" title="Park music and park sounds on student devices while this room is live (default off)" aria-pressed="false">&#128263; Class sound: off</button>
+        </div>
+        <div class="form-row">
+          <label for="section-select">Section</label>
+          <select id="section-select">
+            <option value="PeriodX">PeriodX</option>
+            <option value="A">A</option>
+            <option value="B">B</option>
+            <option value="C">C</option>
+            <option value="D">D</option>
+            <option value="E">E</option>
+          </select>
+        </div>
+        <div class="status-row" id="status-row"></div>
+      </div>
+
+      <!-- v1b: control strip -- hidden until the board actually mounts -->
+      <div class="section" id="control-section" style="display:none">
+        <h2 class="section-title">Gate Controls</h2>
+        <div class="control-strip">
+          <button class="ctrl-btn primary" id="btn-arm-gate">Arm Gate</button>
+          <button class="ctrl-btn" id="btn-green-light">Green Light</button>
+          <label style="display:inline-flex;align-items:center;gap:6px;font-size:0.88rem;color:var(--sg-text-dim);cursor:pointer;">
+            <input type="checkbox" id="sync-video-start">
+            Sync video start
+          </label>
+          <button class="ctrl-btn danger" id="btn-reset">Reset</button>
+          <span class="greenlight-indicator">
+            <span class="greenlight-dot" id="greenlight-dot"></span>
+            <span id="greenlight-label">Go not sent</span>
+          </span>
+        </div>
+        <div class="hint">
+          When checked, Green Light also opens today's lesson video on every student Desk.
+        </div>
+        <div class="hint">
+          Arm Gate opens today's hole and clears all check-in status.
+          Green Light signals the room is ready to start (informational).
+          Reset clears the gate and returns all students to "present".
+        </div>
+      </div>
+
+      <!-- v2: poll section -- hidden until the board actually mounts -->
+      <div class="section" id="poll-section" style="display:none">
+        <h2 class="section-title">Poll</h2>
+
+        <div class="poll-form" id="poll-form">
+          <!-- Question input -->
+          <div class="form-row">
+            <label for="poll-question-input">Question</label>
+            <input
+              type="text"
+              id="poll-question-input"
+              class="poll-question-input"
+              placeholder="Type your poll question..."
+            >
+          </div>
+
+          <!-- Option inputs (start with 3) -->
+          <div class="form-row">
+            <label>Options</label>
+            <div class="poll-options-list" id="poll-options-list">
+              <div class="poll-option-row">
+                <input type="text" class="poll-option-input" placeholder="Option A">
+                <button class="poll-remove-btn" type="button" aria-label="Remove option">x</button>
+              </div>
+              <div class="poll-option-row">
+                <input type="text" class="poll-option-input" placeholder="Option B">
+                <button class="poll-remove-btn" type="button" aria-label="Remove option">x</button>
+              </div>
+              <div class="poll-option-row">
+                <input type="text" class="poll-option-input" placeholder="Option C">
+                <button class="poll-remove-btn" type="button" aria-label="Remove option">x</button>
+              </div>
+            </div>
+            <button class="poll-add-btn" id="poll-add-option" type="button">+ Add option</button>
+          </div>
+
+          <!-- Blind checkbox -->
+          <label class="poll-blind-row">
+            <input type="checkbox" id="poll-blind-checkbox">
+            Blind (hide votes from students until revealed)
+          </label>
+
+          <!-- Action buttons -->
+          <div class="poll-action-strip">
+            <button class="ctrl-btn primary" id="btn-open-poll">Open Poll</button>
+            <button class="ctrl-btn" id="btn-close-poll">Close Poll</button>
+            <button class="ctrl-btn" id="btn-reveal-poll">Reveal</button>
+          </div>
+        </div>
+
+        <!-- Live tally readout -->
+        <div class="poll-tally" id="poll-tally">
+          <div class="poll-tally-label" id="poll-tally-label">No poll active.</div>
+          <canvas id="poll-result-canvas" width="480" height="160"></canvas>
+        </div>
+
+        <div class="hint">
+          Open Poll starts a new question. Close Poll ends voting and broadcasts the tally.
+          Reveal (blind polls only) shows all votes to everyone.
+        </div>
+      </div>
+
+      <!-- v3 P4: Doorways (vote-with-your-feet) -->
+      <div class="section" id="doorways-section" style="display:none">
+        <h2 class="section-title">Doorways (Vote with your feet)</h2>
+
+        <div class="form-row">
+          <label for="doorways-question-input">Question</label>
+          <input type="text" id="doorways-question-input" class="poll-question-input" placeholder="Type your question...">
+        </div>
+
+        <div class="form-row">
+          <label>Options (2-8 doorways)</label>
+          <div class="poll-options-list" id="doorways-options-list">
+            <div class="poll-option-row">
+              <input type="text" class="poll-option-input" placeholder="Option A">
+              <button class="poll-remove-btn" type="button" aria-label="Remove">x</button>
+            </div>
+            <div class="poll-option-row">
+              <input type="text" class="poll-option-input" placeholder="Option B">
+              <button class="poll-remove-btn" type="button" aria-label="Remove">x</button>
+            </div>
+          </div>
+          <button type="button" id="doorways-add-option" class="ctrl-btn">+ Add doorway</button>
+        </div>
+
+        <div class="control-strip">
+          <button id="btn-open-doorways" class="ctrl-btn primary">Open Doorways</button>
+          <button id="btn-close-doorways" class="ctrl-btn danger" style="display:none">Close + Archive</button>
+        </div>
+
+        <canvas id="doorways-tally-canvas" width="480" height="160" style="display:none"></canvas>
+
+        <div class="hint">
+          Students walk their avatar through their chosen doorway + press Up.
+          Mutually exclusive with the poll above. Closing archives the result.
+        </div>
+      </div>
+
+      <!-- v4 Unit C: Run Activity (LIVE_CLASSROOM_V4_BUILD.md C4.1) -->
+      <div class="section" id="activity-section" style="display:none">
+        <h3>Run Activity</h3>
+        <div class="row">
+          <label>Activity:
+            <select id="activity-type">
+              <option value="bridge-mean">U1.1 Lift the Bridge (mean)</option>
+              <option value="colorbox-hue">U1.3 Sort by Color (categorical)</option>
+              <option value="colorbox-grid:hand">U1.4 Hue x Handedness (two-way table, prompt)</option>
+              <option value="colorbox-grid:group">U1.4 Hue x Group (two-way table, random A/B)</option>
+              <optgroup label="Levels -- Unit 1: Descriptive Stats">
+                <option value="level:U1.1">U1.1 The Cola Mystery</option>
+                <option value="level:U1.2">U1.2 Variable Sort</option>
+                <option value="level:U1.3">U1.3 Frequency Counts</option>
+                <option value="level:U1.4">U1.4 Bar Chart Read</option>
+                <option value="level:U1.5">U1.5 Pick the Plot</option>
+                <option value="level:U1.6">U1.6 Name the Shape</option>
+                <option value="level:U1.7">U1.7 Mean Hunt</option>
+                <option value="level:U1.8">U1.8 Five-Number IQR</option>
+                <option value="level:U1.9">U1.9 Compare Two Classes</option>
+                <option value="level:U1.10">U1.10 Empirical Rule</option>
+              </optgroup>
+              <optgroup label="Levels -- Unit 2: Bivariate / Regression">
+                <option value="level:U2.1">U2.1 Are They Related?</option>
+                <option value="level:U2.2">U2.2 Two-Way Picture</option>
+                <option value="level:U2.3">U2.3 Conditional Count</option>
+                <option value="level:U2.4">U2.4 Read the Scatter</option>
+                <option value="level:U2.5">U2.5 What r Means</option>
+                <option value="level:U2.6">U2.6 Predict y-hat</option>
+                <option value="level:U2.7">U2.7 Residual Math</option>
+                <option value="level:U2.8">U2.8 Slope in Context</option>
+                <option value="level:U2.9">U2.9 Spot the Influence</option>
+              </optgroup>
+              <optgroup label="Levels -- Unit 3: Sampling / Experimental Design">
+                <option value="level:U3.1">U3.1 Truthful Data?</option>
+                <option value="level:U3.2">U3.2 Study or Experiment?</option>
+                <option value="level:U3.3">U3.3 Name the Sample</option>
+                <option value="level:U3.4">U3.4 Find the Bias</option>
+                <option value="level:U3.5">U3.5 Spot Confounding</option>
+                <option value="level:U3.6">U3.6 Pick a Design</option>
+                <option value="level:U3.7">U3.7 Read the Result</option>
+              </optgroup>
+              <optgroup label="Levels -- Unit 4: Probability">
+                <option value="level:U4.1">U4.1 Random or Not?</option>
+                <option value="level:U4.2">U4.2 Simulated Sips</option>
+                <option value="level:U4.3">U4.3 Sample Space</option>
+                <option value="level:U4.4">U4.4 Disjoint or Not</option>
+                <option value="level:U4.5">U4.5 Given That</option>
+                <option value="level:U4.6">U4.6 A or B</option>
+                <option value="level:U4.7">U4.7 Valid Distribution?</option>
+                <option value="level:U4.8">U4.8 Expected Value</option>
+                <option value="level:U4.9">U4.9 Combine X and Y</option>
+                <option value="level:U4.10">U4.10 Binomial or Not</option>
+                <option value="level:U4.11">U4.11 Mean of Binomial</option>
+                <option value="level:U4.12">U4.12 First Success</option>
+              </optgroup>
+              <optgroup label="Levels -- Unit 5: Sampling Distributions">
+                <option value="level:U5.1">U5.1 Why Not Like Yours?</option>
+                <option value="level:U5.2">U5.2 Bell Check</option>
+                <option value="level:U5.3">U5.3 CLT Kicks In</option>
+                <option value="level:U5.4">U5.4 Bias on Trial</option>
+                <option value="level:U5.5">U5.5 SE of p-hat</option>
+                <option value="level:U5.6">U5.6 Diff of p-hats</option>
+                <option value="level:U5.7">U5.7 SE of x-bar</option>
+                <option value="level:U5.8">U5.8 Diff of x-bars</option>
+              </optgroup>
+              <optgroup label="Levels -- Unit 6: Inference for Proportions">
+                <option value="level:U6.1">U6.1 Why Be Normal?</option>
+                <option value="level:U6.2">U6.2 CI Conditions</option>
+                <option value="level:U6.3">U6.3 CI Reading</option>
+                <option value="level:U6.4">U6.4 Hypotheses Setup</option>
+                <option value="level:U6.5">U6.5 P-Value Meaning</option>
+                <option value="level:U6.6">U6.6 Reject or Not?</option>
+                <option value="level:U6.7">U6.7 Type I or II?</option>
+                <option value="level:U6.8">U6.8 Two-Sample CI</option>
+                <option value="level:U6.9">U6.9 Two-Prop CI Claim</option>
+                <option value="level:U6.10">U6.10 Two-Prop Setup</option>
+                <option value="level:U6.11">U6.11 Two-Prop Conclusion</option>
+              </optgroup>
+              <optgroup label="Levels -- Unit 7: Inference for Means">
+                <option value="level:U7.1">U7.1 Worry About Error</option>
+                <option value="level:U7.2">U7.2 One-Sample t Interval</option>
+                <option value="level:U7.3">U7.3 CI for a Mean</option>
+                <option value="level:U7.4">U7.4 Set Up t-Test</option>
+                <option value="level:U7.5">U7.5 Carry Out t-Test</option>
+                <option value="level:U7.6">U7.6 Two-Sample t CI</option>
+                <option value="level:U7.7">U7.7 Difference CI</option>
+                <option value="level:U7.8">U7.8 Set Up 2-Samp t</option>
+                <option value="level:U7.9">U7.9 Carry Out 2-Samp t</option>
+                <option value="level:U7.10">U7.10 Pick the Right Test</option>
+              </optgroup>
+              <optgroup label="Levels -- Unit 8: Chi-Square">
+                <option value="level:U8.1">U8.1 Bag of Beads</option>
+                <option value="level:U8.2">U8.2 GOF Setup</option>
+                <option value="level:U8.3">U8.3 GOF Verdict</option>
+                <option value="level:U8.4">U8.4 Expected Cell</option>
+                <option value="level:U8.5">U8.5 Homog vs Indep</option>
+                <option value="level:U8.6">U8.6 p = 0.18</option>
+                <option value="level:U8.7">U8.7 Pick the Test</option>
+              </optgroup>
+              <optgroup label="Levels -- Unit 9: Regression Inference">
+                <option value="level:U9.1">U9.1 Do Points Align?</option>
+                <option value="level:U9.2">U9.2 Slope CI Pick</option>
+                <option value="level:U9.3">U9.3 Slope CI Read</option>
+                <option value="level:U9.4">U9.4 Linearity Check</option>
+                <option value="level:U9.5">U9.5 P-Value Verdict</option>
+                <option value="level:U9.6">U9.6 Pick The Test</option>
+              </optgroup>
+            </select>
+          </label>
+          <label>Duration (s): <input id="activity-duration" type="number" min="30" max="300" value="90"></label>
+        </div>
+        <div class="row">
+          <button type="button" id="btn-activity-start">Run Activity</button>
+          <button type="button" id="btn-activity-cancel" style="display:none">Cancel Activity</button>
+        </div>
+        <div id="activity-status"></div>
+        <div id="activity-live" style="display:none">
+          <pre id="activity-readout"></pre>
+          <ul id="activity-roster"></ul>
+        </div>
+        <div id="activity-result" style="display:none">
+          <p id="activity-result-text"></p>
+          <button type="button" id="btn-activity-advance">Manual Advance</button>
+          <button type="button" id="btn-activity-hint">Show Hint</button>
+          <button type="button" id="btn-activity-retry">Retry</button>
+        </div>
+      </div>
+
+      <!-- P4: Select Students (multi-nudge) -- toggle for entering select mode -->
+      <div class="section" id="select-students-section" style="display:none">
+        <h2 class="section-title">Select Students (multi-nudge)</h2>
+        <div class="control-strip">
+          <button class="ctrl-btn" id="btn-select-students">Select Students</button>
+          <span id="select-students-hint" class="hint" style="margin-left:8px">
+            Freeze the board + multi-pick avatars for a group nudge. ESC or Cancel exits.
+          </span>
+        </div>
+      </div>
+
+      <!-- P3: Send Nudge (TEACHER_STUDENT_CONSOLE_SPEC.md section 6) -->
+      <div class="section" id="nudge-section" style="display:none">
+        <h2 class="section-title">Send Nudge</h2>
+        <div class="form-row">
+          <label for="nudge-recipient">Student</label>
+          <select id="nudge-recipient" disabled>
+            <option value="">(no students online)</option>
+          </select>
+        </div>
+        <!-- P8: broadcast toggle (TEACHER_STUDENT_CONSOLE_P8_BUILD.md section 2.1) -->
+        <div class="form-row" id="nudge-broadcast-row">
+          <label class="nudge-broadcast-toggle">
+            <input type="checkbox" id="nudge-broadcast">
+            <span>Broadcast to all online students</span>
+            <span id="nudge-broadcast-count" class="hint" style="margin-left:6px"></span>
+          </label>
+        </div>
+        <div class="form-row">
+          <label for="nudge-text">Message (280 chars max)</label>
+          <textarea id="nudge-text" maxlength="280" rows="3" placeholder="Type your nudge..."></textarea>
+        </div>
+        <div class="control-strip">
+          <button class="ctrl-btn primary" id="btn-send-nudge" disabled>Send Nudge</button>
+          <span id="nudge-status" class="hint" style="margin-left:8px"></span>
+        </div>
+        <div id="nudge-replies-list" class="nudge-replies"></div>
+        <div class="hint">
+          Free-text message. Delivered live to online students; offline students don't receive (no queue).
+          Students see a toast on their Desk with a Reply box. All exchanges log to nudges_log.
+        </div>
+      </div>
+
+      <!-- v1b: checked-in panel -- hidden until the board actually mounts -->
+      <div class="section" id="checkin-section" style="display:none">
+        <h2 class="section-title">Checked In</h2>
+        <div class="checkin-panel">
+          <div class="checkin-count" id="checkin-count">0 / 0 in</div>
+          <ul class="checkin-list" id="checkin-list"></ul>
+          <div class="checkin-empty" id="checkin-empty">No students checked in yet.</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2 class="section-title">Live Board</h2>
+        <div class="board-wrap" id="board-mount"></div>
+        <div class="hint">
+          Each avatar is a signed-in student in this section. Dimmed avatars are
+          offline (no heartbeat in the last 45s). Real names are displayed only
+          in this teacher view -- students see usernames.
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+  <!-- P9: Floating avatar popup (TEACHER_STUDENT_CONSOLE_SPEC.md section 4.1).
+       P11: Multi-view structure (send-nudge / apply-remediation / override-gate expand inline). -->
+  <div id="avatar-popup" class="avatar-popup" style="display:none" role="dialog" aria-hidden="true" data-view="main">
+    <button type="button" class="ap-close" id="avatar-popup-close" aria-label="Close popup">&times;</button>
+    <div class="ap-header">
+      <strong class="ap-name" id="avatar-popup-name">Student</strong>
+      <span class="ap-meta" id="avatar-popup-meta"></span>
+    </div>
+
+    <!-- View: main (P9 6-button menu) -->
+    <div class="ap-view ap-view-main" data-ap-view="main">
+      <div class="ap-actions">
+        <button type="button" class="ap-action" data-ap-action="view-as">View as student</button>
+        <button type="button" class="ap-action" data-ap-action="view-grade">View grade</button>
+        <button type="button" class="ap-action" data-ap-action="view-recent">View recent</button>
+        <button type="button" class="ap-action" data-ap-action="send-nudge">Send nudge</button>
+        <button type="button" class="ap-action" data-ap-action="apply-remediation">Apply remediation</button>
+        <button type="button" class="ap-action" data-ap-action="override-gate">Override gate</button>
+      </div>
+    </div>
+
+    <!-- View: nudge (P11) -->
+    <div class="ap-view ap-view-nudge" data-ap-view="nudge" style="display:none">
+      <label class="ap-form-label" for="ap-nudge-text">Nudge to this student</label>
+      <textarea id="ap-nudge-text" class="ap-form-input" rows="3" maxlength="280" placeholder="Type your nudge (280 chars max)"></textarea>
+      <div class="ap-form-status" id="ap-nudge-status"></div>
+      <div class="ap-form-actions">
+        <button type="button" class="ap-back" data-ap-back="main">Back</button>
+        <button type="button" class="ap-submit" id="ap-nudge-send">Send</button>
+      </div>
+    </div>
+
+    <!-- View: remediation (P11) -->
+    <div class="ap-view ap-view-remediation" data-ap-view="remediation" style="display:none">
+      <label class="ap-form-label" for="ap-rem-unit">Unit (e.g. U3)</label>
+      <input type="text" id="ap-rem-unit" class="ap-form-input" maxlength="8" pattern="^U\d+$" title='Unit must look like "U3"' placeholder="U3">
+      <label class="ap-form-label" for="ap-rem-skill">Skill code (e.g. 3.A)</label>
+      <input type="text" id="ap-rem-skill" class="ap-form-input" maxlength="16" placeholder="3.A">
+      <label class="ap-form-label" for="ap-rem-notes">Notes (optional)</label>
+      <textarea id="ap-rem-notes" class="ap-form-input" rows="2" maxlength="500" placeholder="Optional context"></textarea>
+      <div class="ap-form-status" id="ap-rem-status"></div>
+      <div class="ap-form-actions">
+        <button type="button" class="ap-back" data-ap-back="main">Back</button>
+        <button type="button" class="ap-submit" id="ap-rem-submit">Propose</button>
+      </div>
+    </div>
+
+    <!-- View: gate (P11) -->
+    <div class="ap-view ap-view-gate" data-ap-view="gate" style="display:none">
+      <label class="ap-form-label" for="ap-gate-key">Lesson key (e.g. 1.7)</label>
+      <input type="text" id="ap-gate-key" class="ap-form-input" maxlength="20" pattern="^\d+\.\d+$" title='Lesson key must look like "1.7" or "5.3"' placeholder="1.7">
+      <label class="ap-form-label" for="ap-gate-reason">Reason (optional)</label>
+      <textarea id="ap-gate-reason" class="ap-form-input" rows="2" maxlength="500" placeholder="Optional reason"></textarea>
+      <div class="ap-form-status" id="ap-gate-status"></div>
+      <div class="ap-form-actions">
+        <button type="button" class="ap-back" data-ap-back="main">Back</button>
+        <button type="button" class="ap-submit" id="ap-gate-submit">Override</button>
+      </div>
+    </div>
+  </div>
+  <!-- Sibling configs / clients. roster_config.js sets window.ROSTER_SERVICE_URL;
+       roster-client.js sets window.rosterClient with current() / signIn() / etc.;
+       classroom-board.js sets window.ClassroomBoard with mount() / _reduce(). -->
+  <script src="roster_config.js"></script>
+  <script src="roster-client.js"></script>
+  <script src="canvas_engine.js"></script>
+  <script src="sprite_sheet.js"></script>
+  <script src="classroom-board.js"></script>
+  <script src="ti84-plot.js"></script>
+
+  <script>
+    // ===== identity helpers =====
+
+    function currentSession() {
+      // rosterClient is declared by roster-client.js.
+      if (typeof window.rosterClient === 'undefined') return null;
+      return window.rosterClient.current();   // { studentId, username, realName, section } | null
+    }
+
+    function currentRole() {
+      // Teacher-ness comes from the server-verified roster session role,
+      // not a client-set localStorage flag.
+      try {
+        var s = (typeof window.rosterClient !== 'undefined')
+          ? window.rosterClient.current() : null;
+        return (s && s.role) ? s.role : null;
+      } catch (_) {
+        return null;
+      }
+    }
+
+    // ===== URL helpers =====
+
+    function rosterServiceUrl() {
+      // window.ROSTER_SERVICE_URL is set by roster_config.js.
+      return (window.ROSTER_SERVICE_URL || 'https://roster-production-12c1.up.railway.app')
+        .replace(/\/+$/, '');
+    }
+
+    function wsUrl() {
+      // Same derivation DogePresence uses (ap_stats_roadmap_square_mode.html line 7560).
+      return (window.RAILWAY_SERVER_URL || 'https://curriculumrender-production.up.railway.app')
+        .replace(/^http/, 'ws');
+    }
+
+    // ===== roster name-map fetch =====
+
+    // Returns a { username: realName } map from GET /roster/section/:section.
+    // Returns an empty map on any error -- the board still works with usernames.
+    async function fetchNameMap(section) {
+      var url = rosterServiceUrl() + '/roster/section/' + encodeURIComponent(section);
+      try {
+        var res = await fetch(url);
+        if (!res.ok) return {};
+        var data = await res.json();
+        // The endpoint returns { ok:true, section, students:[ { username, realName, section } ] }.
+        var roster = (data && data.students) || (data && data.roster) || (Array.isArray(data) ? data : []);
+        var map = {};
+        roster.forEach(function (row) {
+          var uname = row.username || row.login_username || '';
+          var name  = row.real_name || row.realName || row.username || '';
+          if (uname) map[uname] = name;
+        });
+        return map;
+      } catch (_) {
+        return {};
+      }
+    }
+
+    // P9: build a username -> studentId map from the teacher-gated /roster/list
+    // endpoint. Falls back to {} gracefully when not signed in or the server
+    // returns an error. Used by the avatar popup to resolve studentId for
+    // cross-tab actions (view-as, view-grade, apply-remediation, override-gate).
+    async function fetchIdMap(section) {
+      try {
+        var rsBase = rosterServiceUrl();
+        var rosterToken = (window.rosterClient && typeof window.rosterClient.token === 'function')
+          ? window.rosterClient.token() : null;
+        if (!rsBase || !rosterToken) return {};
+        var url = rsBase + '/roster/list' + (section ? ('?section=' + encodeURIComponent(section)) : '');
+        var res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + rosterToken } });
+        if (!res.ok) return {};
+        var data = await res.json();
+        var students = (data && data.students) || [];
+        var map = {};
+        students.forEach(function (row) {
+          var uname = row.username || '';
+          var sid = row.studentId || '';
+          if (uname && sid) map[uname] = sid;
+        });
+        return map;
+      } catch (_) {
+        return {};
+      }
+    }
+    // ===== v1b: gate theme =====
+
+    // Compute a short ASCII token deterministic from the current date.
+    // Cycles through a small fixed set so each day has a consistent theme.
+    function todayTheme() {
+      var d = new Date();
+      var daysSinceEpoch = Math.floor(d.getTime() / (1000 * 60 * 60 * 24));
+      var themes = ['STAR', 'MOON', 'WAVE', 'TREE', 'BOLT', 'RING', 'CUBE'];
+      return themes[daysSinceEpoch % themes.length];
+    }
+
+    // ===== v1b: checked-in panel rendering =====
+
+    // Reads the summary from onStateChange and updates the checked-in panel.
+    function renderCheckinPanel(summary, nameMap) {
+      var students = (summary.members || []).filter(function (m) {
+        return m.role === 'student';
+      });
+      var checkedIn = students.filter(function (m) {
+        return m.status === 'checkedIn';
+      });
+
+      var countEl = document.getElementById('checkin-count');
+      var listEl  = document.getElementById('checkin-list');
+      var emptyEl = document.getElementById('checkin-empty');
+
+      countEl.textContent = checkedIn.length + ' / ' + students.length + ' in';
+
+      // Rebuild the list.
+      listEl.innerHTML = '';
+      checkedIn.forEach(function (m) {
+        var li = document.createElement('li');
+        var displayName = (nameMap && nameMap[m.username]) ? nameMap[m.username] : m.username;
+        li.textContent = displayName;
+        listEl.appendChild(li);
+      });
+
+      emptyEl.style.display = (checkedIn.length === 0) ? '' : 'none';
+    }
+
+    // ===== v1b: green-light indicator =====
+
+    var greenlightOn = false;
+
+    function setGreenlightIndicator(on) {
+      greenlightOn = on;
+      var dot   = document.getElementById('greenlight-dot');
+      var label = document.getElementById('greenlight-label');
+      if (on) {
+        dot.classList.add('on');
+        label.textContent = 'Go sent';
+      } else {
+        dot.classList.remove('on');
+        label.textContent = 'Go not sent';
+      }
+    }
+
+    // ===== v1b: board-dependent section visibility =====
+
+    // The control strip + checked-in panel are only meaningful once the board
+    // is actually mounted. They start hidden; shown on mountBoard() success,
+    // hidden again on teardown / mount failure.
+    function setBoardSectionsVisible(on) {
+      var disp = on ? '' : 'none';
+      var ctrl = document.getElementById('control-section');
+      var chk  = document.getElementById('checkin-section');
+      var poll = document.getElementById('poll-section');
+      var dw   = document.getElementById('doorways-section');
+      var nudge = document.getElementById('nudge-section');
+      var sel = document.getElementById('select-students-section');
+      var act = document.getElementById('activity-section');
+      if (ctrl) ctrl.style.display = disp;
+      if (chk)  chk.style.display  = disp;
+      if (poll) poll.style.display  = disp;
+      if (dw)   dw.style.display   = disp;
+      if (nudge) nudge.style.display = disp;
+      if (sel) sel.style.display = disp;
+      if (act) act.style.display = disp;
+    }
+
+    // ===== v2.1: poll archive tracking =====
+
+    // Captured from summary.poll while a poll is active.
+    // Cleared after archiving on close.
+    var _lastArchivedPollId = null;  // dedup -- the last poll id archived this session
+
+    // Returns today as YYYY-MM-DD in local time.
+    function todayIsoDate() {
+      var d = new Date();
+      var y = d.getFullYear();
+      var m = String(d.getMonth() + 1).padStart(2, '0');
+      var day = String(d.getDate()).padStart(2, '0');
+      return y + '-' + m + '-' + day;
+    }
+
+    // Fire-and-forget POST to /poll-archive.
+    // Fully guarded -- a network failure must never throw in the cockpit.
+    function archivePoll(pollId, section, pollDate, question, options, tally, blind) {
+      try {
+        var baseUrl = rosterServiceUrl();
+        var token = (window.rosterClient && typeof window.rosterClient.token === 'function')
+          ? window.rosterClient.token()
+          : null;
+        var body = JSON.stringify({
+          pollId:   pollId,
+          section:  section,
+          pollDate: pollDate,
+          question: question,
+          options:  options,
+          tally:    tally,
+          blind:    !!blind
+        });
+        fetch(baseUrl + '/poll-archive', {
+          method:  'POST',
+          headers: {
+            'Content-Type':  'application/json',
+            'Authorization': 'Bearer ' + (token || '')
+          },
+          body: body
+        }).catch(function () {});
+      } catch (_) {
+        // Guarded -- archive failure must never surface.
+      }
+    }
+
+    // ===== board lifecycle =====
+
+    var boardHandle = null;   // ClassroomBoard.mount() return value, or null
+    var currentNameMap = {};  // kept for the onStateChange callback
+    var currentIdMap = {};    // P9: username -> studentId, populated from /roster/list (teacher-gated)
+    // P10 T1: re-hydration timer for currentIdMap when new students join after mountBoard.
+    var _idMapRefreshTimer = null;
+    var _IDMAP_REFRESH_DEBOUNCE_MS = 2000;
+    // P10 MAJOR fold: token bumped on every teardown so in-flight fetchIdMap
+    // promises that resolve LATER cannot clobber the new section's currentIdMap.
+    var _idMapRefreshToken = 0;
+
+    // P10 T1: walk summary.members after every onStateChange; if any student
+    // username is absent from currentIdMap, schedule a debounced re-fetch of
+    // /roster/list for that section. Debounced so a burst of joins fires at
+    // most one /roster/list call per 2 s.
+    //
+    // Codex P10 BLOCKER fold: summary.members is an ARRAY of records (see
+    // classroom-board.js buildSummary at lines 549-582), NOT an
+    // object keyed by username. The earlier draft used Object.keys + index
+    // lookups, which always saw a "gap" (index strings never matched real
+    // usernames in currentIdMap) and would have polled /roster/list every
+    // 2 s forever. Iterate the array, extract m.username, check the map
+    // against the real username.
+    //
+    // Codex P10 MAJOR fold: a fetchIdMap promise that is in-flight when
+    // the teacher switches sections can resolve LATER and clobber the new
+    // section's currentIdMap. The token-based guard inside the .then()
+    // re-checks the section after the fetch resolves.
+    function _maybeRefreshIdMap(summary) {
+      if (!summary || !Array.isArray(summary.members)) return;
+      var section = summary.section;
+      if (!section) return;
+      // Find any online student username that is NOT in the current id map.
+      var gap = false;
+      for (var i = 0; i < summary.members.length; i++) {
+        var m = summary.members[i];
+        if (m && m.role === 'student' && m.online !== false &&
+            m.username && !currentIdMap[m.username]) {
+          gap = true;
+          break;
+        }
+      }
+      if (!gap) return;
+      if (_idMapRefreshTimer) return;  // already pending
+      // Capture the refresh token so a stale fetch resolution can't clobber
+      // a new section's map. teardown() bumps _idMapRefreshToken, which
+      // invalidates any in-flight refresh.
+      var refreshToken = _idMapRefreshToken;
+      var refreshSection = section;
+      _idMapRefreshTimer = setTimeout(function () {
+        _idMapRefreshTimer = null;
+        // Re-fetch ONLY if we still have a board mounted for the same section
+        // AND no teardown has fired since this timer was scheduled.
+        if (refreshToken !== _idMapRefreshToken) return;
+        if (!boardHandle || !_lastSummary || _lastSummary.section !== refreshSection) return;
+        fetchIdMap(refreshSection).then(function (fresh) {
+          // Re-check the token AFTER the fetch resolves -- if a section
+          // switch happened during the in-flight fetch, the new section's
+          // currentIdMap (just populated by mountBoard) must NOT be clobbered.
+          if (refreshToken !== _idMapRefreshToken) return;
+          if (!boardHandle || !_lastSummary || _lastSummary.section !== refreshSection) return;
+          if (fresh && typeof fresh === 'object') {
+            currentIdMap = fresh;
+          }
+        }).catch(function () { /* silent -- next refresh will try again */ });
+      }, _IDMAP_REFRESH_DEBOUNCE_MS);
+    }
+    // s111 P4 HOTFIX: cache the last summary so the mode-switching
+    // buttons (Arm Gate / Open Doorways / Open Poll) can detect a
+    // stale conflicting mode + auto-reset before sending. Without
+    // this, the server's mutual-exclusion guards silently reject + the
+    // teacher gets no feedback (e.g. gate armed from a prior session
+    // blocks Open Doorways forever until manual Reset).
+    var _lastSummary = null;
+
+    function teardown() {
+      // P10 T1: cancel any pending idMap re-hydration so a stale timer can't
+      // fire after the teacher has switched to a different section.
+      // Bumping the refresh token ALSO invalidates any in-flight fetchIdMap
+      // promise that already fired before this teardown (Codex P10 MAJOR fold).
+      if (_idMapRefreshTimer) {
+        clearTimeout(_idMapRefreshTimer);
+        _idMapRefreshTimer = null;
+      }
+      _idMapRefreshToken++;
+      // P9: close avatar popup before destroying the board.
+      try { if (typeof _closeAvatarPopup === 'function') _closeAvatarPopup(); } catch (_) {}
+      // Codex MAJOR fold P4: exit select mode FIRST so the bar/markers
+      // overlay + selected set don't outlive the boardHandle. Without
+      // this, switching sections / exiting Live with select mode active
+      // could leave the bar visible + let the teacher Send against a
+      // dead handle.
+      try { if (typeof _exitSelectMode === 'function') _exitSelectMode(); } catch (_) {}
+      // Codex P8 MAJOR fold: clear broadcast state on section change.
+      // Without this, _nudgeLastOnlineList carries usernames from the prior
+      // section; if the teacher switches sections with broadcast still on,
+      // the first Send would POST those stale usernames to /teacher/nudge
+      // (the WS layer would drop them as cross-section, but the audit log
+      // would still insert incorrect rows).
+      try {
+        if (typeof _nudgeBroadcastActive !== 'undefined') _nudgeBroadcastActive = false;
+        if (typeof _nudgeLastOnlineList !== 'undefined') _nudgeLastOnlineList = [];
+        var bcastBox = document.getElementById('nudge-broadcast');
+        if (bcastBox) bcastBox.checked = false;
+        var sel = document.getElementById('nudge-recipient');
+        if (sel) sel.classList.remove('nudge-recipient-broadcast-dim');
+        var countEl = document.getElementById('nudge-broadcast-count');
+        if (countEl) countEl.textContent = '';
+      } catch (_) {}
+      if (boardHandle) {
+        try { boardHandle.destroy(); } catch (_) {}
+        boardHandle = null;
+      }
+      _lastArchivedPollId = null;
+      setGreenlightIndicator(false);
+      setBoardSectionsVisible(false);
+    }
+
+    async function mountBoard(section, session) {
+      teardown();
+
+      var container = document.getElementById('board-mount');
+      container.innerHTML = '';
+
+      var statusRow = document.getElementById('status-row');
+      statusRow.textContent = 'Fetching roster for ' + section + '...';
+
+      currentNameMap = await fetchNameMap(section);
+      // P9: fetch the teacher-gated id map in parallel (best-effort; {} on failure).
+      currentIdMap = await fetchIdMap(section);
+
+      statusRow.textContent = 'Connecting to ' + section + '...';
+
+      // Guard: classroom-board.js may not be present yet (parallel build).
+      if (typeof window.ClassroomBoard === 'undefined' || typeof window.ClassroomBoard.mount !== 'function') {
+        statusRow.textContent = 'classroom-board.js not loaded -- board unavailable.';
+        return;
+      }
+
+      try {
+        boardHandle = window.ClassroomBoard.mount(container, {
+          wsUrl: wsUrl(),
+          section: section,
+          username: session.username,
+          role: 'teacher',
+          hue: (session.spriteHue != null) ? session.spriteHue : null,
+          nameMap: currentNameMap,
+          onStateChange: function (summary) {
+            _lastSummary = summary;
+            renderCheckinPanel(summary, currentNameMap);
+            // The board includes greenlight in every summary (true after a
+            // GO broadcast, false after arm/reset). Mirror it directly so the
+            // indicator reflects real broadcast state -- it lights for a
+            // remote teacher's GO and never lies on a failed local click.
+            setGreenlightIndicator(!!summary.greenlight);
+            // v2: drive the live poll tally canvas and gate-exclusivity guard.
+            renderPollTally(summary);
+            updateOpenPollGuard(summary);
+            // v2.1: archive a closed poll from the board's authoritative
+            // summary.closedPoll payload -- it carries the FINAL
+            // classroom_poll_closed tally (summary.tally is cleared once the
+            // poll closes, so it cannot be used). Dedup by poll id: the
+            // post-close summaries repeat closedPoll, and a reset / remount
+            // has no closedPoll -- so this archives exactly once and never
+            // false-fires.
+            var cp = summary.closedPoll;
+            if (cp && cp.id && cp.id !== _lastArchivedPollId) {
+              _lastArchivedPollId = cp.id;
+              archivePoll(cp.id, section, todayIsoDate(),
+                cp.question, cp.options || [], cp.tally || [], !!cp.blind);
+            }
+            // v3 P4: doorways live tally + archive-on-close.
+            renderDoorwaysTally(summary);
+            // v4 Unit C: activity panel (Run Activity / live readout / result).
+            renderActivity(summary);
+            // Codex MAJOR 1 fold: derive _activeDoorwaysId + button
+            // visibility from summary.doorways on every state change.
+            // This way a cockpit refresh / second teacher / late mount
+            // all hydrate the active session (without this, the local
+            // _activeDoorwaysId was only set by the Open click).
+            if (summary.doorways && summary.doorways.id) {
+              _activeDoorwaysId = summary.doorways.id;
+              document.getElementById('btn-open-doorways').style.display = 'none';
+              document.getElementById('btn-close-doorways').style.display = '';
+            } else if (!summary.closedDoorways) {
+              // No active + no closing -- idle state -> show the form.
+              _activeDoorwaysId = null;
+              document.getElementById('btn-open-doorways').style.display = '';
+              document.getElementById('btn-close-doorways').style.display = 'none';
+            }
+            var cd = summary.closedDoorways;
+            if (cd && cd.id && cd.id !== _lastArchivedDoorwaysId) {
+              _lastArchivedDoorwaysId = cd.id;
+              archivePoll(cd.id, section, todayIsoDate(),
+                cd.question, (cd.options || []).map(function(o) { return o.label; }),
+                (cd.tally || []).map(function(t) { return t.count; }), false);
+              // Reset cockpit UI back to the form.
+              _activeDoorwaysId = null;
+              document.getElementById('btn-open-doorways').style.display = '';
+              document.getElementById('btn-close-doorways').style.display = 'none';
+            }
+            // v3 P3 Codex MAJOR fold: track members via the board's
+            // authoritative state (NOT the monitor delta, which is
+            // unsubscribed during Live). On every state-change, ensure
+            // a peer connection exists for each online student in the
+            // section, and tear down peers for students who left.
+            _reconcileStudentPeers(summary);
+            // P3 nudges: refresh the recipient dropdown when members change.
+            try { _refreshNudgeRecipients(summary); } catch (_) {}
+            // P10 T1: proactively re-hydrate currentIdMap if a new student
+            // joined after mountBoard (debounced to avoid spamming /roster/list).
+            try { _maybeRefreshIdMap(summary); } catch (_) {}
+          },
+          onSignaling: function (msg) {
+            // v3 P3: rtc_answer / rtc_ice from a student peer; route to
+            // the cockpit's hub manager. The board's role is 'teacher'
+            // so the WS handler delegates these instead of consuming
+            // them locally.
+            _handleRtcSignaling(msg);
+          },
+          // P3 nudges (TEACHER_STUDENT_CONSOLE_SPEC.md section 6): raw classroom_*
+          // message hook. Surfaces student replies into the cockpit panel
+          // + shows offline ack as a status note. typeof-guarded so the
+          // cockpit's existing tests don't need to inject the helpers.
+          onClassroomMessage: function (msg) {
+            if (!msg || !msg.type) return;
+            // Park music (2026-10-10): in Live mode the monitor socket is gone; the room's sound
+            // state arrives on this joined socket (the snapshot and classroom_sound_state).
+            if (msg.type === 'classroom_state' || msg.type === 'classroom_sound_state') {
+              _liveClassSound = msg.sound === true;
+              _renderClassSound();
+            }
+            if (msg.type === 'classroom_student_nudge_reply' && typeof _renderReplyInList === 'function') {
+              try { _renderReplyInList(msg); } catch (_) {}
+            } else if (msg.type === 'classroom_teacher_nudge_ack' && typeof _renderNudgeAck === 'function') {
+              try { _renderNudgeAck(msg); } catch (_) {}
+            } else if (msg.type === 'classroom_activity_error') {
+              // 2026-05-25 V7 follow-up: surface server-side activity start
+              // rejections so the cockpit doesn't silently appear "stuck"
+              // when (e.g.) the level JSON isn't deployed or the activity
+              // type is unknown. Without this branch the error was dropped
+              // and the activity-status field stayed on "Waiting for server
+              // reply..." forever.
+              var es = document.getElementById('activity-status');
+              if (es) {
+                var detail = '';
+                if (msg.code) detail = ' [code=' + msg.code + ']';
+                if (msg.minMembers != null && msg.online != null) {
+                  detail += ' (have ' + msg.online + ', need >= ' + msg.minMembers + ')';
+                }
+                es.textContent = 'Server rejected activity start' + detail + '. Check that cr (curriculumrender-production) deployed the V7 build + activities/<key>.json file.';
+              }
+              try { console.warn('[classroom_activity_error]', msg); } catch (_) {}
+            }
+          },
+          // P4+P9 (TEACHER_STUDENT_CONSOLE_SPEC.md): canvas click hit-tests onto
+          // an avatar. typeof-guarded for tests that mount without loading helpers.
+          onAvatarClick: function (hit) {
+            // Routes: select mode -> _toggleSelectAvatar (P4 multi-pick);
+            //         normal mode -> _openAvatarPopup floating popup (P9).
+            if (typeof _handleAvatarClickRouted === 'function') {
+              try { _handleAvatarClickRouted(hit); } catch (_) {}
+            }
+          }
+        });
+        // The board mounted -- now reveal the board-dependent sections.
+        setBoardSectionsVisible(true);
+        statusRow.textContent = 'Connected to ' + section + '.';
+      } catch (err) {
+        statusRow.textContent = 'Board error: ' + (err && err.message ? err.message : String(err));
+      }
+    }
+
+    // ===== v2: poll tally rendering =====
+
+    // Reads summary.poll and summary.tally from the board's onStateChange,
+    // updates the tally label, and redraws the result canvas via Ti84Plot.
+    function renderPollTally(summary) {
+      var labelEl  = document.getElementById('poll-tally-label');
+      var canvas   = document.getElementById('poll-result-canvas');
+
+      var poll  = summary && summary.poll;
+      var tally = summary && summary.tally;
+
+      if (!poll) {
+        if (labelEl) labelEl.textContent = 'No poll active.';
+        if (canvas) {
+          var ctx = canvas.getContext('2d');
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+        return;
+      }
+
+      // Build a readable tally string.
+      var options  = poll.options || [];
+      var counts   = tally || options.map(function () { return 0; });
+      var total    = counts.reduce(function (a, b) { return a + b; }, 0);
+      var tallyStr = options.map(function (opt, i) {
+        return opt + ': ' + (counts[i] || 0);
+      }).join('  |  ');
+      if (labelEl) labelEl.textContent = tallyStr + '  (' + total + ' vote' + (total !== 1 ? 's' : '') + ')';
+
+      // Draw the bar chart if Ti84Plot is available.
+      if (!canvas) return;
+      var ctx2d = canvas.getContext('2d');
+      if (typeof window.Ti84Plot !== 'undefined' && typeof window.Ti84Plot.drawBarChart === 'function') {
+        window.Ti84Plot.drawBarChart(ctx2d, {
+          labels: options,
+          counts: counts,
+          title: poll.question || ''
+        });
+      } else {
+        // Fallback: clear the canvas (Ti84Plot not yet loaded).
+        ctx2d.clearRect(0, 0, canvas.width, canvas.height);
+      }
+    }
+
+    // ===== v3 P4: doorways =====
+
+    var _activeDoorwaysId = null;
+    var _lastArchivedDoorwaysId = null;
+
+    function getDoorwaysFormValues() {
+      var q = (document.getElementById('doorways-question-input').value || '').trim();
+      var inputs = document.querySelectorAll('#doorways-options-list .poll-option-input');
+      var options = [];
+      for (var i = 0; i < inputs.length; i++) {
+        var label = (inputs[i].value || '').trim();
+        if (label) options.push({ label: label, doorId: 'd' + i });
+      }
+      return { question: q, options: options };
+    }
+
+    document.getElementById('btn-open-doorways').addEventListener('click', function() {
+      if (!boardHandle) return;
+      var vals = getDoorwaysFormValues();
+      if (vals.options.length < 2) { alert('Need at least 2 doorways.'); return; }
+      if (vals.options.length > 8) { alert('Max 8 doorways.'); return; }
+      var id = 'doorways-' + Date.now();
+      _activeDoorwaysId = id;
+      // s111 P4 HOTFIX: clear any stale gate / poll first so the
+      // server's mutual-exclusion guards don't silently reject. The
+      // server processes WS messages in FIFO order, so the reset
+      // lands BEFORE openDoorways and the room is clean by then.
+      if (_lastSummary && ((_lastSummary.gate && _lastSummary.gate.armed) || _lastSummary.poll)) {
+        if (typeof boardHandle.reset === 'function') {
+          try { boardHandle.reset(); } catch (_) {}
+        }
+      }
+      boardHandle.openDoorways(id, vals.question, vals.options);
+      document.getElementById('btn-open-doorways').style.display = 'none';
+      document.getElementById('btn-close-doorways').style.display = '';
+      document.getElementById('doorways-tally-canvas').style.display = '';
+    });
+
+    document.getElementById('btn-close-doorways').addEventListener('click', function() {
+      if (!boardHandle || !_activeDoorwaysId) return;
+      boardHandle.closeDoorways(_activeDoorwaysId);
+    });
+
+    // Tally rendering -- reuse Ti84Plot.drawBarChart (the v2 poll API,
+    // signature: drawBarChart(ctx, { labels, counts, title? })).
+    function renderDoorwaysTally(summary) {
+      var canvas = document.getElementById('doorways-tally-canvas');
+      if (!canvas) return;
+      if (!summary || !summary.doorways) {
+        canvas.style.display = 'none';
+        return;
+      }
+      canvas.style.display = '';
+      if (typeof window.Ti84Plot === 'undefined' || typeof window.Ti84Plot.drawBarChart !== 'function') return;
+      var d = summary.doorways;
+      var labels = d.options.map(function(o) { return o.label; });
+      // Bars stay categorical even when a column has 0 votes (empty
+      // bar still labelled). Switched from drawDotplot which hides
+      // unvoted categories -- students would lose sight of B/C as
+      // options until someone voted for them.
+      var byId = {};
+      (d.tally || []).forEach(function(t) { byId[t.doorId] = t.count; });
+      var counts = d.options.map(function(o) { return byId[o.doorId] || 0; });
+      var ctx = canvas.getContext('2d');
+      window.Ti84Plot.drawBarChart(ctx, { labels: labels, counts: counts, title: d.question || '' });
+    }
+
+    // ===== v4 Unit C: activity panel (LIVE_CLASSROOM_V4_BUILD.md C4) =====
+    //
+    // The Run Activity panel ships next to Poll / Doorways. It launches a
+    // server-side activity plugin (v4 ships only `bridge-mean`), shows the
+    // live readout, and surfaces the result on success / timeout / cancel.
+    //
+    // Read path: summary.activity from the board's onStateChange callback.
+    // Write path: boardHandle.sendMessage({ type: 'classroom_activity_start' / '_cancel', ... }).
+    //
+    // Mutex parity with the rest of the section: Start is disabled when any
+    // of { gate-armed, poll, doorways, activity } is live, or when fewer
+    // than 2 online students are in the room.
+
+    // Count online students in a summary.members array (the board's shape
+    // since the P3 nudge-recipient fix). Defensive against undefined /
+    // non-array shapes that legacy fixtures might pass.
+    function _countOnlineStudents(summary) {
+      if (!summary || !Array.isArray(summary.members)) return 0;
+      var n = 0;
+      for (var i = 0; i < summary.members.length; i++) {
+        var m = summary.members[i];
+        if (m && m.role === 'student' && m.online !== false) n += 1;
+      }
+      return n;
+    }
+
+    // Mutex gate -- a Start button is "blocked" when another mode is live.
+    function _anyModeLive(summary) {
+      if (!summary) return false;
+      if (summary.gate && summary.gate.armed) return true;
+      if (summary.poll) return true;
+      if (summary.doorways) return true;
+      if (summary.activity && !summary.activity.finished) return true;
+      return false;
+    }
+
+    function renderActivity(summary) {
+      var live   = document.getElementById('activity-live');
+      var result = document.getElementById('activity-result');
+      var btnStart  = document.getElementById('btn-activity-start');
+      var btnCancel = document.getElementById('btn-activity-cancel');
+      var readout   = document.getElementById('activity-readout');
+      var roster    = document.getElementById('activity-roster');
+      var resultText = document.getElementById('activity-result-text');
+      if (!btnStart || !btnCancel) return;
+
+      var activity = summary && summary.activity;
+
+      // FINISHED -- show result panel, hide live + cancel.
+      if (activity && activity.finished) {
+        if (live)   live.style.display   = 'none';
+        if (result) result.style.display = '';
+        btnCancel.style.display = 'none';
+        btnStart.style.display  = '';
+        btnStart.disabled       = false;
+        if (resultText) {
+          var outcome = activity.outcome || 'finished';
+          var label = (outcome === 'success') ? 'Success -- bridge held in the target band.'
+                    : (outcome === 'timeout') ? 'Time up -- target band not held for 3 seconds.'
+                    : (outcome === 'cancel')  ? 'Activity cancelled.'
+                                              : 'Activity finished.';
+          resultText.textContent = label;
+        }
+        return;
+      }
+
+      // LIVE -- show readout + cancel, hide start + result.
+      if (activity && !activity.finished) {
+        if (result) result.style.display = 'none';
+        if (live)   live.style.display   = '';
+        btnStart.style.display  = 'none';
+        btnCancel.style.display = '';
+
+        var state = activity.state || {};
+        var holdMs = (typeof state.holdMs === 'number') ? state.holdMs : 0;
+        var holdTargetMs = (typeof state.holdTargetMs === 'number') ? state.holdTargetMs : 3000;
+        var startedAt = (typeof activity.startedAt === 'number') ? activity.startedAt : 0;
+        var durationMs = (typeof activity.durationMs === 'number') ? activity.durationMs : 0;
+        var elapsedMs = Math.max(0, Date.now() - startedAt);
+        var remainingMs = Math.max(0, durationMs - elapsedMs);
+        var remainingStr = '   remaining: ' + Math.ceil(remainingMs / 1000) + ' s';
+        // V5: branch per activity type for the readout + roster shape.
+        var typ = activity.type || 'bridge-mean';
+        if (typ === 'colorbox-hue') {
+          // Categorical: "In correct zone: X/N | tally per zone"
+          var assignments = (state.assignments && typeof state.assignments === 'object') ? state.assignments : {};
+          var currentZone = (state.currentZone && typeof state.currentZone === 'object') ? state.currentZone : {};
+          var tally = Array.isArray(state.tally) ? state.tally : [0, 0, 0, 0];
+          var keys = Object.keys(assignments);
+          var correct = 0;
+          for (var ci = 0; ci < keys.length; ci++) {
+            if (currentZone[keys[ci]] === assignments[keys[ci]]) correct++;
+          }
+          if (readout) {
+            readout.textContent =
+              'In correct zone: ' + correct + '/' + keys.length +
+              '   hold: ' + Math.round(holdMs) + ' / ' + holdTargetMs + ' ms' +
+              '   tally: R=' + (tally[0]||0) + ' Y=' + (tally[1]||0) +
+              ' G=' + (tally[2]||0) + ' B=' + (tally[3]||0) +
+              remainingStr;
+          }
+          if (roster) {
+            roster.innerHTML = '';
+            var zoneLabels = ['R', 'Y', 'G', 'B'];
+            var sorted = keys.slice().sort();
+            for (var ki = 0; ki < sorted.length; ki++) {
+              var uname = sorted[ki];
+              var li = document.createElement('li');
+              var wantZ = assignments[uname];
+              var curZ = currentZone[uname];
+              var inZone = (typeof curZ === 'number' && curZ === wantZ);
+              li.textContent = uname + ': want ' + zoneLabels[wantZ] +
+                (typeof curZ === 'number' && curZ >= 0 && curZ < 4
+                  ? ', in ' + zoneLabels[curZ] + (inZone ? ' [OK]' : '')
+                  : ', not in zone');
+              roster.appendChild(li);
+            }
+          }
+          return;
+        }
+        // V7: level -- Cola Mystery + future level scenes. Readout shows
+        // live sip tally + door votes + which doors opened + reflection
+        // state + goal status. State shape (per V7 C4 serialize):
+        //   { players, coins, switches, gates, goal, reflection, tally }
+        if (typ === 'level') {
+          var lvlTally = (state.tally && typeof state.tally === 'object') ? state.tally : {};
+          var sips     = (lvlTally.sips && typeof lvlTally.sips === 'object') ? lvlTally.sips : {};
+          var votes    = (lvlTally.votes && typeof lvlTally.votes === 'object') ? lvlTally.votes : {};
+          var gates    = Array.isArray(state.gates) ? state.gates : [];
+          var lvlReflection = (state.reflection && typeof state.reflection === 'object') ? state.reflection : {};
+          var lvlGoal       = (state.goal && typeof state.goal === 'object') ? state.goal : {};
+          var lvlPlayers    = (state.players && typeof state.players === 'object') ? state.players : {};
+
+          // Sips line: "A=3 B=2" (sorted by drink key).
+          var sipKeys = Object.keys(sips).sort();
+          var sipsParts = [];
+          for (var li7 = 0; li7 < sipKeys.length; li7++) {
+            sipsParts.push(sipKeys[li7] + '=' + (sips[sipKeys[li7]] || 0));
+          }
+          var sipsStr = sipsParts.join(' ');
+
+          // Votes line: "d1=1 d2=3 d3=0" (sorted by door id).
+          var voteKeys = Object.keys(votes).sort();
+          var votesParts = [];
+          for (var vk7 = 0; vk7 < voteKeys.length; vk7++) {
+            votesParts.push(voteKeys[vk7] + '=' + (votes[voteKeys[vk7]] || 0));
+          }
+          var votesStr = votesParts.join(' ');
+
+          // Doors opened: list ids of any gate with opened=true.
+          var openedIds = [];
+          for (var gi7 = 0; gi7 < gates.length; gi7++) {
+            if (gates[gi7] && gates[gi7].opened) openedIds.push(gates[gi7].id);
+          }
+          var openedStr = '[' + openedIds.join(', ') + ']';
+
+          // Reflection: count of players currently in the reflection room
+          // over total online (use players map size for total).
+          var totalPlayers = Object.keys(lvlPlayers).length;
+          var inReflection = 0;
+          for (var pn7 in lvlPlayers) {
+            if (Object.prototype.hasOwnProperty.call(lvlPlayers, pn7) &&
+                lvlPlayers[pn7] && lvlPlayers[pn7].inReflection) {
+              inReflection++;
+            }
+          }
+
+          var goalReached = lvlGoal.reached ? 'yes' : 'no';
+
+          if (readout) {
+            readout.textContent =
+              'Sips: ' + sipsStr + '\n' +
+              'Door votes: ' + votesStr + '\n' +
+              'Doors opened: ' + openedStr + '\n' +
+              'Players in reflection: ' + inReflection + '/' + totalPlayers + '\n' +
+              'Goal reached: ' + goalReached +
+              remainingStr;
+          }
+          if (roster) {
+            roster.innerHTML = '';
+            var sortedNames7 = Object.keys(lvlPlayers).sort();
+            for (var si7 = 0; si7 < sortedNames7.length; si7++) {
+              var u7 = sortedNames7[si7];
+              var p7 = lvlPlayers[u7] || {};
+              var li7r = document.createElement('li');
+              li7r.textContent = u7 + (p7.inReflection ? ' (in reflection)' : '');
+              roster.appendChild(li7r);
+            }
+          }
+          return;
+        }
+        // V6: colorbox-grid -- 2-D contingency table readout.
+        if (typ === 'colorbox-grid') {
+          var assignments6 = (state.assignments && typeof state.assignments === 'object') ? state.assignments : {};
+          var picks6 = (state.picks && typeof state.picks === 'object') ? state.picks : {};
+          var currentCell6 = (state.currentCell && typeof state.currentCell === 'object') ? state.currentCell : {};
+          var colCount6 = (typeof state.colCount === 'number') ? state.colCount : 2;
+          var keys6 = Object.keys(assignments6);
+          var picked6 = 0;
+          var correct6 = 0;
+          for (var ki6 = 0; ki6 < keys6.length; ki6++) {
+            var u6 = keys6[ki6];
+            if (picks6[u6] != null) picked6++;
+            var cc6 = currentCell6[u6];
+            if (cc6 && assignments6[u6] && cc6.row === assignments6[u6].row && cc6.col === picks6[u6]) {
+              correct6++;
+            }
+          }
+          if (readout) {
+            readout.textContent =
+              'Picked: ' + picked6 + '/' + keys6.length +
+              '   In correct cell: ' + correct6 + '/' + keys6.length +
+              '   hold: ' + Math.round(holdMs) + ' / ' + holdTargetMs + ' ms' +
+              '   ' + colCount6 + ' cols' +
+              remainingStr;
+          }
+          if (roster) {
+            roster.innerHTML = '';
+            var sortedNames6 = keys6.slice().sort();
+            for (var si6 = 0; si6 < sortedNames6.length; si6++) {
+              var u6r = sortedNames6[si6];
+              var li6 = document.createElement('li');
+              var wantR6 = (assignments6[u6r] && typeof assignments6[u6r].row === 'number') ? assignments6[u6r].row : -1;
+              var wantC6 = picks6[u6r];
+              var cur6 = currentCell6[u6r];
+              var rowLbl6 = ['R', 'Y', 'G', 'B'][wantR6] || '?';
+              var pickLbl6 = (wantC6 == null) ? '?' : String(wantC6);
+              var inCell6 = (cur6 && cur6.row === wantR6 && cur6.col === wantC6);
+              li6.textContent = u6r + ': want (' + rowLbl6 + ',' + pickLbl6 + ')' +
+                (cur6 && typeof cur6.row === 'number' && cur6.row >= 0
+                  ? ' in (' + (['R','Y','G','B'][cur6.row] || '?') + ',' + cur6.col + ')' + (inCell6 ? ' [OK]' : '')
+                  : '');
+              roster.appendChild(li6);
+            }
+          }
+          return;
+        }
+        // Default branch (bridge-mean): mean + target readout.
+        var mean  = (typeof state.currentMean === 'number') ? state.currentMean : 0;
+        var target = (typeof state.target === 'number') ? state.target : 0;
+        if (readout) {
+          readout.textContent =
+            'mean: '      + mean +
+            '   target: ' + target +
+            '   hold: '   + Math.round(holdMs) + ' / ' + holdTargetMs + ' ms' +
+            remainingStr;
+        }
+        if (roster) {
+          // Build username: value (nudges) entries from state.values + state.nudges.
+          // state.nudges is optional (plugin may not expose it); default to "".
+          roster.innerHTML = '';
+          var values = (state.values && typeof state.values === 'object') ? state.values : {};
+          var nudges = (state.nudges && typeof state.nudges === 'object') ? state.nudges : {};
+          var usernames = Object.keys(values).sort();
+          for (var i = 0; i < usernames.length; i++) {
+            var u = usernames[i];
+            var li = document.createElement('li');
+            var nudgeCount = (u in nudges) ? nudges[u] : '';
+            var nudgeStr = (nudgeCount === '' || nudgeCount == null) ? '' : ' (' + nudgeCount + ')';
+            li.textContent = u + ': ' + values[u] + nudgeStr;
+            roster.appendChild(li);
+          }
+        }
+        return;
+      }
+
+      // IDLE -- no activity. Hide live + result, show start, mutex-gate it.
+      if (live)   live.style.display   = 'none';
+      if (result) result.style.display = 'none';
+      btnStart.style.display  = '';
+      btnCancel.style.display = 'none';
+      var online = _countOnlineStudents(summary);
+      var blocked = _anyModeLive(summary);
+      btnStart.disabled = (online < 2) || blocked;
+    }
+
+    function startActivity() {
+      // 2026-05-25: diagnostic surface for the "click does nothing" pattern.
+      // Without this, a missing boardHandle (cockpit not in Live mode for
+      // this section, or boardHandle.sendMessage swapped out) silently
+      // early-returns. Now we log + surface via activity-status DOM.
+      var _statusEl = document.getElementById('activity-status');
+      if (!boardHandle) {
+        if (_statusEl) _statusEl.textContent = 'Cannot start: boardHandle is null. Click Go Live for this section first.';
+        try { console.warn('[startActivity] boardHandle is null'); } catch (_) {}
+        return;
+      }
+      if (typeof boardHandle.sendMessage !== 'function') {
+        if (_statusEl) _statusEl.textContent = 'Cannot start: boardHandle.sendMessage is not a function. Check WS connection.';
+        try { console.warn('[startActivity] boardHandle has no sendMessage method:', boardHandle); } catch (_) {}
+        return;
+      }
+      var typeEl = document.getElementById('activity-type');
+      var durEl  = document.getElementById('activity-duration');
+      var rawType = typeEl ? typeEl.value : 'bridge-mean';
+      var seconds = durEl ? parseInt(durEl.value, 10) : 90;
+      if (!isFinite(seconds)) seconds = 90;
+      var durationMs = Math.max(30000, Math.min(300000, seconds * 1000));
+      // V6: dropdown values like 'colorbox-grid:hand' / 'colorbox-grid:group'
+      // use a ':variant' suffix to pick the secondAxis shape at launch time.
+      var parts = String(rawType).split(':');
+      var type = parts[0];
+      var variant = parts[1] || '';
+      var opts = { durationMs: durationMs };
+      if (type === 'colorbox-grid') {
+        if (variant === 'hand') {
+          opts.secondAxis = { mode: 'prompt', question: 'Are you left-handed?', options: ['No', 'Yes'] };
+        } else if (variant === 'group') {
+          opts.secondAxis = { mode: 'auto', labels: ['Group A', 'Group B'] };
+        }
+      }
+      // V7 Unit C: 'level' activity type carries the levelKey (e.g.,
+      // 'U1.1') so the server-side level-engine knows which JSON to load.
+      if (type === 'level') {
+        opts.levelKey = variant; // e.g., 'U1.1'
+        // 2026-05-25 V7 Codex MAJOR 6 fold: levels carry their own
+        // duration in the LevelDef (e.g., U1.1 is 180s). Only override
+        // when the teacher explicitly changed the UI input from the
+        // 90s default. Otherwise let the server pick from the JSON.
+        if (seconds === 90) {
+          delete opts.durationMs;
+        }
+      }
+      var startPayload = {
+        type: 'classroom_activity_start',
+        activityType: type,
+        opts: opts
+      };
+      try { console.log('[startActivity] sending:', startPayload); } catch (_) {}
+      var sent = boardHandle.sendMessage(startPayload);
+      if (sent === false) {
+        if (_statusEl) _statusEl.textContent = 'sendMessage returned false (WS not OPEN?). Check Network -> WS for the section socket.';
+        try { console.warn('[startActivity] sendMessage returned false'); } catch (_) {}
+      } else if (_statusEl) {
+        _statusEl.textContent = 'Sent classroom_activity_start (' + type + (opts.levelKey ? ':' + opts.levelKey : '') + '). Waiting for server reply...';
+      }
+    }
+
+    function cancelActivity() {
+      if (!boardHandle || typeof boardHandle.sendMessage !== 'function') return;
+      boardHandle.sendMessage({ type: 'classroom_activity_cancel' });
+    }
+
+    // 2026-05-24 V4 Codex MAJOR fold: wire the 3 result-panel buttons so
+    // they're not dead UI. Minimal v4 behavior; v5 can extend.
+    //   Manual Advance: cancel the activity (server broadcasts), then
+    //     surface a note instructing the teacher to use the dashboard's
+    //     existing P5 override-gate UI for per-student unlock.
+    //   Show Hint:      replace the result text with a static formula
+    //     hint specific to the current activity type.
+    //   Retry:          re-send classroom_activity_start with the same
+    //     activityType + opts (reads them from the dropdown + duration
+    //     input, which still reflect the last launch).
+    function manualAdvanceActivity() {
+      cancelActivity();
+      var statusEl = document.getElementById('activity-status');
+      if (statusEl) {
+        statusEl.textContent = 'Activity cancelled. Use the dashboard override-gate to unlock the lesson for specific students.';
+      }
+    }
+    function showActivityHint() {
+      var resultText = document.getElementById('activity-result-text');
+      if (!resultText) return;
+      var type = (_lastSummary && _lastSummary.activity && _lastSummary.activity.type) || '';
+      var hint = '';
+      if (type === 'bridge-mean') {
+        hint = 'Hint: mean = (v1 + v2 + ... + vN) / N. Move toward the target by nudging values up/down.';
+      } else if (type === 'colorbox-hue') {
+        hint = 'Hint: walk your avatar into the zone matching your sprite color (Red 0-89, Yellow 90-179, Green 180-269, Blue 270-359 hue).';
+      } else if (type === 'colorbox-grid') {
+        hint = 'Hint: a two-way table cell is the intersection of TWO categorical variables. Pick your second-axis answer (prompt) or check your auto-assigned group, then walk to the cell at (your hue row, your column).';
+      } else if (type === 'level') {
+        hint = 'Hint: explore the scene. Walk onto sip stations to collect data, then walk onto a question door to vote. The right question is the one the data CAN answer.';
+      } else {
+        hint = 'Hint not available for activity type "' + type + '".';
+      }
+      resultText.textContent = hint;
+    }
+    function retryActivity() {
+      // Reuse the existing startActivity helper which reads from the
+      // dropdown + duration input. Hide the result panel pre-emptively
+      // so the new activity's live panel is the only one visible.
+      var resultEl = document.getElementById('activity-result');
+      if (resultEl) resultEl.style.display = 'none';
+      startActivity();
+    }
+
+    // Wire the buttons -- guarded so the cockpit test harness (which boots
+    // without the V4 panel present in some legacy fixtures) won't throw.
+    (function _wireActivityButtons() {
+      var btnStart   = document.getElementById('btn-activity-start');
+      var btnCancel  = document.getElementById('btn-activity-cancel');
+      var btnAdvance = document.getElementById('btn-activity-advance');
+      var btnHint    = document.getElementById('btn-activity-hint');
+      var btnRetry   = document.getElementById('btn-activity-retry');
+      if (btnStart)   btnStart.addEventListener('click',   startActivity);
+      if (btnCancel)  btnCancel.addEventListener('click',  cancelActivity);
+      if (btnAdvance) btnAdvance.addEventListener('click', manualAdvanceActivity);
+      if (btnHint)    btnHint.addEventListener('click',    showActivityHint);
+      if (btnRetry)   btnRetry.addEventListener('click',   retryActivity);
+    })();
+
+    // ===== P3: nudge panel helpers (TEACHER_STUDENT_CONSOLE_SPEC.md section 6) =====
+    // Cockpit-side. Populate recipient dropdown from onStateChange.members
+    // (online students). Send: WS classroom_teacher_nudge for live delivery
+    // + POST /teacher/nudge to roster-server for log persistence. Listen for
+    // student replies + offline ack via onClassroomMessage.
+
+    var _nudgeIdSeq = 0;
+    // P8: broadcast toggle state + stashed online list.
+    // _nudgeBroadcastActive: true when the checkbox is checked.
+    // _nudgeLastOnlineList: the online student list from the most recent
+    //   _refreshNudgeRecipients call. Read at send time so we never need
+    //   a second walk of summary.members.
+    var _nudgeBroadcastActive = false;
+    var _nudgeLastOnlineList = [];
+
+    function _newNudgeId() {
+      _nudgeIdSeq += 1;
+      return 'nudge_' + Date.now() + '_' + _nudgeIdSeq;
+    }
+
+    function _refreshNudgeRecipients(summary) {
+      var sel = document.getElementById('nudge-recipient');
+      if (!sel) return;
+      // Codex P10 BLOCKER discovery: summary.members from classroom-board.js
+      // buildSummary is an ARRAY of records, not an object keyed by username.
+      // The original P3 code used Object.keys(members) which returned index
+      // strings, so the dropdown silently populated with "0", "1", etc.
+      // instead of real usernames. Existing P3 tests pre-fed object-shaped
+      // fixtures and missed the bug. Fix: iterate the array, extract
+      // m.username directly. (Same fix as _maybeRefreshIdMap.)
+      var membersArr = (summary && Array.isArray(summary.members)) ? summary.members : [];
+      var onlineStudents = [];
+      for (var i = 0; i < membersArr.length; i++) {
+        var memb = membersArr[i];
+        if (memb && memb.role === 'student' && memb.online !== false && memb.username) {
+          onlineStudents.push(memb.username);
+        }
+      }
+      var prev = sel.value;
+      sel.innerHTML = '';
+      if (onlineStudents.length === 0) {
+        var opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = '(no students online)';
+        sel.appendChild(opt);
+        sel.disabled = true;
+      } else {
+        onlineStudents.sort();
+        onlineStudents.forEach(function (u) {
+          var o = document.createElement('option');
+          o.value = u;
+          var realName = (currentNameMap && currentNameMap[u]) ? currentNameMap[u] : u;
+          o.textContent = realName + ' (@' + u + ')';
+          sel.appendChild(o);
+        });
+        // Codex P8 MAJOR fold: keep the dropdown functionally disabled while
+        // broadcast mode is active. Without this, a subsequent member-update
+        // event would re-enable the dropdown even though the visual dim class
+        // says otherwise -- and a click on the now-functional dropdown could
+        // bypass the broadcast intent. typeof guard preserves behavior for
+        // the isolated-vm test harness that lacks _nudgeBroadcastActive.
+        sel.disabled = (typeof _nudgeBroadcastActive !== 'undefined') && _nudgeBroadcastActive;
+        if (onlineStudents.indexOf(prev) >= 0) sel.value = prev;
+      }
+      // P8: keep the broadcast count label in sync and stash the online list
+      // so _sendNudgeFromCockpit can resolve recipients without re-walking members.
+      var countEl = document.getElementById('nudge-broadcast-count');
+      if (countEl) {
+        countEl.textContent = onlineStudents.length === 0
+          ? '(no students online)'
+          : '(' + onlineStudents.length + ' online)';
+      }
+      // typeof-guard: in isolated vm sandboxes the module-scope var is absent;
+      // skip the assignment rather than throw ReferenceError.
+      if (typeof _nudgeLastOnlineList !== 'undefined') {
+        _nudgeLastOnlineList = onlineStudents.slice();
+      }
+      _updateNudgeSendButton();
+    }
+
+    function _updateNudgeSendButton() {
+      var sel = document.getElementById('nudge-recipient');
+      var text = document.getElementById('nudge-text');
+      var btn = document.getElementById('btn-send-nudge');
+      if (!sel || !text || !btn) return;
+      var hasText = !!String(text.value || '').trim();
+      // P8: broadcast mode gates on online-list length instead of dropdown value.
+      // Use typeof guards so isolated test sandboxes (which don't inject the
+      // module-scope broadcast vars) fall through to the single-recipient path.
+      var broadcastOn = (typeof _nudgeBroadcastActive !== 'undefined') && !!_nudgeBroadcastActive;
+      var onlineList = (typeof _nudgeLastOnlineList !== 'undefined') ? _nudgeLastOnlineList : [];
+      if (broadcastOn) {
+        btn.disabled = !hasText || onlineList.length === 0;
+      } else {
+        btn.disabled = !sel.value || !hasText;
+      }
+    }
+
+    async function _sendNudgeFromCockpit() {
+      var sel = document.getElementById('nudge-recipient');
+      var textEl = document.getElementById('nudge-text');
+      var status = document.getElementById('nudge-status');
+      if (!sel || !textEl) return;
+      var rawText = String(textEl.value || '').trim();
+      if (!rawText) return;
+      if (rawText.length > 280) rawText = rawText.slice(0, 280);
+
+      // P8: resolve the recipient list. Broadcast -> the live online list
+      // captured by the most recent _refreshNudgeRecipients. Single ->
+      // the dropdown selection (P3 unchanged path).
+      var recipientList;
+      if (_nudgeBroadcastActive) {
+        recipientList = _nudgeLastOnlineList.slice();
+        if (recipientList.length === 0) {
+          if (status) {
+            status.textContent = 'No students online -- nothing to broadcast.';
+            setTimeout(function () { if (status) status.textContent = ''; }, 3500);
+          }
+          return;
+        }
+      } else {
+        var recipient = sel.value;
+        if (!recipient) return;
+        recipientList = [recipient];
+      }
+
+      var nudgeId = _newNudgeId();
+      var btn = document.getElementById('btn-send-nudge');
+      if (btn) btn.disabled = true;
+      // 1) Live delivery via the existing classroom WS. Codex BLOCKER fold:
+      // capture the boolean return so we DON'T mark delivered_at in the log
+      // when the WS wasn't ready.
+      var wsSent = false;
+      try {
+        if (boardHandle && typeof boardHandle.sendMessage === 'function') {
+          wsSent = !!boardHandle.sendMessage({
+            type: 'classroom_teacher_nudge',
+            nudgeId: nudgeId,
+            recipientUsernames: recipientList,
+            text: rawText
+          });
+        }
+      } catch (_) { wsSent = false; }
+      // 2) Log to roster-server. The server derives senderUsername + section
+      // from the authenticated teacher token (MAJOR fold), so we no longer
+      // pass them in the body. deliveredUsernames is empty when the WS
+      // send dropped -- the log row's delivered_at stays NULL.
+      try {
+        var rsBase = (typeof window.ROSTER_SERVICE_URL === 'string') ? window.ROSTER_SERVICE_URL : '';
+        var rosterToken = (window.rosterClient && typeof window.rosterClient.token === 'function') ? window.rosterClient.token() : null;
+        if (rsBase && rosterToken) {
+          var resp = await fetch(rsBase + '/teacher/nudge', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer ' + rosterToken
+            },
+            body: JSON.stringify({
+              nudgeId: nudgeId,
+              recipientUsernames: recipientList,
+              text: rawText,
+              deliveredUsernames: wsSent ? recipientList : []
+            })
+          });
+          var data = null;
+          try { data = await resp.json(); } catch (_) {}
+          if (status) {
+            // Codex BLOCKER fold: status reflects what ACTUALLY happened --
+            // wsSent=false means the live delivery dropped, regardless of
+            // log success.
+            if (!wsSent) {
+              status.textContent = 'Not connected -- nudge not delivered.';
+            } else if (_nudgeBroadcastActive) {
+              status.textContent = (data && data.ok)
+                ? ('Broadcast sent to ' + recipientList.length + '.')
+                : ('Broadcast sent to ' + recipientList.length + ' (log failed).');
+            } else {
+              status.textContent = (data && data.ok) ? 'Sent.' : 'Sent (log failed).';
+            }
+            setTimeout(function () { if (status) status.textContent = ''; }, 3500);
+          }
+        } else if (status) {
+          if (!wsSent) {
+            status.textContent = 'Not connected -- nudge not delivered.';
+          } else if (_nudgeBroadcastActive) {
+            status.textContent = 'Broadcast sent to ' + recipientList.length + ' (no log -- not signed in).';
+          } else {
+            status.textContent = 'Sent (no log -- not signed in).';
+          }
+          setTimeout(function () { if (status) status.textContent = ''; }, 3500);
+        }
+      } catch (_) {
+        if (status) {
+          // Codex P8 MINOR fold: branch on broadcast mode so the outer catch
+          // path reports a consistent status (matches the data.ok-false branch
+          // inside the try; otherwise a fetch throw silently produces the
+          // single-recipient "Sent (log failed)." string in broadcast mode).
+          if (!wsSent) {
+            status.textContent = 'Not connected -- nudge not delivered.';
+          } else if ((typeof _nudgeBroadcastActive !== 'undefined') && _nudgeBroadcastActive) {
+            status.textContent = 'Broadcast sent to ' + recipientList.length + ' (log failed).';
+          } else {
+            status.textContent = 'Sent (log failed).';
+          }
+          setTimeout(function () { if (status) status.textContent = ''; }, 3500);
+        }
+      }
+      textEl.value = '';
+      _updateNudgeSendButton();
+    }
+
+    function _renderReplyInList(payload) {
+      var list = document.getElementById('nudge-replies-list');
+      if (!list || !payload) return;
+      var row = document.createElement('div');
+      row.className = 'nudge-reply-row';
+      row.style.cssText = 'padding:6px 8px;border-bottom:1px solid var(--sg-border);font-size:0.88rem';
+      var who = document.createElement('strong');
+      var name = (currentNameMap && currentNameMap[payload.fromUsername]) ? currentNameMap[payload.fromUsername] : payload.fromUsername;
+      who.textContent = (name || 'Student') + ': ';
+      var msg = document.createElement('span');
+      msg.textContent = payload.text || '';
+      row.appendChild(who);
+      row.appendChild(msg);
+      list.insertBefore(row, list.firstChild);
+      while (list.children.length > 20) list.removeChild(list.lastChild);
+    }
+
+    function _renderNudgeAck(payload) {
+      var status = document.getElementById('nudge-status');
+      if (!status || !payload) return;
+      var offline = Array.isArray(payload.offline) ? payload.offline : [];
+      if (offline.length > 0) {
+        status.textContent = 'Offline (not delivered): ' + offline.join(', ');
+        setTimeout(function () { if (status) status.textContent = ''; }, 5000);
+      }
+    }
+
+    // ===== P4: Select Students mode (TEACHER_STUDENT_CONSOLE_SPEC.md section 11) =====
+    // Cockpit-side multi-pick + group-nudge. Teacher clicks "Select Students",
+    // canvas freezes + desaturates, click avatars to toggle membership, bar
+    // at bottom shows count + textarea + Send. ESC or Cancel exits.
+
+    var _selectModeActive = false;
+    var _selectedUsernames = new Set();
+
+    // Codex MINOR fold P4: rerender markers on window resize while select
+    // mode is active so check-marks track the canvas as it reflows.
+    var _selectResizeHandler = null;
+
+    function _enterSelectMode() {
+      if (_selectModeActive) return;
+      // Codex P9 MINOR fold: close any open avatar popup before entering
+      // select mode. Otherwise the popup stays over the board and the
+      // first ESC press only closes the popup (its capture handler
+      // stopPropagation'd) -- not select mode.
+      try { if (typeof _closeAvatarPopup === 'function') _closeAvatarPopup(); } catch (_) {}
+      _selectModeActive = true;
+      _selectedUsernames.clear();
+      if (boardHandle && typeof boardHandle.setSelectMode === 'function') {
+        boardHandle.setSelectMode(true);
+      }
+      var bar = document.getElementById('select-bar');
+      if (bar) bar.style.display = 'flex';
+      var markers = document.getElementById('select-markers');
+      if (markers) markers.style.display = 'block';
+      var btn = document.getElementById('btn-select-students');
+      if (btn) btn.textContent = 'Exit Select Mode';
+      // Attach resize listener for marker re-positioning.
+      _selectResizeHandler = function () {
+        try { _renderSelectMarkers(); } catch (_) {}
+      };
+      try { window.addEventListener('resize', _selectResizeHandler); } catch (_) {}
+      _updateSelectBar();
+    }
+
+    function _exitSelectMode() {
+      if (!_selectModeActive) return;
+      _selectModeActive = false;
+      _selectedUsernames.clear();
+      if (boardHandle && typeof boardHandle.setSelectMode === 'function') {
+        boardHandle.setSelectMode(false);
+      }
+      var bar = document.getElementById('select-bar');
+      if (bar) bar.style.display = 'none';
+      var markers = document.getElementById('select-markers');
+      if (markers) {
+        markers.style.display = 'none';
+        markers.innerHTML = '';
+      }
+      var btn = document.getElementById('btn-select-students');
+      if (btn) btn.textContent = 'Select Students';
+      var textEl = document.getElementById('select-bar-text');
+      if (textEl) textEl.value = '';
+      // Detach resize listener.
+      if (_selectResizeHandler) {
+        try { window.removeEventListener('resize', _selectResizeHandler); } catch (_) {}
+        _selectResizeHandler = null;
+      }
+      _updateSelectBar();
+    }
+
+    function _toggleSelectAvatar(uname) {
+      if (!_selectModeActive || !uname) return;
+      if (_selectedUsernames.has(uname)) _selectedUsernames.delete(uname);
+      else _selectedUsernames.add(uname);
+      _renderSelectMarkers();
+      _updateSelectBar();
+    }
+
+    function _updateSelectBar() {
+      var count = _selectedUsernames.size;
+      var countEl = document.getElementById('select-bar-count');
+      if (countEl) countEl.textContent = count + ' selected';
+      var textEl = document.getElementById('select-bar-text');
+      var sendBtn = document.getElementById('btn-select-send');
+      if (sendBtn) {
+        sendBtn.disabled = (count === 0) || !textEl || !String(textEl.value || '').trim();
+      }
+    }
+
+    function _renderSelectMarkers() {
+      var markers = document.getElementById('select-markers');
+      if (!markers) return;
+      markers.innerHTML = '';
+      if (!_selectModeActive || _selectedUsernames.size === 0) return;
+      if (!boardHandle || typeof boardHandle.getSpritePosition !== 'function') return;
+      var canvas = (typeof boardHandle.getCanvas === 'function') ? boardHandle.getCanvas() : null;
+      if (!canvas) return;
+      var rect = canvas.getBoundingClientRect();
+      var scaleX = rect.width / Math.max(1, canvas.width);
+      var scaleY = rect.height / Math.max(1, canvas.height);
+      _selectedUsernames.forEach(function (u) {
+        var pos = boardHandle.getSpritePosition(u);
+        if (!pos) return;
+        var div = document.createElement('div');
+        div.className = 'sel-marker';
+        div.style.left = (rect.left + pos.x * scaleX) + 'px';
+        div.style.top = (rect.top + pos.y * scaleY) + 'px';
+        div.setAttribute('data-username', u);
+        markers.appendChild(div);
+      });
+    }
+
+    async function _sendSelectedNudge() {
+      if (!_selectModeActive || _selectedUsernames.size === 0) return;
+      var textEl = document.getElementById('select-bar-text');
+      var rawText = textEl ? String(textEl.value || '').trim() : '';
+      if (!rawText) return;
+      if (rawText.length > 280) rawText = rawText.slice(0, 280);
+      var recipients = Array.from(_selectedUsernames);
+      var nudgeId = (typeof _newNudgeId === 'function') ? _newNudgeId() : ('nudge_' + Date.now());
+      var sendBtn = document.getElementById('btn-select-send');
+      var countEl = document.getElementById('select-bar-count');
+      if (sendBtn) sendBtn.disabled = true;
+      // 1) Live delivery via WS.
+      var wsSent = false;
+      try {
+        if (boardHandle && typeof boardHandle.sendMessage === 'function') {
+          wsSent = !!boardHandle.sendMessage({
+            type: 'classroom_teacher_nudge',
+            nudgeId: nudgeId,
+            recipientUsernames: recipients,
+            text: rawText
+          });
+        }
+      } catch (_) { wsSent = false; }
+      // 2) Log to roster-server. Codex MAJOR fold P4: surface success/error
+      // status; only auto-exit on confirmed success. WS-drop keeps the
+      // user in select mode so they can adjust + retry.
+      var logOk = false;
+      var logErr = null;
+      try {
+        var rsBase = (typeof window.ROSTER_SERVICE_URL === 'string') ? window.ROSTER_SERVICE_URL : '';
+        var rosterToken = (window.rosterClient && typeof window.rosterClient.token === 'function') ? window.rosterClient.token() : null;
+        if (rsBase && rosterToken) {
+          var resp = await fetch(rsBase + '/teacher/nudge', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer ' + rosterToken
+            },
+            body: JSON.stringify({
+              nudgeId: nudgeId,
+              recipientUsernames: recipients,
+              text: rawText,
+              deliveredUsernames: wsSent ? recipients : []
+            })
+          });
+          if (resp && resp.ok) {
+            var data = null;
+            try { data = await resp.json(); } catch (_) {}
+            logOk = !!(data && data.ok);
+            if (!logOk) logErr = (data && data.error) || 'log returned not-ok';
+          } else {
+            logErr = 'log HTTP ' + (resp && resp.status);
+          }
+        } else {
+          logErr = 'no log -- not signed in';
+        }
+      } catch (err) { logErr = (err && err.message) || 'fetch failed'; }
+      // Decide UX: auto-exit only when BOTH WS delivered AND log persisted.
+      // Otherwise keep the bar open so the user knows what happened and can
+      // adjust the message or retry.
+      if (wsSent && logOk) {
+        _exitSelectMode();
+        return;
+      }
+      // Status pinned to the count slot (no nudge-status element in the bar).
+      if (countEl) {
+        var n = _selectedUsernames.size;
+        if (!wsSent) countEl.textContent = n + ' selected -- not connected';
+        else if (logErr) countEl.textContent = n + ' selected -- sent (log failed)';
+        else countEl.textContent = n + ' selected';
+      }
+      if (sendBtn) sendBtn.disabled = false;
+    }
+
+    // ===== v3 P4: doorways form helpers (mirror the v2 poll add/remove pattern) =====
+
+    var MAX_DOORWAYS_OPTIONS = 8;
+
+    function addDoorwaysOptionRow() {
+      var list = document.getElementById('doorways-options-list');
+      var current = list.querySelectorAll('.poll-option-row').length;
+      if (current >= MAX_DOORWAYS_OPTIONS) return;
+      var letter = String.fromCharCode(65 + current);   // A, B, C, ...
+      var row = document.createElement('div');
+      row.className = 'poll-option-row';
+      var inp = document.createElement('input');
+      inp.type = 'text';
+      inp.className = 'poll-option-input';
+      inp.placeholder = 'Option ' + letter;
+      var btn = document.createElement('button');
+      btn.className = 'poll-remove-btn';
+      btn.type = 'button';
+      btn.setAttribute('aria-label', 'Remove');
+      btn.textContent = 'x';
+      btn.addEventListener('click', function () { removeDoorwaysOptionRow(row); });
+      row.appendChild(inp);
+      row.appendChild(btn);
+      list.appendChild(row);
+      if (list.querySelectorAll('.poll-option-row').length >= MAX_DOORWAYS_OPTIONS) {
+        var addBtn = document.getElementById('doorways-add-option');
+        if (addBtn) addBtn.style.display = 'none';
+      }
+    }
+
+    function removeDoorwaysOptionRow(row) {
+      var list = document.getElementById('doorways-options-list');
+      var rows = list.querySelectorAll('.poll-option-row');
+      if (rows.length <= 2) return;   // keep at least 2
+      list.removeChild(row);
+      var addBtn = document.getElementById('doorways-add-option');
+      if (addBtn) addBtn.style.display = '';
+    }
+
+    (function wireInitialDoorwaysRemoveButtons() {
+      var rows = document.querySelectorAll('#doorways-options-list .poll-option-row');
+      rows.forEach(function (row) {
+        var btn = row.querySelector('.poll-remove-btn');
+        if (btn) {
+          btn.addEventListener('click', function () { removeDoorwaysOptionRow(row); });
+        }
+      });
+    })();
+
+    document.getElementById('doorways-add-option').addEventListener('click', function () {
+      addDoorwaysOptionRow();
+    });
+
+    // ===== v2: poll form helpers =====
+
+    var MAX_POLL_OPTIONS = 8;
+
+    // Returns all non-empty option strings from the option inputs.
+    function getPollOptions() {
+      var inputs = document.querySelectorAll('#poll-options-list .poll-option-input');
+      var opts = [];
+      inputs.forEach(function (inp) {
+        var v = inp.value.trim();
+        if (v) opts.push(v);
+      });
+      return opts;
+    }
+
+    // Adds a new option row (up to MAX_POLL_OPTIONS).
+    function addPollOptionRow() {
+      var list = document.getElementById('poll-options-list');
+      var current = list.querySelectorAll('.poll-option-row').length;
+      if (current >= MAX_POLL_OPTIONS) return;
+      var letter = String.fromCharCode(65 + current);   // A, B, C, ...
+      var row = document.createElement('div');
+      row.className = 'poll-option-row';
+      var inp = document.createElement('input');
+      inp.type = 'text';
+      inp.className = 'poll-option-input';
+      inp.placeholder = 'Option ' + letter;
+      var btn = document.createElement('button');
+      btn.className = 'poll-remove-btn';
+      btn.type = 'button';
+      btn.setAttribute('aria-label', 'Remove option');
+      btn.textContent = 'x';
+      btn.addEventListener('click', function () { removePollOptionRow(row); });
+      row.appendChild(inp);
+      row.appendChild(btn);
+      list.appendChild(row);
+      // Hide the Add button once capped.
+      if (list.querySelectorAll('.poll-option-row').length >= MAX_POLL_OPTIONS) {
+        var addBtn = document.getElementById('poll-add-option');
+        if (addBtn) addBtn.style.display = 'none';
+      }
+    }
+
+    // Removes an option row (minimum 2 remain).
+    function removePollOptionRow(row) {
+      var list = document.getElementById('poll-options-list');
+      var rows = list.querySelectorAll('.poll-option-row');
+      if (rows.length <= 2) return;   // keep at least 2
+      list.removeChild(row);
+      // Re-show Add button.
+      var addBtn = document.getElementById('poll-add-option');
+      if (addBtn) addBtn.style.display = '';
+    }
+
+    // Wires up remove buttons on the initial static rows.
+    (function wireInitialRemoveButtons() {
+      var rows = document.querySelectorAll('#poll-options-list .poll-option-row');
+      rows.forEach(function (row) {
+        var btn = row.querySelector('.poll-remove-btn');
+        if (btn) {
+          btn.addEventListener('click', function () { removePollOptionRow(row); });
+        }
+      });
+    })();
+
+    // The "Add option" button.
+    document.getElementById('poll-add-option').addEventListener('click', function () {
+      addPollOptionRow();
+    });
+
+    // ===== v2: poll Open / Close / Reveal button wiring =====
+
+    // Open Poll: disabled while a gate is armed (mode exclusivity per Section 1.5).
+    document.getElementById('btn-open-poll').addEventListener('click', function () {
+      if (!boardHandle || typeof boardHandle.openPoll !== 'function') return;
+      var question = document.getElementById('poll-question-input').value.trim();
+      if (!question) { alert('Please enter a question.'); return; }
+      var options = getPollOptions();
+      if (options.length < 2) { alert('Please enter at least 2 options.'); return; }
+      var blind = !!document.getElementById('poll-blind-checkbox').checked;
+      boardHandle.openPoll(question, options, blind);
+    });
+
+    document.getElementById('btn-close-poll').addEventListener('click', function () {
+      if (!boardHandle || typeof boardHandle.closePoll !== 'function') return;
+      boardHandle.closePoll();
+    });
+
+    document.getElementById('btn-reveal-poll').addEventListener('click', function () {
+      if (!boardHandle || typeof boardHandle.reveal !== 'function') return;
+      boardHandle.reveal();
+    });
+
+    // ===== v2: gate exclusivity guard on Open Poll button =====
+
+    // Disable "Open Poll" while a gate is armed, re-enable otherwise.
+    // The board's onStateChange summary carries the gate state.
+    // We monkey-patch setBoardSectionsVisible is not needed -- instead we
+    // hook into the existing onStateChange render path by tracking gate state.
+    var gateArmed = false;
+
+    function updateOpenPollGuard(summary) {
+      var btn = document.getElementById('btn-open-poll');
+      if (!btn) return;
+      // The board summary exposes gate via summary.gate (non-null when armed).
+      gateArmed = !!(summary && summary.gate);
+      btn.disabled = gateArmed;
+      btn.title = gateArmed ? 'Disarmed gate first to open a poll.' : '';
+
+      // Reveal is blind-only (Finding 4 / Section 1.4).
+      // Disable the Reveal button unless the current poll has blind:true.
+      var revealBtn = document.getElementById('btn-reveal-poll');
+      if (revealBtn) {
+        var pollIsBlind = !!(summary && summary.poll && summary.poll.blind);
+        revealBtn.disabled = !pollIsBlind;
+        revealBtn.title = pollIsBlind ? '' : 'Reveal is only available for blind polls.';
+      }
+    }
+
+    // ===== v3 P1+P2: cockpit state =====
+
+    // v3 P1+P2 cockpit state.
+    //   'global'  -- showing the global presence view (default; not live)
+    //   'live'    -- mounted on a specific section (live mode)
+    var _cockpitMode = 'global';
+    var _monitorWs = null;    // separate WS for monitor mode (or reuse boardHandle's)
+    var _globalState = { sections: [] };
+    var _liveSectionRef = null;
+
+    // ===== v3 P1+P2: global presence wiring =====
+
+    function startMonitorMode() {
+      _cockpitMode = 'global';
+      document.getElementById('global-presence-section').style.display = '';
+      document.getElementById('section-region').style.display = 'none';
+      // The control-section + poll-section + remaining cards hide too --
+      // they only make sense in Live mode.
+      var hideInGlobal = ['control-section', 'poll-section',
+                          'checkin-panel-section', 'poll-history-section'];
+      hideInGlobal.forEach(function(id) {
+        var n = document.getElementById(id);
+        if (n) n.style.display = 'none';
+      });
+      _ensureMonitorWs();  // open WS + send classroom_monitor_start
+    }
+
+    function stopMonitorMode() {
+      if (_monitorWs && _monitorWs.readyState === 1) {
+        try { _monitorWs.send(JSON.stringify({ type: 'classroom_monitor_stop' })); } catch (_) {}
+      }
+      // Do NOT close the socket -- the about-to-mount board may reuse it.
+    }
+
+    function _ensureMonitorWs() {
+      // Re-subscribe on an already-open socket. After stopMonitorMode()
+      // (which sends classroom_monitor_stop but leaves the socket open),
+      // the server has removed us from monitorSockets -- so we must
+      // always re-send classroom_monitor_start when entering monitor
+      // mode again, even if the socket is still up. Codex MAJOR fold.
+      if (_monitorWs && _monitorWs.readyState <= 1) {
+        if (_monitorWs.readyState === 1) {
+          try { _monitorWs.send(JSON.stringify({ type: 'classroom_monitor_start' })); } catch (_) {}
+        }
+        // readyState 0 (CONNECTING): the onopen handler will send it.
+        return;
+      }
+      // Guard the constructor: a bad URL or no WebSocket should not
+      // crash the cockpit. On error / close, clear the ref so the
+      // next entry into monitor mode opens a fresh socket. Codex MINOR fold.
+      try {
+        _monitorWs = new WebSocket(wsUrl());
+      } catch (_) {
+        _monitorWs = null;
+        return;
+      }
+      _monitorWs.addEventListener('open', function() {
+        try { _monitorWs.send(JSON.stringify({ type: 'classroom_monitor_start' })); } catch (_) {}
+      });
+      _monitorWs.addEventListener('close', function() {
+        if (_monitorWs && _monitorWs.readyState >= 2) { _monitorWs = null; }
+      });
+      _monitorWs.addEventListener('error', function() {
+        // Surface no UI; the close handler clears the ref so a later
+        // startMonitorMode() can retry on demand.
+      });
+      _monitorWs.addEventListener('message', function(ev) {
+        var msg = null;
+        try { msg = JSON.parse(ev.data); } catch (_) { return; }
+        if (!msg || !msg.type) return;
+        if (msg.type === 'classroom_state_all') {
+          _globalState = { sections: msg.sections || [] };
+          _renderGlobalPresence();
+          _renderClassSound();
+        } else if (msg.type === 'classroom_member_update'
+                || msg.type === 'classroom_member_left'
+                || msg.type === 'classroom_live_state'
+                || msg.type === 'classroom_sound_state') {
+          _applyMonitorDelta(msg);
+          _renderGlobalPresence();
+        }
+      });
+    }
+
+    function _applyMonitorDelta(msg) {
+      var sections = _globalState.sections;
+      var sec = msg.section;
+      var idx = -1;
+      for (var i = 0; i < sections.length; i++) {
+        if (sections[i].section === sec) { idx = i; break; }
+      }
+      if (idx === -1) {
+        // New section -- shouldn't happen often but is safe to add.
+        sections.push({ section: sec, gate: null, poll: null, live: false, members: [] });
+        idx = sections.length - 1;
+      }
+      var room = sections[idx];
+      if (msg.type === 'classroom_member_update') {
+        var found = false;
+        for (var j = 0; j < room.members.length; j++) {
+          if (room.members[j].username === msg.member.username) {
+            room.members[j] = msg.member;
+            found = true;
+            break;
+          }
+        }
+        if (!found) room.members.push(msg.member);
+        // v3 P3: a new student in the active Live section -> open WebRTC.
+        if (_cockpitMode === 'live'
+            && msg.section === _liveSectionRef
+            && msg.member && msg.member.role === 'student'
+            && msg.member.online !== false) {
+          _initPeerFor(msg.member.username);
+        }
+      } else if (msg.type === 'classroom_member_left') {
+        room.members = room.members.filter(function(m) { return m.username !== msg.username; });
+      } else if (msg.type === 'classroom_live_state') {
+        room.live = !!msg.live;
+      } else if (msg.type === 'classroom_sound_state') {
+        room.sound = !!msg.sound;
+        _renderClassSound();
+      }
+    }
+
+    // Teacher 2026-10-10 (park music): while a room is live, student devices keep park music and
+    // park sounds off unless this switch is on. Durable on the relay, default off.
+    var _liveClassSound = false;   // the live room's switch, from the joined board socket (authoritative in Live mode)
+    function _classSoundOn() {
+      if (_cockpitMode === 'live' && boardHandle) return _liveClassSound;
+      var sections = _globalState.sections || [];
+      for (var i = 0; i < sections.length; i++) {
+        if (sections[i].section === _liveSectionRef) return !!sections[i].sound;
+      }
+      return false;
+    }
+    function _renderClassSound() {
+      var btn = document.getElementById('btn-class-sound');
+      if (!btn) return;
+      var on = _classSoundOn();
+      btn.textContent = String.fromCodePoint(on ? 0x1F50A : 0x1F507) + ' Class sound: ' + (on ? 'on' : 'off');
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    }
+    function _sendClassSound(on) {
+      // Over the mounted board's joined teacher socket: the relay refuses it from anything else.
+      if (!boardHandle || typeof boardHandle.setClassSound !== 'function') return;
+      boardHandle.setClassSound(!!on);
+    }
+
+    function _renderGlobalPresence() {
+      var listEl  = document.getElementById('global-presence-list');
+      var emptyEl = document.getElementById('global-presence-empty');
+      if (!listEl) return;
+      var sections = _globalState.sections;
+      // Build the section blocks.
+      var html = '';
+      var any = false;
+      for (var i = 0; i < sections.length; i++) {
+        var sec = sections[i];
+        var onlineCount = 0;
+        for (var j = 0; j < sec.members.length; j++) {
+          if (sec.members[j].online !== false) onlineCount++;
+        }
+        if (onlineCount === 0) continue;
+        any = true;
+        html += '<div style="margin:8px 0;">'
+          + '<strong>' + _escHtml(sec.section) + '</strong>'
+          + ' &mdash; ' + onlineCount + ' online'
+          + (sec.live ? ' <span style="color:#B03A2E;font-weight:bold">[LIVE]</span>' : '')
+          + '<ul style="margin:4px 0 0 18px;padding:0;font-size:0.88rem;color:var(--sg-text-dim);">';
+        for (var k = 0; k < sec.members.length; k++) {
+          var m = sec.members[k];
+          if (m.online === false) continue;
+          html += '<li>' + _escHtml(m.username) + '</li>';
+        }
+        html += '</ul></div>';
+      }
+      if (!any) {
+        listEl.innerHTML = '';
+        if (emptyEl) emptyEl.textContent = 'No students currently online.';
+        listEl.appendChild(emptyEl);
+      } else {
+        listEl.innerHTML = html;
+      }
+    }
+
+    function _escHtml(s) {
+      var d = document.createElement('div');
+      d.textContent = s == null ? '' : String(s);
+      return d.innerHTML;
+    }
+
+    function enterLiveMode(section) {
+      if (!section) return;
+      _cockpitMode = 'live';
+      stopMonitorMode();
+      document.getElementById('global-presence-section').style.display = 'none';
+      document.getElementById('section-region').style.display = '';
+      document.getElementById('live-section-label').textContent = section;
+      // Reveal the board-dependent cards (mountBoard will show control-section etc).
+      mountBoard(section, rosterClient.current());
+      // Tell the server this section is Live now.
+      _sendLiveStart(section);
+      _liveSectionRef = section;
+      _liveClassSound = false;   // until this room's snapshot arrives on the board socket
+      _renderClassSound();
+      // v3 P3: open WebRTC to every student currently in the section.
+      // _globalState carries the monitor snapshot per section; pull the
+      // student usernames for the active section and initiate.
+      var sec = (_globalState.sections || []).filter(function(s) {
+        return s.section === section;
+      })[0];
+      if (sec && sec.members) {
+        for (var mi = 0; mi < sec.members.length; mi++) {
+          var m = sec.members[mi];
+          if (m && m.role === 'student' && m.online !== false) {
+            _initPeerFor(m.username);
+          }
+        }
+      }
+    }
+
+    function exitLiveMode() {
+      if (_cockpitMode !== 'live') return;
+      var sel = document.getElementById('section-select');
+      var section = sel ? sel.value : '';
+      teardown();
+      if (section) _sendLiveStop(section);
+      _liveSectionRef = null;
+      _teardownAllPeers();
+      startMonitorMode();
+    }
+
+    function _sendLiveStart(section) {
+      // Routed through the (about-to-mount) board's WS or a fresh one --
+      // simplest: open a tiny WS, send, close. The board itself opens its
+      // own WS so this is fire-and-forget signaling.
+      try {
+        var s = new WebSocket(wsUrl());
+        s.addEventListener('open', function() {
+          try { s.send(JSON.stringify({ type: 'classroom_live_start', section: section })); } catch (_) {}
+          setTimeout(function() { try { s.close(); } catch (_) {} }, 250);
+        });
+      } catch (_) {}
+    }
+
+    function _sendLiveStop(section) {
+      try {
+        var s = new WebSocket(wsUrl());
+        s.addEventListener('open', function() {
+          try { s.send(JSON.stringify({ type: 'classroom_live_stop', section: section })); } catch (_) {}
+          setTimeout(function() { try { s.close(); } catch (_) {} }, 250);
+        });
+      } catch (_) {}
+    }
+
+    // ===== v3 P3: WebRTC star -- cockpit is the hub for Live mode =====
+    //
+    // On Live entry, the cockpit opens an RTCPeerConnection per student
+    // in the active section + a 'livedata' DataChannel; classroom_pos
+    // flows via DC when open, falling back to WS per-student. The
+    // cockpit RELAYS each incoming DC classroom_pos to the OTHER
+    // students' DCs (server is not in this path); WS-arrived
+    // classroom_pos messages are already broadcast by the server, so
+    // the cockpit does NOT re-relay them via DC.
+
+    var STUN_ICE_SERVERS = [{ urls: 'stun:stun.l.google.com:19302' }];
+    var P3_DC_TIMEOUT_MS = 3000;     // 3 s to negotiate; else fall back
+
+    // studentPeers[username] = { pc, dc, dcOpen, timeoutId }
+    var studentPeers = {};
+
+    function _initPeerFor(username) {
+      if (studentPeers[username]) { return studentPeers[username]; }
+      if (typeof RTCPeerConnection === 'undefined') { return null; }
+      // s111 HOTFIX: never peer with yourself. If the server has the
+      // teacher's member listed (e.g. due to the pre-hotfix role bug
+      // where re-join didn't update role), the reconcile loop would
+      // otherwise try to open an RTC connection to the cockpit's own
+      // username. Pull the teacher's own username from rosterClient
+      // and skip.
+      try {
+        var meSession = (window.rosterClient && window.rosterClient.current)
+          ? window.rosterClient.current() : null;
+        if (meSession && meSession.username && username === meSession.username) {
+          return null;
+        }
+      } catch (_) { /* fall through if rosterClient unavailable */ }
+      // v3 P3 Codex BLOCKER fold (part B): the timeout deletes the
+      // entry from studentPeers so a later _initPeerFor (e.g. on the
+      // next onStateChange tick once the board WS is actually open)
+      // can retry rather than returning the dead stub.
+      // Codex MAJOR fold: per-peer ICE queue. ICE candidates from the
+      // student can arrive BEFORE the answer's setRemoteDescription
+      // resolves; without queuing, addIceCandidate rejects.
+      var entry = {
+        pc: null, dc: null, dcOpen: false, timeoutId: null,
+        remoteDescSet: false, pendingIce: []
+      };
+      try {
+        entry.pc = new RTCPeerConnection({ iceServers: STUN_ICE_SERVERS });
+      } catch (_) {
+        return null;   // WebRTC unavailable -- cockpit stays in WS mode
+      }
+      entry.dc = entry.pc.createDataChannel('livedata');
+      _wireDataChannel(entry.dc, username);
+      entry.pc.onicecandidate = function(ev) {
+        if (ev.candidate) {
+          _sendSignalingOverWs({ type: 'rtc_ice', to: username, candidate: ev.candidate });
+        }
+      };
+      // Fallback timeout: if the DC isn't open in 3 s, the peer is
+      // assumed WS-fallback. Tear down + DELETE the entry so a later
+      // onStateChange-driven retry can re-initiate.
+      entry.timeoutId = setTimeout(function() {
+        if (!entry.dcOpen) {
+          try { entry.pc.close(); } catch (_) {}
+          if (studentPeers[username] === entry) {
+            delete studentPeers[username];
+          }
+        }
+      }, P3_DC_TIMEOUT_MS);
+      studentPeers[username] = entry;
+      // Initiate the offer.
+      entry.pc.createOffer().then(function(offer) {
+        return entry.pc.setLocalDescription(offer);
+      }).then(function() {
+        _sendSignalingOverWs({ type: 'rtc_offer', to: username, sdp: entry.pc.localDescription });
+      }).catch(function() { /* offer creation failed -- fall back to WS */ });
+      return entry;
+    }
+
+    function _wireDataChannel(dc, username) {
+      dc.onopen = function() {
+        if (studentPeers[username]) {
+          studentPeers[username].dcOpen = true;
+          if (studentPeers[username].timeoutId) {
+            clearTimeout(studentPeers[username].timeoutId);
+            studentPeers[username].timeoutId = null;
+          }
+        }
+      };
+      dc.onclose = function() {
+        if (studentPeers[username]) { studentPeers[username].dcOpen = false; }
+      };
+      dc.onmessage = function(ev) {
+        var msg = null;
+        try { msg = JSON.parse(ev.data); } catch (_) { return; }
+        if (!msg || msg.type !== 'classroom_pos') return;
+        // Relay this position to every OTHER student's DC. Skip the
+        // sender. WS path is not touched -- the sender did not use it,
+        // and the server therefore did not broadcast.
+        for (var other in studentPeers) {
+          if (other === username) continue;
+          var p = studentPeers[other];
+          if (p && p.dcOpen && p.dc) {
+            try { p.dc.send(JSON.stringify({
+              type: 'classroom_pos',
+              from: username,
+              x: msg.x, y: msg.y, state: msg.state, vx: msg.vx
+            })); } catch (_) {}
+          }
+        }
+      };
+    }
+
+    function _handleRtcSignaling(msg) {
+      if (!msg || !msg.from || !msg.type) return;
+      var fromUser = msg.from;
+      var entry = studentPeers[fromUser];
+      if (!entry || !entry.pc) return;
+      if (msg.type === 'rtc_answer' && msg.sdp) {
+        // v3 P3 Codex MAJOR fold: queue ICE until the remote-description
+        // promise resolves; otherwise ICE that arrived first would reject
+        // via the unhandled-rejection path.
+        entry.pc.setRemoteDescription(msg.sdp).then(function() {
+          entry.remoteDescSet = true;
+          while (entry.pendingIce.length > 0) {
+            var cand = entry.pendingIce.shift();
+            try { entry.pc.addIceCandidate(cand).catch(function() {}); } catch (_) {}
+          }
+        }).catch(function() {});
+      } else if (msg.type === 'rtc_ice' && msg.candidate) {
+        if (!entry.remoteDescSet) {
+          entry.pendingIce.push(msg.candidate);
+          return;
+        }
+        try { entry.pc.addIceCandidate(msg.candidate).catch(function() {}); } catch (_) {}
+      }
+    }
+
+    function _teardownAllPeers() {
+      for (var u in studentPeers) {
+        var p = studentPeers[u];
+        if (p) {
+          if (p.timeoutId) { clearTimeout(p.timeoutId); }
+          if (p.dc) { try { p.dc.close(); } catch (_) {} }
+          if (p.pc) { try { p.pc.close(); } catch (_) {} }
+        }
+      }
+      studentPeers = {};
+    }
+
+    // v3 P3 Codex MAJOR fold: reconcile the peer set against the board's
+    // authoritative onStateChange summary. Adds peers for new online
+    // students, tears down peers for students who left or went offline.
+    // Idempotent: if the student already has a peer, this is a no-op for
+    // that entry; if a peer is gone, it closes + deletes it.
+    function _reconcileStudentPeers(summary) {
+      if (_cockpitMode !== 'live' || !summary || !summary.members) { return; }
+      var members = summary.members;
+      // Add peers for online students that don't have one.
+      for (var uname in members) {
+        var mem = members[uname];
+        if (!mem) continue;
+        if (mem.role === 'student' && mem.online !== false) {
+          if (!studentPeers[uname]) {
+            _initPeerFor(uname);
+          }
+        }
+      }
+      // Tear down peers for students who are gone / offline.
+      for (var existing in studentPeers) {
+        var m = members[existing];
+        if (!m || m.online === false || m.role !== 'student') {
+          var p = studentPeers[existing];
+          if (p) {
+            if (p.timeoutId) { clearTimeout(p.timeoutId); }
+            if (p.dc) { try { p.dc.close(); } catch (_) {} }
+            if (p.pc) { try { p.pc.close(); } catch (_) {} }
+          }
+          delete studentPeers[existing];
+        }
+      }
+    }
+
+    // _sendSignalingOverWs: routed through the BOARD's WS, exposed via
+    // boardHandle.sendSignaling. The board has done classroom_join with
+    // (section, teacherUsername, role: 'teacher') so its wsIndex entry
+    // lets the server's rtc_* relay find it. The monitor WS does NOT
+    // have a section binding -- it would be dropped server-side.
+    function _sendSignalingOverWs(payload) {
+      if (boardHandle && typeof boardHandle.sendSignaling === 'function') {
+        try { boardHandle.sendSignaling(payload); } catch (_) {}
+      }
+    }
+
+    document.getElementById('btn-go-live').addEventListener('click', function() {
+      // Open the section picker by simply revealing the Section card --
+      // the user then picks a section from the dropdown and the existing
+      // onSectionChange handler mounts the board. Re-targeted so the
+      // mount fires immediately on the next change OR if the dropdown
+      // is already at a valid value, fire it now.
+      var sel = document.getElementById('section-select');
+      var section = sel ? sel.value : '';
+      if (section) {
+        enterLiveMode(section);
+      }
+    });
+
+    document.getElementById('btn-exit-live').addEventListener('click', exitLiveMode);
+    document.getElementById('btn-class-sound').addEventListener('click', function() {
+      if (!_liveSectionRef) return;
+      _sendClassSound(!_classSoundOn());
+    });
+
+    // ===== section selector =====
+
+    function onSectionChange() {
+      var session = currentSession();
+      // Session should still be valid; re-check defensively.
+      if (!session) return;
+      var section = document.getElementById('section-select').value;
+      // v3 P1+P2: changing the section is implicitly an exit + re-enter Live.
+      var prev = _liveSectionRef;
+      if (prev && prev !== section) _sendLiveStop(prev);
+      if (section) _sendLiveStart(section);
+      _liveSectionRef = section;
+      _liveClassSound = false;   // until this room's snapshot arrives on the board socket
+      _renderClassSound();
+      mountBoard(section, session);
+    }
+
+    document.getElementById('section-select').addEventListener('change', onSectionChange);
+
+    // ===== v1b: control strip button wiring =====
+
+    document.getElementById('btn-arm-gate').addEventListener('click', function () {
+      if (!boardHandle || typeof boardHandle.armGate !== 'function') return;
+      var theme = todayTheme();
+      // s111 P4 HOTFIX: clear any stale doorways / poll first so
+      // armGate's mutual-exclusion guards don't silently reject.
+      if (_lastSummary && (_lastSummary.doorways || _lastSummary.poll)) {
+        if (typeof boardHandle.reset === 'function') {
+          try { boardHandle.reset(); } catch (_) {}
+        }
+      }
+      boardHandle.armGate(theme);
+      // The indicator clears via onStateChange when the classroom_gate
+      // broadcast arrives (the reducer sets greenlight false on arm).
+    });
+
+    document.getElementById('btn-green-light').addEventListener('click', function () {
+      if (!boardHandle || typeof boardHandle.greenLight !== 'function') return;
+      // The indicator lights from the broadcast-driven onStateChange summary,
+      // not optimistically here -- so it never lies if the send fails.
+      boardHandle.greenLight({
+        startVideo: !!document.getElementById('sync-video-start').checked
+      });
+    });
+
+    document.getElementById('btn-reset').addEventListener('click', function () {
+      if (!boardHandle || typeof boardHandle.reset !== 'function') return;
+      boardHandle.reset();
+      // The indicator clears via onStateChange when the reset classroom_state
+      // broadcast arrives.
+    });
+
+    // ===== boot =====
+
+    (function boot() {
+      var session = currentSession();
+      var role = currentRole();
+
+      var boardRegion   = document.getElementById('board-region');
+      var accessDenied  = document.getElementById('access-denied-panel');
+
+      // Guard: must be signed in as a teacher.
+      var isTeacher = (role === 'teacher') && (session !== null);
+      if (!isTeacher) {
+        accessDenied.style.display = '';
+        boardRegion.style.display  = 'none';
+        return;
+      }
+
+      boardRegion.style.display  = '';
+      accessDenied.style.display = 'none';
+
+      // v3 P1+P2: default to the global presence view; no auto-mount.
+      startMonitorMode();
+    })();
+
+    // ===== P3: nudge panel button wiring (TEACHER_STUDENT_CONSOLE_SPEC.md section 6) =====
+
+    (function() {
+      try {
+        var sel = document.getElementById('nudge-recipient');
+        var text = document.getElementById('nudge-text');
+        var btn = document.getElementById('btn-send-nudge');
+        if (sel) sel.addEventListener('change', _updateNudgeSendButton);
+        if (text) text.addEventListener('input', _updateNudgeSendButton);
+        if (btn) btn.addEventListener('click', _sendNudgeFromCockpit);
+      } catch (_) {}
+    })();
+
+    // ===== P8: broadcast toggle wiring (TEACHER_STUDENT_CONSOLE_P8_BUILD.md section 2.4) =====
+
+    (function () {
+      try {
+        var bcastBox = document.getElementById('nudge-broadcast');
+        if (bcastBox) {
+          bcastBox.addEventListener('change', function () {
+            _nudgeBroadcastActive = !!bcastBox.checked;
+            var recipSel = document.getElementById('nudge-recipient');
+            if (recipSel) {
+              if (_nudgeBroadcastActive) {
+                recipSel.setAttribute('disabled', '');
+                recipSel.classList.add('nudge-recipient-broadcast-dim');
+              } else {
+                recipSel.removeAttribute('disabled');
+                recipSel.classList.remove('nudge-recipient-broadcast-dim');
+                // Re-run _refreshNudgeRecipients logic: if no online students
+                // the dropdown stays disabled via normal path on next state change.
+                // For now just re-gate the send button with current online list.
+              }
+            }
+            _updateNudgeSendButton();
+          });
+        }
+      } catch (_) {}
+    })();
+
+        // ===== P9: Floating avatar popup (TEACHER_STUDENT_CONSOLE_SPEC.md section 4.1) =====
+    // Single-state singleton; one popup at a time. Opened by avatar click in
+    // Live mode (when NOT in Select-Students mode).
+
+    var _avatarPopupStudent = null;     // { username, realName, section, studentId }
+    var _avatarPopupSpritePos = null;   // canvas-local { x, y } at open time (P11)
+    // Codex P11 MAJOR M2 fold: hold the auto-close setTimeout id so a new
+    // popup open (different student, or re-click on the same one) cancels
+    // a pending auto-close from a prior success. Without this, a stale
+    // setTimeout would close the freshly opened popup.
+    var _avatarPopupAutoCloseTimer = null;
+
+    // Codex P11 fold helper: reset every popup-internal piece of state that
+    // would otherwise leak between students (form values, status banners,
+    // disabled submit buttons, pending auto-close timer). Called from both
+    // _openAvatarPopup (so a new open always starts clean) AND
+    // _closeAvatarPopup (so the next manual open is also clean).
+    function _resetAvatarPopupTransientState() {
+      if (_avatarPopupAutoCloseTimer) {
+        clearTimeout(_avatarPopupAutoCloseTimer);
+        _avatarPopupAutoCloseTimer = null;
+      }
+      ['ap-nudge-text', 'ap-rem-unit', 'ap-rem-skill', 'ap-rem-notes',
+       'ap-gate-key', 'ap-gate-reason'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) el.value = '';
+      });
+      ['ap-nudge-status', 'ap-rem-status', 'ap-gate-status'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) {
+          el.textContent = '';
+          el.classList.remove('is-error', 'is-success');
+        }
+      });
+      // BLOCKER fold: re-enable the inline submit buttons. Without this, a
+      // successful submit on student A leaves the button disabled, so opening
+      // the popup for student B (or even re-opening for A) shows a permanently
+      // disabled Send/Propose/Override button until full page reload.
+      ['ap-nudge-send', 'ap-rem-submit', 'ap-gate-submit'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) el.disabled = false;
+      });
+    }
+
+    function _openAvatarPopup(hit, screenPos) {
+      // hit: { username } from classroom-board onAvatarClick.
+      // screenPos: precomputed viewport position { x, y } for the popup.
+      var popup = document.getElementById('avatar-popup');
+      if (!popup) return;
+      // Codex P11 MAJOR M1 + BLOCKER fold: reset transient state on EVERY
+      // open so a draft, status, or disabled-button from a prior student
+      // can't leak into the new popup. (The different-avatar code path
+      // doesn't call _closeAvatarPopup first.)
+      try { if (typeof _resetAvatarPopupTransientState === 'function') _resetAvatarPopupTransientState(); } catch (_) {}
+      var realName = (currentNameMap && currentNameMap[hit.username]) ? currentNameMap[hit.username] : hit.username;
+      var section = (_lastSummary && _lastSummary.section) || '';
+      _avatarPopupStudent = {
+        username: hit.username,
+        realName: realName,
+        section: section,
+        studentId: (currentIdMap && currentIdMap[hit.username]) ? currentIdMap[hit.username] : null,
+      };
+      // P11: cache sprite canvas-local position for reposition after view-switch.
+      _avatarPopupSpritePos = hit.canvasPos || null;
+      document.getElementById('avatar-popup-name').textContent = realName;
+      document.getElementById('avatar-popup-meta').textContent =
+        '@' + hit.username + (section ? ' -- ' + section : '');
+      popup.style.left = screenPos.x + 'px';
+      popup.style.top = screenPos.y + 'px';
+      // Ensure popup starts at main view on each open.
+      popup.setAttribute('data-view', 'main');
+      var views = popup.querySelectorAll('.ap-view');
+      views.forEach(function (el) {
+        el.style.display = (el.getAttribute('data-ap-view') === 'main') ? '' : 'none';
+      });
+      popup.style.display = 'block';
+      popup.setAttribute('aria-hidden', 'false');
+    }
+
+    function _closeAvatarPopup() {
+      var popup = document.getElementById('avatar-popup');
+      if (!popup) return;
+      popup.style.display = 'none';
+      popup.setAttribute('aria-hidden', 'true');
+      // P11: reset to main view + clear all transient state.
+      popup.setAttribute('data-view', 'main');
+      var views = popup.querySelectorAll('.ap-view');
+      views.forEach(function (el) {
+        el.style.display = (el.getAttribute('data-ap-view') === 'main') ? '' : 'none';
+      });
+      try { if (typeof _resetAvatarPopupTransientState === 'function') _resetAvatarPopupTransientState(); } catch (_) {}
+      _avatarPopupStudent = null;
+      _avatarPopupSpritePos = null;
+    }
+
+    function _avatarPopupIsOpen() {
+      var popup = document.getElementById('avatar-popup');
+      return !!(popup && popup.style.display !== 'none');
+    }
+
+    // Position the popup next to a canvas-local sprite position, with edge
+    // auto-flip. canvas is the cockpit's classroom canvas; (sx, sy) are
+    // canvas-local sprite coords.
+    function _computeAvatarPopupPos(canvas, sx, sy) {
+      var rect = canvas.getBoundingClientRect();
+      var popup = document.getElementById('avatar-popup');
+      var popupW = popup ? (popup.offsetWidth || 220) : 220;
+      var popupH = popup ? (popup.offsetHeight || 200) : 200;
+      // Default: place to the RIGHT of the sprite, vertically centered.
+      var x = rect.left + sx + 24;
+      var y = rect.top + sy - popupH / 2;
+      // Flip horizontally if the popup would go off the right edge.
+      if (x + popupW > window.innerWidth - 8) {
+        x = rect.left + sx - popupW - 24;
+      }
+      // Clamp vertical so it stays in viewport.
+      if (y < 8) y = 8;
+      if (y + popupH > window.innerHeight - 8) y = window.innerHeight - popupH - 8;
+      return { x: x, y: y };
+    }
+
+    // Wire avatar-click to popup vs select-toggle. P4 wins precedence.
+    function _handleAvatarClickRouted(hit) {
+      // hit: { username, selectMode } from classroom-board.
+      if (!hit || !hit.username) return;
+      // P4 wins precedence.
+      if (_selectModeActive) {
+        if (typeof _toggleSelectAvatar === 'function') {
+          try { _toggleSelectAvatar(hit.username); } catch (_) {}
+        }
+        return;
+      }
+      // Toggle: same-avatar click closes; different-avatar click repositions.
+      if (_avatarPopupIsOpen() && _avatarPopupStudent && _avatarPopupStudent.username === hit.username) {
+        _closeAvatarPopup();
+        return;
+      }
+      // Resolve sprite screen position via the board handle.
+      var pos = (boardHandle && typeof boardHandle.getSpritePosition === 'function')
+        ? boardHandle.getSpritePosition(hit.username) : null;
+      var cvs = (boardHandle && typeof boardHandle.getCanvas === 'function')
+        ? boardHandle.getCanvas() : null;
+      if (!pos || !cvs) return;
+      var screenPos = _computeAvatarPopupPos(cvs, pos.x, pos.y);
+      // P11: attach canvas-local coords so _switchAvatarPopupView can reposition.
+      _openAvatarPopup({ username: hit.username, canvasPos: { x: pos.x, y: pos.y } }, screenPos);
+    }
+
+    // P11: Action button handlers. View-as / View grade / View recent keep
+    // cross-tab behavior; send-nudge / apply-remediation / override-gate
+    // now expand the popup inline instead.
+    function _handleAvatarPopupAction(action) {
+      if (!_avatarPopupStudent) return;
+      var s = _avatarPopupStudent;
+      var sid = s.studentId;
+      switch (action) {
+        case 'view-as':
+          if (sid) window.open('./ap_stats_roadmap_square_mode.html?viewAsUserId=' + encodeURIComponent(sid), '_blank', 'noopener');
+          _closeAvatarPopup();
+          break;
+        case 'view-grade':
+        case 'view-recent':
+          if (sid) window.open('./teacher-dashboard.html?openDrawerFor=' + encodeURIComponent(sid), '_blank', 'noopener');
+          _closeAvatarPopup();
+          break;
+        case 'send-nudge':
+          _switchAvatarPopupView('nudge');
+          break;
+        case 'apply-remediation':
+          _switchAvatarPopupView('remediation');
+          break;
+        case 'override-gate':
+          _switchAvatarPopupView('gate');
+          break;
+      }
+    }
+
+    // P11: switch the popup to a new view (main / nudge / remediation / gate).
+    function _switchAvatarPopupView(view) {
+      var popup = document.getElementById('avatar-popup');
+      if (!popup) return;
+      // Update the dataset attribute which the CSS uses for the width grow.
+      popup.setAttribute('data-view', view);
+      var views = popup.querySelectorAll('.ap-view');
+      views.forEach(function (el) {
+        var thisView = el.getAttribute('data-ap-view');
+        el.style.display = (thisView === view) ? '' : 'none';
+      });
+      // Clear status lines.
+      ['ap-nudge-status', 'ap-rem-status', 'ap-gate-status'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) {
+          el.textContent = '';
+          el.classList.remove('is-error', 'is-success');
+        }
+      });
+      // Focus the first input in the new view.
+      var focusMap = { nudge: 'ap-nudge-text', remediation: 'ap-rem-unit', gate: 'ap-gate-key' };
+      if (focusMap[view]) {
+        setTimeout(function () {
+          var inp = document.getElementById(focusMap[view]);
+          if (inp) inp.focus();
+        }, 30);
+      }
+      // Reposition to keep popup visible after width change (P11 section 4.4).
+      if (boardHandle && _avatarPopupSpritePos) {
+        var canvas = (typeof boardHandle.getCanvas === 'function') ? boardHandle.getCanvas() : null;
+        if (canvas) {
+          var pos = _computeAvatarPopupPos(canvas, _avatarPopupSpritePos.x, _avatarPopupSpritePos.y);
+          popup.style.left = pos.x + 'px';
+          popup.style.top = pos.y + 'px';
+        }
+      }
+    }
+
+    // Pre-fill the existing nudge panel for the clicked student. Sets the
+    // dropdown value (not broadcast mode), then focuses the textarea.
+    function _prefillNudgePanelForStudent(username) {
+      // Ensure broadcast is off so the dropdown is functional.
+      var bcastBox = document.getElementById('nudge-broadcast');
+      if (bcastBox && bcastBox.checked) {
+        bcastBox.checked = false;
+        if (typeof _nudgeBroadcastActive !== 'undefined') _nudgeBroadcastActive = false;
+        var recipSel0 = document.getElementById('nudge-recipient');
+        if (recipSel0) recipSel0.classList.remove('nudge-recipient-broadcast-dim');
+      }
+      var recipSel = document.getElementById('nudge-recipient');
+      if (recipSel) {
+        recipSel.disabled = false;
+        recipSel.value = username;
+      }
+      var textEl = document.getElementById('nudge-text');
+      if (textEl) {
+        textEl.focus();
+        try { textEl.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (_) {}
+      }
+      if (typeof _updateNudgeSendButton === 'function') _updateNudgeSendButton();
+    }
+
+    // P11: inline Send nudge submission. Reuses the P3 classroom_teacher_nudge
+    // WS message + POST /teacher/nudge. Single-recipient (the clicked student).
+    async function _submitInlineNudge() {
+      if (!_avatarPopupStudent) return;
+      var s = _avatarPopupStudent;
+      var textEl = document.getElementById('ap-nudge-text');
+      var statusEl = document.getElementById('ap-nudge-status');
+      var btn = document.getElementById('ap-nudge-send');
+      var rawText = textEl ? String(textEl.value || '').trim() : '';
+      if (!rawText) {
+        statusEl.textContent = 'Type a message first.';
+        statusEl.classList.add('is-error');
+        return;
+      }
+      if (rawText.length > 280) rawText = rawText.slice(0, 280);
+      btn.disabled = true;
+      statusEl.classList.remove('is-error', 'is-success');
+      statusEl.textContent = 'Sending...';
+
+      var nudgeId = _newNudgeId();
+      var wsSent = false;
+      try {
+        if (boardHandle && typeof boardHandle.sendMessage === 'function') {
+          wsSent = !!boardHandle.sendMessage({
+            type: 'classroom_teacher_nudge',
+            nudgeId: nudgeId,
+            recipientUsernames: [s.username],
+            text: rawText,
+          });
+        }
+      } catch (_) { wsSent = false; }
+
+      try {
+        var rsBase = (typeof window.ROSTER_SERVICE_URL === 'string') ? window.ROSTER_SERVICE_URL : '';
+        var rosterToken = (window.rosterClient && typeof window.rosterClient.token === 'function') ? window.rosterClient.token() : null;
+        if (rsBase && rosterToken) {
+          var resp = await fetch(rsBase + '/teacher/nudge', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + rosterToken },
+            body: JSON.stringify({
+              nudgeId: nudgeId,
+              recipientUsernames: [s.username],
+              text: rawText,
+              deliveredUsernames: wsSent ? [s.username] : [],
+            }),
+          });
+          await resp.json().catch(function () { return {}; });
+        }
+      } catch (_) {}
+
+      if (wsSent) {
+        statusEl.textContent = 'Sent.';
+        statusEl.classList.add('is-success');
+        // Codex P11 MAJOR M2 fold: stash the timer id so re-opening the
+        // popup before it fires cancels the stale close.
+        _avatarPopupAutoCloseTimer = setTimeout(_closeAvatarPopup, 800);
+      } else {
+        statusEl.textContent = 'Not connected -- nudge not delivered.';
+        statusEl.classList.add('is-error');
+        btn.disabled = false;
+      }
+    }
+
+    // P11: inline Apply Remediation submission. Reuses P4b's /remediation/propose.
+    async function _submitInlineRemediation() {
+      if (!_avatarPopupStudent) return;
+      var s = _avatarPopupStudent;
+      var unit = document.getElementById('ap-rem-unit').value.trim();
+      var skill = document.getElementById('ap-rem-skill').value.trim();
+      var notes = document.getElementById('ap-rem-notes').value.trim();
+      var statusEl = document.getElementById('ap-rem-status');
+      var btn = document.getElementById('ap-rem-submit');
+      statusEl.classList.remove('is-error', 'is-success');
+      if (!unit || !/^U\d+$/.test(unit)) {
+        statusEl.textContent = 'Unit must look like "U3".';
+        statusEl.classList.add('is-error');
+        return;
+      }
+      if (!skill) {
+        statusEl.textContent = 'Skill code is required.';
+        statusEl.classList.add('is-error');
+        return;
+      }
+      if (!s.studentId) {
+        statusEl.textContent = 'Student id not yet loaded -- refresh + try again.';
+        statusEl.classList.add('is-error');
+        return;
+      }
+      btn.disabled = true;
+      statusEl.textContent = 'Submitting...';
+
+      try {
+        var rsBase = (typeof window.ROSTER_SERVICE_URL === 'string') ? window.ROSTER_SERVICE_URL : '';
+        var rosterToken = (window.rosterClient && typeof window.rosterClient.token === 'function') ? window.rosterClient.token() : null;
+        if (!rsBase || !rosterToken) {
+          statusEl.textContent = 'Not signed in -- cannot submit.';
+          statusEl.classList.add('is-error');
+          btn.disabled = false;
+          return;
+        }
+        var resp = await fetch(rsBase + '/remediation/propose', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + rosterToken },
+          body: JSON.stringify({
+            studentId: s.studentId,
+            unit: unit,
+            skill: skill,
+            notes: notes || undefined,
+            proposedBy: 'cockpit-popup',
+          }),
+        });
+        var j = await resp.json().catch(function () { return {}; });
+        if (resp.status === 503) {
+          statusEl.textContent = (j && j.error) || 'Remediation table not provisioned.';
+          statusEl.classList.add('is-error');
+          btn.disabled = false;
+          return;
+        }
+        if (!resp.ok || !j.ok) {
+          statusEl.textContent = (j && j.error) || ('HTTP ' + resp.status);
+          statusEl.classList.add('is-error');
+          btn.disabled = false;
+          return;
+        }
+        statusEl.textContent = 'Proposed (' + (j.assignmentId || 'ok') + ').';
+        statusEl.classList.add('is-success');
+        _avatarPopupAutoCloseTimer = setTimeout(_closeAvatarPopup, 1200);
+      } catch (err) {
+        statusEl.textContent = 'Network error: ' + (err && err.message ? err.message : 'unknown');
+        statusEl.classList.add('is-error');
+        btn.disabled = false;
+      }
+    }
+
+    // P11: inline Override Gate submission. Reuses P5's /teacher/lesson-unlock.
+    async function _submitInlineGate() {
+      if (!_avatarPopupStudent) return;
+      var s = _avatarPopupStudent;
+      var lessonKey = document.getElementById('ap-gate-key').value.trim();
+      var reason = document.getElementById('ap-gate-reason').value.trim();
+      var statusEl = document.getElementById('ap-gate-status');
+      var btn = document.getElementById('ap-gate-submit');
+      statusEl.classList.remove('is-error', 'is-success');
+      if (!lessonKey || !/^\d+\.\d+$/.test(lessonKey)) {
+        statusEl.textContent = 'Lesson key must look like "1.7" or "5.3".';
+        statusEl.classList.add('is-error');
+        return;
+      }
+      if (!s.username) {
+        statusEl.textContent = 'Student username not loaded -- refresh + try again.';
+        statusEl.classList.add('is-error');
+        return;
+      }
+      btn.disabled = true;
+      statusEl.textContent = 'Overriding...';
+
+      try {
+        var rsBase = (typeof window.ROSTER_SERVICE_URL === 'string') ? window.ROSTER_SERVICE_URL : '';
+        var rosterToken = (window.rosterClient && typeof window.rosterClient.token === 'function') ? window.rosterClient.token() : null;
+        if (!rsBase || !rosterToken) {
+          statusEl.textContent = 'Not signed in -- cannot submit.';
+          statusEl.classList.add('is-error');
+          btn.disabled = false;
+          return;
+        }
+        var resp = await fetch(rsBase + '/teacher/lesson-unlock', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + rosterToken },
+          body: JSON.stringify({
+            studentUsername: s.username,
+            lessonKey: lessonKey,
+            reason: reason || undefined,
+          }),
+        });
+        var j = await resp.json().catch(function () { return {}; });
+        if (resp.status === 503) {
+          statusEl.textContent = (j && j.error) || 'lesson_unlock table not provisioned.';
+          statusEl.classList.add('is-error');
+          btn.disabled = false;
+          return;
+        }
+        if (!resp.ok || !j.ok) {
+          statusEl.textContent = (j && j.error) || ('HTTP ' + resp.status);
+          statusEl.classList.add('is-error');
+          btn.disabled = false;
+          return;
+        }
+        statusEl.textContent = 'Override saved.';
+        statusEl.classList.add('is-success');
+        _avatarPopupAutoCloseTimer = setTimeout(_closeAvatarPopup, 1000);
+      } catch (err) {
+        statusEl.textContent = 'Network error: ' + (err && err.message ? err.message : 'unknown');
+        statusEl.classList.add('is-error');
+        btn.disabled = false;
+      }
+    }
+
+    // P9: Wire popup button events on DOMContentLoaded.
+    document.addEventListener('DOMContentLoaded', function () {
+      // Wire close button.
+      var closeBtn = document.getElementById('avatar-popup-close');
+      if (closeBtn) closeBtn.addEventListener('click', _closeAvatarPopup);
+
+      // Wire action buttons via delegated click on the popup container.
+      var apPopup = document.getElementById('avatar-popup');
+      if (apPopup) {
+        apPopup.addEventListener('click', function (e) {
+          var btn = e.target.closest('[data-ap-action]');
+          if (!btn) return;
+          var action = btn.getAttribute('data-ap-action');
+          if (action) _handleAvatarPopupAction(action);
+        });
+      }
+
+      // ESC closes the popup (capture phase so it fires before other ESC handlers).
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && _avatarPopupIsOpen()) {
+          e.stopPropagation();
+          _closeAvatarPopup();
+        }
+      }, true);
+
+      // Click outside the popup closes it. Ignore canvas clicks: the canvas
+      // click handler already routes through _handleAvatarClickRouted which
+      // will toggle/reposition on its own.
+      document.addEventListener('click', function (e) {
+        if (!_avatarPopupIsOpen()) return;
+        var popupEl = document.getElementById('avatar-popup');
+        if (popupEl && !popupEl.contains(e.target)) {
+          var cvs = (boardHandle && typeof boardHandle.getCanvas === 'function')
+            ? boardHandle.getCanvas() : null;
+          if (cvs && cvs.contains(e.target)) return;
+          _closeAvatarPopup();
+        }
+      }, true);
+
+      // P11: inline view submit + back button wiring.
+      var nudgeSendBtn = document.getElementById('ap-nudge-send');
+      if (nudgeSendBtn) nudgeSendBtn.addEventListener('click', _submitInlineNudge);
+      var remSubmitBtn = document.getElementById('ap-rem-submit');
+      if (remSubmitBtn) remSubmitBtn.addEventListener('click', _submitInlineRemediation);
+      var gateSubmitBtn = document.getElementById('ap-gate-submit');
+      if (gateSubmitBtn) gateSubmitBtn.addEventListener('click', _submitInlineGate);
+      // Back buttons: delegated via data-ap-back attribute.
+      var apPopupForBack = document.getElementById('avatar-popup');
+      if (apPopupForBack) {
+        apPopupForBack.addEventListener('click', function (e) {
+          var backBtn = e.target.closest('[data-ap-back]');
+          if (!backBtn) return;
+          _switchAvatarPopupView(backBtn.getAttribute('data-ap-back'));
+        });
+      }
+    });
+// ===== P4: Select Students wiring (TEACHER_STUDENT_CONSOLE_SPEC.md section 11) =====
+    (function () {
+      try {
+        var sBtn = document.getElementById('btn-select-students');
+        if (sBtn) sBtn.addEventListener('click', function () {
+          if (_selectModeActive) _exitSelectMode();
+          else _enterSelectMode();
+        });
+        var sSend = document.getElementById('btn-select-send');
+        if (sSend) sSend.addEventListener('click', _sendSelectedNudge);
+        var sCancel = document.getElementById('btn-select-cancel');
+        if (sCancel) sCancel.addEventListener('click', _exitSelectMode);
+        var sText = document.getElementById('select-bar-text');
+        if (sText) sText.addEventListener('input', _updateSelectBar);
+        document.addEventListener('keydown', function (e) {
+          if (e.key === 'Escape' && _selectModeActive) _exitSelectMode();
+        });
+      } catch (_) {}
+    })();
+  </script>
+
+  <!-- P4: Select Students overlay layer + selection bar.
+       Markers are absolute-positioned divs over the canvas; bar is
+       fixed at the bottom of the viewport. Both hidden until select
+       mode is active. -->
+  <div id="select-markers" style="display:none"></div>
+  <div id="select-bar" style="display:none">
+    <span class="sb-count" id="select-bar-count">0 selected</span>
+    <textarea id="select-bar-text" maxlength="280" rows="2" placeholder="Nudge to selected (280 chars max)..."></textarea>
+    <button type="button" class="ctrl-btn primary" id="btn-select-send" disabled>Send to selected</button>
+    <button type="button" class="ctrl-btn" id="btn-select-cancel">Cancel</button>
+  </div>
+</body>
+</html>

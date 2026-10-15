@@ -1,0 +1,45 @@
+# Topic 5.8 — Sampling Distributions for Differences in Sample Means (B: 2027-01-22)
+topic: "5.8"
+ced2026: { unit: 4, topic: "4.6", label: "Sampling Distributions (difference of two means)" }
+title: "Two Samples, One Difference"
+essential_question: "How can two sample means use different pathways to justify one normal model for their difference?"
+worksheet: "u5_lesson8_live.html"
+
+rules_callout:
+  title: "JUSTIFY EACH SAMPLE MEAN BEFORE THEIR DIFFERENCE (keep on the page)"
+  body: |
+    For independent random samples, $\mu_{\bar X_1-\bar X_2}=\mu_1-\mu_2$ and
+    $\sigma_{\bar X_1-\bar X_2}=\sqrt{\sigma_1^2/n_1+\sigma_2^2/n_2}$ when each
+    sample has $n\leq0.10N$. Justify each component's shape: a normal population
+    supports a normal sample mean even for small $n$, while the Central Limit Theorem supports
+    a sample mean from a nonnormal population when its own $n\geq30$. The two groups need not
+    use the same pathway. Interpret probabilities as outcomes from repeated pairs of samples.
+    For a normal probability, standardize with $z=(\text{value}-\text{mean})/\text{SD}$ and use the appropriate normal tail.
+    Printed normal table: $P(Z\leq1.9220)=0.972696$. A right-tail area is 1 minus the left area.
+
+focus: aps-5.8-d3-1
+reinforcement: []
+space: { first_take: 0.9in, a: 0.8in, b: 1.4in, c: 2.0in }
+
+teacher:
+  questions_to_ask:
+    - "Which distribution are we justifying for North: individual waits or sample means?"
+    - "Why can the two groups use different routes to approximate normality?"
+    - "What changes if the skewed South sample has size 8?"
+    - "What repeated-sampling event does 0.0273 describe?"
+  watch_for:
+    - "Requiring both samples to have size at least 30 even when one population is normal."
+    - "Assuming one normal component automatically fixes an unjustified second component."
+    - "Subtracting variances because the statistic subtracts means."
+  first_take_note: "Not graded. Each account contains a claim that still needs component-level justification."
+
+visuals:
+  locker_wait_plans:
+    kind: two_way_table
+    col_label: "Locker samples"
+    row_label: "Locker"
+    cols: ["$n$", '$\mu$', '$\sigma$']
+    rows: ["North", "South"]
+    cells:
+      - ["12", "6.0", "1.8"]
+      - ["48", "4.8", "3.0"]

@@ -1,0 +1,42 @@
+\documentclass[14pt]{extarticle}
+\usepackage{preamble}
+\geometry{letterpaper, landscape, margin=0.5in}
+\renewcommand{\answer}[1]{}
+\setlength{\parskip}{4pt}
+
+\begin{document}
+\pagestyle{empty}
+
+\daybanner{Unit 3 \textperiodcentered\ Topic 3.1 \textperiodcentered\ THE PROBLEM}{Centered or Close?}
+
+\noindent\begin{minipage}[t]{0.57\linewidth}
+\vspace{0pt}
+Suppose a research team tests two rules for estimating a support proportion in a validation population where the true proportion is $p=0.40$. For a random sample of 25 people, let $X$ be the number who support the proposal.\par\smallskip Rule A reports $\widehat p_A=X/25$. Rule B reports $\widehat p_B=(X+5)/35$. Exact summaries of the two sampling distributions are shown.\par\smallskip \textbf{Lena:} ``A is unbiased, so it is always the more trustworthy estimator.''\par \textbf{Omar:} ``B varies less and is more likely to land within 0.06 of the truth, so its bias does not matter.''\par
+\end{minipage}\hfill
+\begin{minipage}[t]{0.40\linewidth}
+\vspace{0pt}
+\begin{center}
+\textbf{Sampling distributions when $p=0.40$}\par\smallskip
+\begin{tabular}{|l|c|c|c|}
+\hline
+\textbf{Rule} & \textbf{Mean} & \textbf{SD} & \textbf{Within 0.06} \\ \hline
+\textbf{A} & 0.400 & 0.098 & 0.459 \\ \hline
+\textbf{B} & 0.429 & 0.070 & 0.659 \\ \hline
+\end{tabular}
+\end{center}
+\end{minipage}
+
+\begin{firsttakebox}{FIRST TAKE --- one sentence before you work the parts}
+Which rule looks more useful for getting close to 0.40? Use one entry in the table.
+\end{firsttakebox}
+
+\begin{description}[leftmargin=1.15in, labelwidth=1in, itemsep=2pt, topsep=2pt]
+  \item[\dokbadge{1}~(a)] If one sample has $X=9$ supporters, calculate the point estimate from Rule A and from Rule B. State the population parameter both rules estimate.
+  \item[\dokbadge{2}~(b)] Use the table to classify each rule as biased or unbiased. For any biased rule, give the direction and amount of bias; then compare the rules' sampling variability.
+  \item[\dokbadge{3}~(c)] In 3--4 sentences, choose a rule for getting within 0.06 of $p$ and use the table to defend it. Explain what Lena and Omar each overlook about bias and variability.
+\end{description}
+
+\vfill
+\textbf{Self-paced bonus problem. Work (a)--(c) from this sheet; turn it in whenever you finish.}
+
+\end{document}

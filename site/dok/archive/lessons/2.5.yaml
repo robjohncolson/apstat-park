@@ -1,0 +1,59 @@
+topic: "2.5"
+ced2026:
+  unit: 5
+  topic: '5.2'
+  label: Correlation
+title: What Does This Correlation Support?
+essential_question: How should a correlation, its sensitivity, and the study design shape one recommendation?
+worksheet: u2_lesson5_live.html
+rules_callout:
+  title: READ r WITH THE PLOT AND DESIGN (keep on the page)
+  body: 'Correlation $r$ is unit-free, lies from $-1$ to $1$, and summarizes direction and strength
+    of linear association. Inspect the scatterplot for form and unusual points. Comparing results
+    with and without a point can reveal its effect; report the full result and label any omitted
+    point. An observed association does not show that changing one variable causes the other to change.
+
+    '
+focus: aps-2.5-d3-1
+reinforcement: []
+space:
+  first_take: 0.85in
+  a: 0.55in
+  b: 1.1in
+  c: 1.7in
+teacher:
+  questions_to_ask:
+  - Which number or visible feature supports your claim?
+  - Why does the other claim go beyond that evidence?
+  - What would you tell someone who chose the other claim?
+  watch_for:
+  - A choice with copied numbers but no explanation of how they support it.
+  - Treating a model or average as a guaranteed individual outcome.
+  first_take_note: Not graded; the finish must preserve valid evidence while bounding the claim.
+visuals:
+  arts_centers:
+    kind: scatter
+    points:
+    - - 2
+      - 50
+    - - 3
+      - 47
+    - - 4
+      - 54
+    - - 5
+      - 45
+    - - 6
+      - 53
+    - - 7
+      - 48
+    - - 8
+      - 51
+    - - 20
+      - 90
+    xlabel: Social-media posts during the month
+    ylabel: Average weekend visitors
+    xmin: 0
+    xmax: 21
+    ymin: 40
+    ymax: 95
+    scale: 0.78

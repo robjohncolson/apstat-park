@@ -1,0 +1,61 @@
+\documentclass[11pt]{article}
+\usepackage{preamble}
+\renewcommand{\answer}[1]{}
+
+\begin{document}
+
+\ladderheading{AP Statistics \textperiodcentered\ Unit 5 \textperiodcentered\ Topic 5.2}{What Does This Correlation Support?}
+
+\focusbanner{THE PROBLEM}
+
+Suppose a nonprofit records monthly social-media posts and average weekend visitors at eight community arts centers. The pairs are $(2,50)$, $(3,47)$, $(4,54)$, $(5,45)$, $(6,53)$, $(7,48)$, $(8,51)$, and $(20,90)$. Technology gives $r=0.922$ for all eight centers and $r=0.095$ for the first seven.\par\smallskip \textbf{Omar:} Use that strong correlation to forecast the attendance gained from additional posts; every observed center belongs in the analysis.\par \textbf{Tessa:} Report the full analysis, but also examine the seven-center cluster and how posting levels were chosen before recommending a campaign.\par
+\begin{center}
+\begin{tikzpicture}
+\begin{axis}[
+  width=0.66\linewidth,
+  height=1.79in,
+  xmin=0, xmax=21, ymin=40, ymax=95,
+  xlabel={Social-media posts during the month}, ylabel={Average weekend visitors}, grid=major,
+  tick label style={font=\small}, label style={font=\small}
+]
+\addplot[only marks, mark=*, mark size=1.7pt, color=dayblue] coordinates {
+  (2,50)
+  (3,47)
+  (4,54)
+  (5,45)
+  (6,53)
+  (7,48)
+  (8,51)
+  (20,90)
+};
+\end{axis}
+\end{tikzpicture}
+\end{center}
+\begin{firsttakebox}{FIRST TAKE --- one sentence before you work the parts}
+Which proposal seems more defensible, Omar's or Tessa's? Cite one number, plot feature, or design fact.
+\workspace{0.85in}
+\end{firsttakebox}
+
+\begin{callout}{\IconBook\ READ r WITH THE PLOT AND DESIGN (keep on the page)}{calloutgreen}
+Correlation $r$ is unit-free, lies from $-1$ to $1$, and summarizes direction and strength of linear association. Inspect the scatterplot for form and unusual points. Comparing results with and without a point can reveal its effect; report the full result and label any omitted point. An observed association does not show that changing one variable causes the other to change.
+\end{callout}
+
+\newpage
+\textbf{Work (a)--(c).}\par\smallskip
+
+\dokbadge{1}~\textbf{(a)} What do the sign and size of the full-data $r=0.922$ tell you?\par
+\workspace{0.55in}
+
+\dokbadge{2}~\textbf{(b)} Compare the two given correlations. Describe the plot feature that could explain the difference.\par
+\workspace{1.1in}
+
+\dokbadge{3}~\textbf{(c)} Which approach would you recommend? Use both correlations and the plot, explaining why the full result should still be reported. Explain why observing posting levels does not show that extra posts cause more visitors. Write 3--4 sentences.\par
+\workspace{1.7in}
+
+\begin{sentenceframebox}\raggedright\textbf{Frame:} For all eight centers, $r=\blank[0.7in]$ supports \blank[1.8in], while $r=\blank[0.7in]$ for seven centers shows \blank[1.8in].\end{sentenceframebox}
+
+\begin{sentenceframebox}\raggedright\textbf{Frame:} I recommend \blank[0.8in]; the design permits \blank[1.6in] but not \blank[1.6in], so \blank[1.8in].\end{sentenceframebox}
+
+\textbf{Turn this sheet in whenever you finish --- bonus credit. Part (c) is scored E / P / I.}\par
+
+\end{document}

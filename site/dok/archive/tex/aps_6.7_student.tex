@@ -1,0 +1,51 @@
+\documentclass[11pt]{article}
+\usepackage{preamble}
+\renewcommand{\answer}[1]{}
+
+\begin{document}
+
+\ladderheading{AP Statistics \textperiodcentered\ Unit 3 \textperiodcentered\ Topic 3.8}{Which Error Can the District Afford?}
+
+\focusbanner{THE PROBLEM}
+
+A district checks an emergency-alert system. Let $p$ be the proportion of alerts that arrive late. It tests $H_0:p=0.05$ versus $H_a:p>0.05$, replacing the system if it rejects $H_0$. Both plans use $n=200$. The Safety office wants to avoid keeping a system with a 10\% late rate. The Budget office wants to avoid replacing a system with a 5\% late rate. The offices have not agreed how to compare these costs.\par\smallskip \textbf{Dev:} ``Use A. Smaller $\alpha$ lowers both error risks.''\par \textbf{Lin:} ``Use B. Its higher power has no cost when safety matters.''\par
+\begin{center}
+\textbf{Test plans ($n=200$)}\par\smallskip
+\begin{tabular}{|l|c|c|}
+\hline
+\textbf{Plan} & \textbf{$\alpha$} & \textbf{Power at $p=0.10$} \\ \hline
+\textbf{A} & 0.010 & 0.748 \\ \hline
+\textbf{B} & 0.050 & 0.877 \\ \hline
+\end{tabular}
+\end{center}
+\begin{firsttakebox}{FIRST TAKE --- one sentence before you work the parts}
+Which plan would you try first? Name the office you prioritized and one competing cost.
+\workspace{0.9in}
+\end{firsttakebox}
+
+\begin{callout}{\IconBook\ ERROR PROBABILITIES TRADE OFF (keep on the page)}{calloutgreen}
+A Type I error rejects a true $H_0$, and its probability is $\alpha$. A Type II error fails to reject a false
+$H_0$; $\beta=1-\text{power}$. With sample size fixed, increasing $\alpha$ generally raises power and lowers
+$\beta$, but it also raises the false-positive risk. Increasing sample size can raise power while keeping the
+chosen $\alpha$ fixed. Choose a plan by naming the real consequence of each error.
+\end{callout}
+
+\newpage
+\textbf{Work (a)--(c).}\par\smallskip
+
+\dokbadge{1}~\textbf{(a)} Identify what the table's power at $p=0.10$ means in this setting.\par
+\workspace{0.8in}
+
+\dokbadge{2}~\textbf{(b)} Calculate the Type II error probability $\beta$ for each plan. State each plan's Type I error probability.\par
+\workspace{1.4in}
+
+\dokbadge{3}~\textbf{(c)} In 4--5 sentences, recommend a plan for one office using both error risks. Explain the consequence of each error and what Dev and Lin each overlook. State why the other office might choose differently.\par
+\workspace{2.0in}
+
+\begin{sentenceframebox}\raggedright\textbf{Frame:} For the \blank[0.8in] office, I recommend \blank[0.6in] because \blank[2.2in].\end{sentenceframebox}
+
+\begin{sentenceframebox}\raggedright\textbf{Frame:} That plan risks \blank[2.0in] when \blank[1.5in]; the other office may prioritize \blank[1.5in].\end{sentenceframebox}
+
+\textbf{Turn this sheet in whenever you finish --- bonus credit. Part (c) is scored E / P / I.}\par
+
+\end{document}

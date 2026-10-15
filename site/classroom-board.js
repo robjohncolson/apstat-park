@@ -1,0 +1,7347 @@
+/**
+ * classroom-board.js
+ *
+ * Live Classroom board component (r3 -- sprite scene render layer).
+ * PLAIN browser script -- no ES import/export.  Load via:
+ *   <script src="canvas_engine.js"></script>
+ *   <script src="sprite_sheet.js"></script>
+ *   <script src="classroom-board.js"></script>
+ *
+ * Attaches window.ClassroomBoard with the frozen API:
+ *
+ *   ClassroomBoard.mount(container, opts) -> handle
+ *   handle.destroy()
+ *   handle.setNameMap(map)
+ *   handle.armGate(theme)      -- v1b teacher method
+ *   handle.greenLight(opts?)   -- v1c teacher method (opts: {startVideo?,videoRef?})
+ *   handle.reset()             -- v1b teacher method
+ *
+ * opts (r3): { wsUrl, section, username, role, nameMap?, onStateChange?,
+ *              hue?, onStartVideo?, onAvatarClick?, hideNameLabels?, selfClickable? }
+ *   hue: integer 0-359 or null.  Sent in classroom_join; used to tint this
+ *   user's own avatar on the board.
+ *   onAvatarClick: optional function({ username, selectMode, clientX, clientY, isSelf }).
+ *   Fired when a canvas click hit-tests onto an avatar.  isSelf is true only when
+ *   the local user clicked their own avatar (requires selfClickable).
+ *   hideNameLabels: when true, avatar names do NOT float above heads (the Desk
+ *   reveals them on click instead).  Omit it (cockpit) to keep names floating.
+ *   selfClickable: when true, the local user's own avatar is clickable (fires
+ *   isSelf:true).  Omit it (cockpit) to keep self unclickable.
+ *   onStartVideo: optional function(videoRef).  Called once per inbound
+ *   classroom_greenlight whose startVideo === true.  videoRef is the string
+ *   the broadcast carried (or null).
+ *
+ * Internal state reduction is exposed as a pure function:
+ *   ClassroomBoard._reduce(state, message) -> newState
+ *
+ * This function has NO side effects and requires NO canvas context.
+ *
+ * Rendering (r3): responsive animated sprite scene driven by CanvasEngine.
+ * Students appear as tinted sprites (idle-blink / walk animations).
+ * On present->checkedIn a student walks toward the gate door then is removed.
+ * online:false members render dimmed (globalAlpha).
+ * greenlight -> a brief scene-layer text overlay.
+ *
+ * WS protocol: sends classroom_join on open, classroom_heartbeat every 30s.
+ * Reconnects on drop with exponential backoff (1s start, 30s cap).
+ * Re-sends classroom_join on every (re)connect.
+ *
+ * ASCII-only.  LF line endings.
+ */
+
+(function (root) {
+  'use strict';
+
+  // --- engine globals bridge (r3 render-layer fix) ----------------------
+  // canvas_engine.js / sprite_sheet.js are verbatim curriculum_render copies:
+  // bare top-level `class` declarations. As classic <script>s, a top-level
+  // class is a global LEXICAL binding -- NOT a window property. mount() reads
+  // them as root.CanvasEngine / root.SpriteSheet (root === window), so without
+  // this bridge the lookup is undefined, `new root.CanvasEngine(...)` throws,
+  // engineReady stays false, and the board silently never renders. Copy the
+  // lexical bindings onto root. typeof-guarded so a missing engine file cannot
+  // throw at IIFE top (window.ClassroomBoard must still get defined); the
+  // !root.X guard leaves a test-injected window stub unclobbered.
+  if (typeof CanvasEngine !== 'undefined' && !root.CanvasEngine) {
+    root.CanvasEngine = CanvasEngine;
+  }
+  if (typeof SpriteSheet !== 'undefined' && !root.SpriteSheet) {
+    root.SpriteSheet = SpriteSheet;
+  }
+
+  // --- WS timing knobs --------------------------------------------------
+
+  var HEARTBEAT_MS    = 30000;   // 30 s
+  var RECONNECT_BASE  = 1000;    // 1 s initial backoff
+  var RECONNECT_CAP   = 30000;   // 30 s max backoff
+
+  // --- greenlight render knob -------------------------------------------
+
+  var GREENLIGHT_MS = 2000;      // banner lingers for 2 s
+
+  // --- sprite layout knobs ----------------------------------------------
+
+  var SPRITE_SCALE   = 0.25;     // peer scale (same as cr PeerSprite)
+  var SPRITE_W       = 80;       // frame width px
+  var SPRITE_H       = 96;       // frame height px
+  var DOOR_W         = 60;       // gate door width (px, CSS space)
+  var DOOR_H         = 80;       // gate door height (px, CSS space)
+
+  // Board canvas height (px, CSS space). Width tracks the host container --
+  // the scene is a horizontal row, so only the height is fixed.
+  var BOARD_H        = 220;
+  var DEFAULT_BOARD_W = 320;     // fallback when container.clientWidth is 0
+
+  // Walk speed: pixels per second toward the door
+  var WALK_SPEED     = 120;
+
+  // --- animation frame indices (cr reference: player_sprite.js) ---------
+
+  var IDLE_FRAMES = [0, 10];   // idle blink
+  var WALK_FRAMES = [2, 3, 4, 5]; // walk cycle
+
+  // AVATAR_SELF_EMOTE: a one-shot "happy bounce" played on the LOCAL avatar when
+  // the student clicks their own sprite (no new art — a render-space hop + sway).
+  // EMOTE_FRAME is the nano-banana hook: leave null to bounce the normal idle/walk
+  // frame; set it to an UNUSED sprite-sheet column (e.g. 6) once a "cheer" pose is
+  // drawn there, and put its left-facing mirror at EMOTE_FRAME + 11 (per the sheet's
+  // top=right / bottom=left layout). The emote then poses on that frame mid-hop.
+  var EMOTE_DURATION_MS = 650;  // total bounce length
+  var EMOTE_HOP_PX      = 14;   // peak rise (screen px, pre-scale-independent)
+  var EMOTE_SWAY_PX     = 4;    // horizontal wiggle amplitude
+  var EMOTE_FRAME       = null;
+
+  var IDLE_BLINK_SPEED  = 3.0;  // seconds between blinks
+  var WALK_FRAME_SPEED  = 0.12; // seconds per walk frame
+
+  // --- player controller knobs (Phase 1) --------------------------------
+  // KEYBOARD_AVATAR_SPEC -- locked Phase 1 kinematics.
+
+  var JUMP_V0       = -280;   // initial vertical velocity (negative = up)
+  var GRAVITY       = 800;    // px/s^2 downward
+  var PUSH_DELTA    = 0.6;    // legacy soft-push (kept for Phase-1 structure pin)
+  var JUMP_FRAME    = 5;      // sprite frame for the airborne pose (cr-matching)
+  // LIVE_CLASSROOM_SCALING knob 1 -- emit cadence scales to room size.
+  // Each row is [memberCountUpperBound, intervalMs]; the LAST row's bound
+  // is Infinity so any larger room maps to its interval. Tuning is
+  // one-line: edit a row's intervalMs to widen/narrow the cadence.
+  var POS_RATE_TABLE = [
+    [8,        100],   // <= 8 members         -> 10 Hz   (was POS_RATE_MS)
+    [20,       200],   //  9 - 20 members      ->  5 Hz
+    [40,       300],   // 21 - 40 members      ->  3.33 Hz
+    [Infinity, 500]    // > 40 members         ->  2 Hz
+  ];
+
+  // Look up the broadcast interval for a given room size. Linear scan --
+  // POS_RATE_TABLE has 4 rows, branch-prediction-friendly. Falls through
+  // to the last row's value (the Infinity bound guarantees a match).
+  function _currentEmitRateMs(memberCount) {
+    var n = (typeof memberCount === 'number' && memberCount > 0) ? memberCount : 1;
+    for (var i = 0; i < POS_RATE_TABLE.length; i++) {
+      if (n <= POS_RATE_TABLE[i][0]) { return POS_RATE_TABLE[i][1]; }
+    }
+    return POS_RATE_TABLE[POS_RATE_TABLE.length - 1][1];
+  }
+  var Y_CHASE_SPEED = 600;    // Phase 2.2: peer y interpolation speed (px/s)
+
+  // --- V7.9 side-scroll camera ------------------------------------------
+  // Per BUILD doc sections 4-9. Module-scope camera state; each mount()
+  // reconfigures followFn + enabled. World sprites call
+  // _translateForCamera(ctx) as the first line of render() and
+  // ctx.restore() at the end. HUD sprites do NOT call the helper -- they
+  // render at their own (screen-anchored) coordinates.
+  //
+  // Two render modes:
+  //   - _camera.enabled = true  -> per-client follow with deadzone (student/peer)
+  //                                ctx.translate(-_camera.x, 0)
+  //   - _camera.enabled = false -> cockpit fit-to-width (teacher sees all)
+  //                                ctx.scale(vw/levelW, 1)
+  //
+  // levelW defaults to vw for legacy single-screen levels (map.width=32 +
+  // chipSize=10 -> levelW=320 -> camera.x stays clamped to 0; identity).
+  //
+  // Deadzone math: target screenX in [DEADZONE_L, DEADZONE_R] for the
+  // local player. Per BUILD doc, lerp camera.x toward target with
+  // CAM_LERP per tick for smoothness without jerk.
+  var DEADZONE_L = 100;
+  var DEADZONE_R = 220;
+  var CAM_LERP   = 0.15;
+  var DEFAULT_BOARD_W_LOCAL = 320;  // mirrors DEFAULT_BOARD_W (declared above)
+
+  var _camera = {
+    x:        0,
+    vw:       DEFAULT_BOARD_W_LOCAL,
+    levelW:   DEFAULT_BOARD_W_LOCAL,
+    enabled:  true,
+    followFn: null,
+    // Optional per-tick refresh callbacks. mount() installs these so the
+    // camera reads the latest viewport + level dims (canvas can resize;
+    // levelW changes when state.activity starts/stops). When null, the
+    // current vw/levelW fields are used as-is.
+    vwFn:     null,
+    levelWFn: null,
+    // V7.15 SHARED CAMERA. mount() installs this to expose the server-
+    // emitted state.activity.state.camera object (when present). When
+    // non-null and shape { x:<number> }, _updateCamera reads camera.x
+    // directly from the server -- no per-client follow lerp. This is
+    // Pico Park's shared-camera primitive: the leader cannot scroll
+    // off-screen-right past slower classmates because the camera tracks
+    // the leftmost STUDENT (teachers excluded server-side). Cockpit
+    // (_camera.enabled=false) bypasses shared-camera and uses its own
+    // fit-to-width scale at render time -- the read here only fires
+    // when enabled=true.
+    cameraStateFn: null
+  };
+
+  // Reset the camera back to defaults. Called from mount() so a fresh
+  // mount cycle starts with x=0 and a stale followFn from a prior mount
+  // doesn't leak in. Tests that build multiple boards in one module
+  // context rely on this.
+  function _resetCamera() {
+    _camera.x             = 0;
+    _camera.vw            = DEFAULT_BOARD_W_LOCAL;
+    _camera.levelW        = DEFAULT_BOARD_W_LOCAL;
+    _camera.enabled       = true;
+    _camera.followFn      = null;
+    _camera.vwFn          = null;
+    _camera.levelWFn      = null;
+    _camera.cameraStateFn = null;
+  }
+
+  // _updateCamera(dt). Per BUILD doc section 5. Refreshes vw + levelW
+  // from the optional callbacks so a resize / activity start lands
+  // before the deadzone math runs. No-op when disabled (cockpit fit-to-
+  // width handles its own scale, no follow). Computes targetCamX so the
+  // local player's screenX lands inside the deadzone, clamps to
+  // [0, levelW - vw], and lerps camera.x toward target. Clamp upper
+  // bound goes to 0 when levelW <= vw (single-screen level).
+  function _updateCamera(/* dt */) {
+    if (typeof _camera.vwFn === 'function') {
+      var v = _camera.vwFn();
+      if (typeof v === 'number' && v > 0) { _camera.vw = v; }
+    }
+    if (typeof _camera.levelWFn === 'function') {
+      var lw = _camera.levelWFn();
+      if (typeof lw === 'number' && lw > 0) { _camera.levelW = lw; }
+    }
+    if (!_camera.enabled) return;
+    // V7.15 SHARED CAMERA branch (high priority).
+    // When the server emits state.activity.state.camera.x, the client
+    // takes that value as the single source of truth and SKIPS the
+    // local follow lerp. Server-side, the engine tracks the leftmost
+    // STUDENT (teachers excluded) with a forward-only ratchet -- so the
+    // leader cannot scroll past slower classmates. Cockpit role gets
+    // _camera.enabled=false and exits above; cockpit fit-to-width is
+    // unaffected by shared-camera.
+    if (typeof _camera.cameraStateFn === 'function') {
+      var sharedCam = _camera.cameraStateFn();
+      if (sharedCam && typeof sharedCam.x === 'number') {
+        _camera.x = sharedCam.x;
+        return;
+      }
+    }
+    var player = (typeof _camera.followFn === 'function') ? _camera.followFn() : null;
+    if (!player || typeof player.x !== 'number') return;
+    var vw     = _camera.vw     || DEFAULT_BOARD_W_LOCAL;
+    var levelW = _camera.levelW || vw;
+    var maxCam = Math.max(0, levelW - vw);
+
+    // Where does the player land on the screen right now?
+    var screenX = player.x - _camera.x;
+    var targetCamX = _camera.x;
+    if (screenX > DEADZONE_R) {
+      targetCamX = player.x - DEADZONE_R;
+    } else if (screenX < DEADZONE_L) {
+      targetCamX = player.x - DEADZONE_L;
+    }
+    if (targetCamX < 0)      { targetCamX = 0; }
+    if (targetCamX > maxCam) { targetCamX = maxCam; }
+
+    _camera.x = _camera.x + (targetCamX - _camera.x) * CAM_LERP;
+    if (_camera.x < 0)      { _camera.x = 0; }
+    if (_camera.x > maxCam) { _camera.x = maxCam; }
+  }
+
+  // _translateForCamera(ctx). Per BUILD doc section 6. Called as the
+  // FIRST line of every world-sprite render(); the sprite MUST call
+  // _restoreFromCamera(ctx) at the end of its render() to balance.
+  // When enabled, slides the world left by camera.x (side-scroll).
+  // When disabled (cockpit), scales the world horizontally by vw/levelW
+  // so the entire level fits the viewport (teacher sees all).
+  //
+  // Defensive against test stubs that omit save/restore/translate/scale:
+  // when any required ctx method is missing, the helper silently no-ops
+  // and _restoreFromCamera() also no-ops. Production canvases always
+  // have all four; jsdom test stubs may not.
+  function _translateForCamera(ctx) {
+    if (!ctx || typeof ctx.save !== 'function' || typeof ctx.restore !== 'function') return;
+    ctx.save();
+    var vw     = _camera.vw     || DEFAULT_BOARD_W_LOCAL;
+    var levelW = _camera.levelW || vw;
+    // V7.10.2 LETTERBOX (student-only). Per PeriodX feedback on the
+    // V7.9.1 fit-to-width scale: "everything magnified 2x vertically,
+    // 3x horizontally." The ctx.scale(vw/levelW, 1) stretched sprites
+    // horizontally so a 480-px-wide level on a 1147-px canvas read as
+    // 2.4x wider but unchanged height -- the visual distortion the
+    // user pushed back on. LETTERBOX instead: keep sprites at native
+    // size, translate the world horizontally so the level is CENTERED
+    // in the viewport with empty desk-mod background on each side.
+    //
+    // Cockpit (teacher) keeps the scale-to-fit behavior so they see
+    // the WHOLE level at once (zoom-out works for both narrower and
+    // wider levels). Students get letterbox because they're focused
+    // on their immediate band of play; the level's native scale
+    // matches the Pico Park aesthetic of every other sprite.
+    if (_camera.enabled) {
+      // Student path.
+      if (levelW > 0 && levelW < vw) {
+        // Viewport wider than level -> letterbox (translate to center).
+        if (typeof ctx.translate === 'function') {
+          var offset = (vw - levelW) / 2;
+          try { ctx.translate(offset, 0); } catch (_) {}
+        }
+      } else if (levelW > vw) {
+        // Viewport narrower than level -> camera follows local player.
+        if (typeof ctx.translate === 'function') {
+          try { ctx.translate(-_camera.x, 0); } catch (_) {}
+        }
+      }
+      // levelW == vw -> identity (perfect fit).
+    } else if (levelW > 0 && levelW !== vw) {
+      // Cockpit fit-to-width (unchanged from V7.9.0 / V7.9.1).
+      if (typeof ctx.scale === 'function') {
+        try { ctx.scale(vw / levelW, 1); } catch (_) {}
+      }
+    }
+    // The save() above pairs with _restoreFromCamera's restore().
+  }
+
+  // _restoreFromCamera(ctx). Balances the save() in _translateForCamera.
+  // Defensive: no-op when ctx lacks restore (test stub). Sprites call
+  // this as the LAST line of render() (or before any early-return after
+  // _translateForCamera ran).
+  function _restoreFromCamera(ctx) {
+    if (!ctx || typeof ctx.save !== 'function' || typeof ctx.restore !== 'function') return;
+    try { ctx.restore(); } catch (_) {}
+  }
+
+  // Project a world-space x into the screen pixel that _translateForCamera
+  // will place it at. Used by getLabelSpec() for world sprites so labels
+  // (drawn by the engine in a SEPARATE pass with NO translate) land at
+  // the same on-screen position as the rendered sprite.
+  function _projectWorldX(worldX) {
+    var vw     = _camera.vw     || DEFAULT_BOARD_W_LOCAL;
+    var levelW = _camera.levelW || vw;
+    // V7.10.2 LETTERBOX (student): label projection matches the
+    // _translateForCamera transform. Student wide-screen = letterbox
+    // (add offset); student narrow-screen = camera follow (subtract
+    // camera.x); cockpit = scale (multiply).
+    if (_camera.enabled) {
+      if (levelW > 0 && levelW < vw) {
+        return worldX + (vw - levelW) / 2;
+      }
+      if (levelW > vw) {
+        return worldX - _camera.x;
+      }
+      return worldX;
+    }
+    if (levelW > 0 && levelW !== vw) {
+      return worldX * (vw / levelW);
+    }
+    return worldX;
+  }
+
+  // Tiny "controller" entity that lives in the engine's entity Map so
+  // _updateCamera(dt) gets ticked alongside every other update(). render
+  // is a no-op (camera is renderer state, not a paint). zIndex is set
+  // so it doesn't affect sort order semantically -- it never paints.
+  // engine assigns this.engine when addEntity is called.
+  function CameraController() {
+    this.zIndex = 0;
+    this.engine = null;
+  }
+  CameraController.prototype.update = function (dt) {
+    _updateCamera(dt);
+  };
+  CameraController.prototype.render = function () { /* no paint */ };
+  CameraController.prototype.getLabelSpec = function () { return null; };
+
+  // --- unique canvas id generator ---------------------------------------
+
+  var _canvasSeq = 0;
+  function nextCanvasId() {
+    _canvasSeq += 1;
+    return 'classroom-board-canvas-' + _canvasSeq;
+  }
+
+  // --- hashStringToHue --------------------------------------------------
+  // Exact copy from curriculum_render/js/sprite_manager.js.
+  // Maps any string to a hue in [0, 359].
+
+  // --- Calendar cats from PICO PARK's sheet ---------------------------------
+  //
+  // The cats used to come from sprite.png: 80x96 frames, 11 columns x 2 rows (row 2 mirrored,
+  // except the symmetric "dead" frame 1/12), a pixel-exact 4x upscale of the game's 20x24 cat in
+  // colour #ff8c8c (outline 0.7x, white highlight, black eyes), drawn at scale 0.25 with the
+  // canvas filter hue-rotate(<student hue>deg). They now come from the same cells of the level-6
+  // atlas (apstat-park/assets/pico-1-1.png, pico-atlas.mjs `cats`): frame f < 11 is cell f facing
+  // right, frame 11 + f is cell f mirrored (frame 12 = cell 1 unmirrored, as before). Each student's
+  // colour is the body colour C = hueRotate(#ff8c8c, hue) (the same matrix Chrome applies for
+  // hue-rotate), painted with the game's formula rgb = r*C + b*C*0.7 + g, baked once per hue
+  // (cached, at most CAT_CACHE_MAX frames). Same frames, size, timing and per-student colour.
+  var CAT_ATLAS = { x: 0, y: 80, cell: 32, artX: 6, artY: 8, deadArtY: 10, w: 20, h: 24, cells: 11 };
+  var CAT_BASE = [255, 140, 140];
+  // sprite.png layout: 11 x 2 frames of 80x96 with 4 px between them, none at the sheet edges.
+  function catFramePad(frameIndex) {
+    var f = frameIndex | 0, col = f % CAT_ATLAS.cells, row = f >= CAT_ATLAS.cells ? 1 : 0;
+    return { l: col === 0 ? 0 : 4, r: col === CAT_ATLAS.cells - 1 ? 0 : 4, t: row === 0 ? 0 : 4, b: row === 1 ? 0 : 4 };
+  }
+  var CAT_CACHE_MAX = 600;  // baked frames (80x96, ~31 KB each, ~18 MB at most); ~12 per hue in use
+  function hueRotateRgb(rgb, hue) {
+    var r = (Number(hue) || 0) * Math.PI / 180, c = Math.cos(r), s = Math.sin(r);
+    var m = [[0.213 + c * 0.787 - s * 0.213, 0.715 - c * 0.715 - s * 0.715, 0.072 - c * 0.072 + s * 0.928],
+             [0.213 - c * 0.213 + s * 0.143, 0.715 + c * 0.285 + s * 0.140, 0.072 - c * 0.072 - s * 0.283],
+             [0.213 - c * 0.213 - s * 0.787, 0.715 - c * 0.715 + s * 0.715, 0.072 + c * 0.928 + s * 0.072]];
+    return m.map(function (row) { return Math.max(0, Math.min(255, Math.round(row[0] * rgb[0] + row[1] * rgb[1] + row[2] * rgb[2]))); });
+  }
+  function catBodyForHue(hue) { return hueRotateRgb(CAT_BASE, (typeof hue === 'number' && isFinite(hue)) ? Math.round(hue) : 0); }
+  // sprite.png frame index -> atlas cell and facing.
+  function catFrameCell(frameIndex) {
+    var f = frameIndex | 0, cell = f % CAT_ATLAS.cells, mirrored = f >= CAT_ATLAS.cells && cell !== 1;
+    return { cell: cell, mirrored: mirrored };
+  }
+  // Drop-in for SpriteSheet (drawFrame / loaded) over the shared atlas image.
+  //   getImage(): the decoded atlas or null;  failed(): true once it can never load.
+  function AtlasCatSheet(getImage, failed, doc) {
+    this._getImage = getImage; this._failed = failed; this._doc = doc;
+    this._cache = new Map(); this._pixels = null;
+  }
+  Object.defineProperty(AtlasCatSheet.prototype, 'loaded', { get: function () { return !!this._getImage() || !!this._failed(); } });
+  AtlasCatSheet.prototype._canvas = function (w, h) {
+    var c = this._doc && this._doc.createElement('canvas');
+    // CPU-backed (willReadFrequently): Chrome then samples it exactly as it sampled sprite.png.
+    var ctx = c && c.getContext && c.getContext('2d', { willReadFrequently: true });
+    if (!ctx) { return null; }
+    c.width = w; c.height = h;
+    return { c: c, ctx: ctx };
+  };
+  // One frame for one hue, baked at sprite.png's own 4x (each art pixel a 4x4 block) and drawn
+  // scaled by 0.25 exactly as before, so smoothing, sub-pixel positions and every screen density
+  // look the same as the old sheet. Baked lazily: the calendar only uses about 12 of the 22.
+  AtlasCatSheet.prototype._frame = function (hue, frameIndex) {
+    var deg = (typeof hue === 'number' && isFinite(hue)) ? ((Math.round(hue) % 360) + 360) % 360 : 0;
+    var f = frameIndex | 0, key = deg + ':' + f;
+    if (this._cache.has(key)) { return this._cache.get(key); }
+    var frame = null;
+    try { frame = this._bake(catBodyForHue(deg), f); } catch (_) { frame = null; }
+    if (this._cache.size >= CAT_CACHE_MAX) { this._cache.delete(this._cache.keys().next().value); }
+    this._cache.set(key, frame);
+    return frame;
+  };
+  AtlasCatSheet.prototype._bake = function (C, f) {
+    var A = CAT_ATLAS, image = this._getImage(), K = 4;
+    if (!image) { return null; }
+    if (!this._pixels) {
+      var src = this._canvas(A.cell * A.cells, A.cell + 4);
+      if (!src) { return null; }
+      src.ctx.drawImage(image, A.x, A.y, A.cell * A.cells, A.cell, 0, 0, A.cell * A.cells, A.cell);
+      this._pixels = src.ctx.getImageData(0, 0, A.cell * A.cells, A.cell + 4);
+    }
+    var px = this._pixels, map = catFrameCell(f), top = map.cell === 1 ? A.deadArtY : A.artY;
+    // The frame's surroundings as they were in sprite.png: 4 px of transparent padding towards a
+    // neighbouring frame, none at the sheet's outer edges. Smoothing at sub-pixel positions then
+    // fades (or clamps) each edge exactly as the old sheet did.
+    var pad = catFramePad(f), W = A.w * K + pad.l + pad.r, H = A.h * K + pad.t + pad.b;
+    var out = this._canvas(W, H);
+    if (!out) { return null; }
+    var img = out.ctx.createImageData(W, H);
+    for (var y = 0; y < A.h; y++) {
+      for (var x = 0; x < A.w; x++) {
+        var sx = map.mirrored ? A.w - 1 - x : x;
+        var from = ((top + y) * px.width + map.cell * A.cell + A.artX + sx) * 4;
+        var a = px.data[from + 3];
+        if (!a) { continue; }
+        var r = px.data[from] / 255, g = px.data[from + 1], b = px.data[from + 2] / 255;
+        var rgba = [Math.min(255, Math.round(r * C[0] + b * C[0] * 0.7 + g)),
+                    Math.min(255, Math.round(r * C[1] + b * C[1] * 0.7 + g)),
+                    Math.min(255, Math.round(r * C[2] + b * C[2] * 0.7 + g)), a];
+        for (var dy = 0; dy < K; dy++) {
+          for (var dx = 0; dx < K; dx++) { img.data.set(rgba, ((pad.t + y * K + dy) * W + pad.l + x * K + dx) * 4); }
+        }
+      }
+    }
+    out.ctx.putImageData(img, 0, 0);
+    out.c._pad = pad;
+    return out.c;
+  };
+  AtlasCatSheet.prototype.drawFrame = function (ctx, frameIndex, x, y, scale, hueDegrees) {
+    var w = SPRITE_W * (scale || 1), h = SPRITE_H * (scale || 1);
+    var frame = this._getImage() ? this._frame(hueDegrees, frameIndex) : null;
+    if (frame) { ctx.drawImage(frame, frame._pad.l, frame._pad.t, SPRITE_W, SPRITE_H, x, y, w, h); return; }
+    if (this._failed()) {
+      // The atlas can never load: a flat block in the student's colour, never an invisible cat.
+      var C = catBodyForHue(hueDegrees);
+      ctx.save(); ctx.fillStyle = 'rgb(' + C[0] + ',' + C[1] + ',' + C[2] + ')'; ctx.fillRect(x, y, w, h); ctx.restore();
+    }
+  };
+
+  function hashStringToHue(input) {
+    var hash = 0;
+    for (var i = 0; i < input.length; i++) {
+      hash = ((hash << 5) - hash) + input.charCodeAt(i);
+      hash = hash | 0;  // keep 32-bit signed
+    }
+    return Math.abs(hash) % 360;
+  }
+
+  // --- legacy helpers kept for _assignCells (exposed for tests) ---------
+
+  var GRID_COLS = 40;
+  var GRID_ROWS = 30;
+  var GRID_SIZE = GRID_COLS * GRID_ROWS;
+
+  function hashStr(s) {
+    var h = 5381;
+    for (var i = 0; i < s.length; i++) {
+      h = ((h << 5) + h) ^ s.charCodeAt(i);
+      h = h >>> 0;
+    }
+    return h;
+  }
+
+  /**
+   * assignCells -- kept for backward-compat (tests pin _assignCells).
+   * Not used by the r3 render layer.
+   */
+  function assignCells(usernames) {
+    var sorted   = usernames.slice().sort();
+    var occupied = {};
+    var result   = {};
+
+    for (var hr = GRID_ROWS - 4; hr < GRID_ROWS; hr++) {
+      for (var hc = GRID_COLS - 4; hc < GRID_COLS; hc++) {
+        occupied[hr * GRID_COLS + hc] = true;
+      }
+    }
+
+    for (var i = 0; i < sorted.length; i++) {
+      var name  = sorted[i];
+      var start = hashStr(name) % GRID_SIZE;
+      var idx   = start;
+      var probes = 0;
+      while (occupied[idx] && probes < GRID_SIZE) {
+        idx = (idx + 1) % GRID_SIZE;
+        probes++;
+      }
+      occupied[idx] = true;
+      result[name] = {
+        col: idx % GRID_COLS,
+        row: Math.floor(idx / GRID_COLS)
+      };
+    }
+
+    return result;
+  }
+
+  // --- pure state reduction (B1 / B3) -----------------------------------
+
+  /**
+   * _reduce(state, message) -> state
+   *
+   * Pure function.  state is never mutated; a new object is returned.
+   *
+   * state shape:
+   * {
+   *   members:    { [username]: WireMember },
+   *   gate:       { armed, theme, openedAt } | null,
+   *   poll:       { id, question, options, blind } | null,
+   *   greenlight: boolean,
+   *   closedPoll: { id, question, options, blind, tally } | null,
+   * }
+   *
+   * WireMember (v2): { username, role, status, online, hue, vote }
+   *   status: "present" | "checkedIn" | "voted"
+   *   hue:    integer | null  (additive in r3; durable -- never cleared)
+   *   vote:   integer | null  (option index; null if not voted or masked)
+   */
+  function _reduce(state, message) {
+    if (!message || !message.type) { return state; }
+
+    var members = state.members;
+    var newMembers;
+
+    switch (message.type) {
+
+      case 'classroom_state':
+        newMembers = {};
+        var incoming = message.members || [];
+        for (var i = 0; i < incoming.length; i++) {
+          var m = incoming[i];
+          newMembers[m.username] = {
+            username: m.username,
+            role:     m.role,
+            status:   m.status || 'present',
+            online:   m.online !== false,
+            hue:      m.hue  != null ? m.hue  : null,
+            vote:     m.vote != null ? m.vote : null,
+            pos:      m.pos  != null ? m.pos  : null   // Phase 2 -- last-known pos
+          };
+        }
+        return {
+          members:    newMembers,
+          gate:       message.gate  || null,
+          poll:       message.poll  || null,
+          greenlight: false,
+          // A classroom_state snapshot is sent on JOIN or RESET
+          // (LIVE_CLASSROOM_SPEC S5.3) -- there is no classroom_reset
+          // broadcast. A fresh snapshot carries no closed-poll concept, so
+          // clear it: this is what dismisses the result screen on a reset.
+          closedPoll: null,
+          live:       !!message.live,
+          doorways:   message.doorways || null,
+          closedDoorways: null,
+          activity:   message.activity || null
+        };
+
+      case 'classroom_live_state':
+        // v3 P1+P2: room.live transitions. Carries section + live bool.
+        // The state.live field is new (defaults to false in emptyState).
+        return {
+          members:    state.members,
+          gate:       state.gate,
+          poll:       state.poll,
+          greenlight: state.greenlight,
+          closedPoll: state.closedPoll != null ? state.closedPoll : null,
+          live:       !!message.live,
+          doorways:   state.doorways,
+          closedDoorways: state.closedDoorways || null,
+          activity:   state.activity || null
+        };
+
+      case 'classroom_member_update':
+        var upd = message.member;
+        if (!upd || !upd.username) { return state; }
+        var prev = members[upd.username] || {};
+        newMembers = {};
+        for (var key in members) {
+          newMembers[key] = members[key];
+        }
+        newMembers[upd.username] = {
+          username: upd.username,
+          role:     upd.role   !== undefined ? upd.role   : (prev.role   !== undefined ? prev.role   : 'student'),
+          status:   upd.status !== undefined ? upd.status : (prev.status !== undefined ? prev.status : 'present'),
+          online:   upd.online !== undefined ? (upd.online !== false) : (prev.online !== undefined ? prev.online : true),
+          hue:      upd.hue  != null ? upd.hue  : (prev.hue  != null ? prev.hue  : null),
+          vote:     upd.vote != null ? upd.vote : (prev.vote != null ? prev.vote : null),
+          pos:      upd.pos  != null ? upd.pos  : (prev.pos  != null ? prev.pos  : null)
+        };
+        return {
+          members:    newMembers,
+          gate:       state.gate,
+          poll:       state.poll,
+          greenlight: state.greenlight,
+          closedPoll: state.closedPoll != null ? state.closedPoll : null,
+          live:       state.live,
+          doorways:   state.doorways,
+          closedDoorways: state.closedDoorways || null,
+          activity:   state.activity || null
+        };
+
+      case 'classroom_member_left':
+        var gone = message.username;
+        if (!gone || !members[gone]) { return state; }
+        newMembers = {};
+        for (var k in members) {
+          if (k !== gone) { newMembers[k] = members[k]; }
+        }
+        return {
+          members:    newMembers,
+          gate:       state.gate,
+          poll:       state.poll,
+          greenlight: state.greenlight,
+          closedPoll: state.closedPoll != null ? state.closedPoll : null,
+          live:       state.live,
+          doorways:   state.doorways,
+          closedDoorways: state.closedDoorways || null,
+          activity:   state.activity || null
+        };
+
+      case 'classroom_gate':
+        // Reset every member's status to "present"; hue and pos are durable
+        // (not reset by armGate).
+        newMembers = {};
+        for (var gk in members) {
+          var gm = members[gk];
+          newMembers[gk] = {
+            username: gm.username,
+            role:     gm.role,
+            status:   'present',
+            online:   gm.online,
+            hue:      gm.hue != null ? gm.hue : null,
+            vote:     null,
+            pos:      gm.pos != null ? gm.pos : null
+          };
+        }
+        return {
+          members:    newMembers,
+          gate:       message.gate || null,
+          poll:       state.poll,
+          greenlight: false,
+          closedPoll: null,
+          live:       state.live,
+          doorways:   state.doorways,
+          closedDoorways: state.closedDoorways || null,
+          activity:   state.activity || null
+        };
+
+      case 'classroom_greenlight':
+        return {
+          members:    state.members,
+          gate:       state.gate,
+          poll:       state.poll,
+          greenlight: true,
+          closedPoll: state.closedPoll != null ? state.closedPoll : null,
+          live:       state.live,
+          doorways:   state.doorways,
+          closedDoorways: state.closedDoorways || null,
+          activity:   state.activity || null
+        };
+
+      // --- v2 poll cases (pure) -----------------------------------------
+
+      case 'classroom_poll':
+        // Poll opened: store poll metadata, reset every member vote to null
+        // AND status to 'present' (mirrors the server openPoll reset).
+        // Without the status reset, a second poll opens with members still
+        // showing status:'voted' and vote buttons hidden (Finding 3).
+        // hue + pos are durable (carried across the reset).
+        newMembers = {};
+        for (var pk in members) {
+          var pm = members[pk];
+          newMembers[pk] = {
+            username: pm.username,
+            role:     pm.role,
+            status:   'present',
+            online:   pm.online,
+            hue:      pm.hue,
+            vote:     null,
+            pos:      pm.pos != null ? pm.pos : null
+          };
+        }
+        return {
+          members:    newMembers,
+          gate:       state.gate,
+          poll: {
+            id:       message.id,
+            question: message.question,
+            options:  message.options || [],
+            blind:    message.blind === true
+          },
+          greenlight: state.greenlight,
+          closedPoll: null,
+          live:       state.live,
+          doorways:   state.doorways,
+          closedDoorways: state.closedDoorways || null,
+          activity:   state.activity || null
+        };
+
+      case 'classroom_poll_closed':
+        // Poll closed: clear poll, preserve members as-is.
+        // Capture the pre-close poll + the message tally into closedPoll so
+        // the render layer can show the result screen.
+        var closedSnapshot = null;
+        if (state.poll) {
+          closedSnapshot = {
+            id:       state.poll.id,
+            question: state.poll.question,
+            options:  state.poll.options,
+            blind:    state.poll.blind,
+            tally:    message.tally || []
+          };
+        }
+        return {
+          members:    state.members,
+          gate:       state.gate,
+          poll:       null,
+          greenlight: state.greenlight,
+          closedPoll: closedSnapshot,
+          live:       state.live,
+          doorways:   state.doorways,
+          closedDoorways: state.closedDoorways || null,
+          activity:   state.activity || null
+        };
+
+      case 'classroom_poll_reveal':
+        // Blind poll revealed: no state change needed beyond member votes
+        // (which arrive in the member list if provided).
+        // The reveal message carries members: [{username, vote}].
+        if (!message.members || !message.members.length) {
+          return state;
+        }
+        newMembers = {};
+        for (var rk in members) {
+          newMembers[rk] = members[rk];
+        }
+        var revealList = message.members;
+        for (var ri = 0; ri < revealList.length; ri++) {
+          var rv = revealList[ri];
+          if (rv.username && newMembers[rv.username]) {
+            var existing = newMembers[rv.username];
+            newMembers[rv.username] = {
+              username: existing.username,
+              role:     existing.role,
+              status:   existing.status,
+              online:   existing.online,
+              hue:      existing.hue,
+              vote:     rv.vote != null ? rv.vote : existing.vote,
+              pos:      existing.pos != null ? existing.pos : null
+            };
+          }
+        }
+        return {
+          members:    newMembers,
+          gate:       state.gate,
+          poll:       state.poll,
+          greenlight: state.greenlight,
+          closedPoll: state.closedPoll != null ? state.closedPoll : null,
+          live:       state.live,
+          doorways:   state.doorways,
+          closedDoorways: state.closedDoorways || null,
+          activity:   state.activity || null
+        };
+
+      // --- v3 P4 doorways cases (vote-with-your-feet) -------------------
+
+      case 'classroom_open_doorways':
+        // v3 P4: a fresh data mode is opening. Mutually exclusive with
+        // poll (server enforces); clear any closedPoll surface.
+        return {
+          members:    state.members,
+          gate:       state.gate,
+          poll:       null,
+          greenlight: state.greenlight,
+          closedPoll: null,
+          live:       state.live,
+          doorways:   {
+            id:       message.id,
+            question: message.question || '',
+            options:  Array.isArray(message.options) ? message.options.slice() : [],
+            tally:    (Array.isArray(message.options) ? message.options : []).map(function(o) { return { doorId: o.doorId, count: 0 }; }),
+            closed:   false
+          },
+          activity:   state.activity || null
+        };
+
+      case 'classroom_doorway_tally':
+        // Update the tally on the active doorways state. If no doorways
+        // open or id mismatch, no-op.
+        if (!state.doorways || state.doorways.id !== message.id) { return state; }
+        return {
+          members:    state.members,
+          gate:       state.gate,
+          poll:       state.poll,
+          greenlight: state.greenlight,
+          closedPoll: state.closedPoll,
+          live:       state.live,
+          doorways:   {
+            id:       state.doorways.id,
+            question: state.doorways.question,
+            options:  state.doorways.options,
+            tally:    Array.isArray(message.tally) ? message.tally.slice() : state.doorways.tally,
+            closed:   state.doorways.closed
+          },
+          activity:   state.activity || null
+        };
+
+      case 'classroom_close_doorways':
+        // The data mode is closing. Carry the final tally on a one-shot
+        // closedDoorways snapshot (mirroring closedPoll); the active
+        // doorways slot is cleared on the next state-driven path or a
+        // fresh open.
+        return {
+          members:    state.members,
+          gate:       state.gate,
+          poll:       state.poll,
+          greenlight: state.greenlight,
+          closedPoll: state.closedPoll,
+          live:       state.live,
+          doorways:   null,
+          closedDoorways: {
+            id:       message.id,
+            question: message.question || '',
+            options:  Array.isArray(message.options) ? message.options.slice() : [],
+            tally:    Array.isArray(message.tally) ? message.tally.slice() : []
+          },
+          activity:   state.activity || null
+        };
+
+      // --- v4 activity cases (LIVE_CLASSROOM_V4_BUILD.md C3) ------------
+
+      case 'classroom_activity_start':
+        // Engine-driven start; replaces any existing activity slot.
+        // V7 (LIVE_CLASSROOM_V7_BUILD.md C4): optional `level` block shipped
+        // once on start (full LevelDef from JSON). Subsequent
+        // classroom_activity_state ticks omit level for payload size; the
+        // Object.assign in that case preserves the stashed value.
+        return Object.assign({}, state, {
+          activity: {
+            type:       message.activity.type,
+            startedAt:  message.activity.startedAt,
+            durationMs: message.activity.durationMs,
+            state:      message.activity.state,
+            finished:   false,
+            level:      message.activity.level || null
+          }
+        });
+
+      case 'classroom_activity_state':
+        // 5 Hz tick payload. Only mutates the plugin-managed inner state
+        // and only while an activity is live + unfinished.
+        // V7: level is preserved by Object.assign({}, state.activity, ...)
+        // because it copies every own property from state.activity (the
+        // `level` field stashed on start) before overlaying the new state.
+        if (!state.activity || state.activity.finished) { return state; }
+        return Object.assign({}, state, {
+          activity: Object.assign({}, state.activity, {
+            state: message.state
+          })
+        });
+
+      case 'classroom_activity_success':
+      case 'classroom_activity_timeout':
+      case 'classroom_activity_cancel':
+        // Terminal lifecycle messages. Mark the slot finished + label the
+        // outcome; preserve the final plugin state so the render layer
+        // can show the result panel.
+        if (!state.activity) { return state; }
+        return Object.assign({}, state, {
+          activity: Object.assign({}, state.activity, {
+            finished:   true,
+            finalState: message.finalState || state.activity.state,
+            outcome:    message.type === 'classroom_activity_success' ? 'success'
+                      : message.type === 'classroom_activity_timeout' ? 'timeout'
+                      : 'cancel'
+          })
+        });
+
+      // NOTE: there is no 'classroom_reset' broadcast -- a teacher reset is
+      // delivered to clients AS a classroom_state snapshot (handled above,
+      // which clears closedPoll). See LIVE_CLASSROOM_SPEC S5.2/S5.3.
+
+      default:
+        return state;
+    }
+  }
+
+  // --- initial state factory --------------------------------------------
+
+  function emptyState() {
+    return { members: {}, gate: null, poll: null, greenlight: false, closedPoll: null, live: false, doorways: null, closedDoorways: null, activity: null };
+  }
+
+  // --- check-in button logic (B3) -- unchanged --------------------------
+
+  function shouldShowCheckinButton(state, username, role) {
+    if (role !== 'student')                   { return false; }
+    if (!state.gate || !state.gate.armed)     { return false; }
+    // v3 P4 Codex MAJOR 3 fold: doorways suspend the gate ritual --
+    // hide the check-in button when a data mode is active.
+    if (state.doorways)                       { return false; }
+    var me = state.members[username];
+    if (!me || me.status !== 'present')       { return false; }
+    return true;
+  }
+
+  // --- summary builder (B4) -- extended with poll + tally ---------------
+
+  function buildSummary(state) {
+    var arr = [];
+    var members = state.members;
+    for (var u in members) {
+      var m = members[u];
+      arr.push({
+        username: m.username,
+        role:     m.role,
+        status:   m.status,
+        online:   m.online
+      });
+    }
+
+    // Compute per-option tally from current member votes.
+    var tally = null;
+    if (state.poll && state.poll.options) {
+      tally = [];
+      for (var oi = 0; oi < state.poll.options.length; oi++) {
+        tally.push(0);
+      }
+      for (var mu in members) {
+        var mv = members[mu];
+        if (mv.vote != null && mv.vote >= 0 && mv.vote < tally.length) {
+          tally[mv.vote] += 1;
+        }
+      }
+    }
+
+    return {
+      gate:       state.gate,
+      poll:       state.poll  || null,
+      tally:      tally,
+      closedPoll: state.closedPoll || null,
+      members:    arr,
+      greenlight: state.greenlight,
+      live:       state.live,
+      doorways:   state.doorways,
+      closedDoorways: state.closedDoorways || null,
+      activity:   state.activity || null
+    };
+  }
+
+  // --- BoardSprite entity (r3) ------------------------------------------
+
+  /**
+   * A slim sprite entity for the classroom board.
+   * Registered with CanvasEngine; updated every RAF tick.
+   *
+   * States:
+   *   'idle'     -- blinks using IDLE_FRAMES
+   *   'walking'  -- plays WALK_FRAMES toward targetX; removes itself on arrival
+   *
+   * labelText: the display name rendered by CanvasEngine's label pass.
+   * online:    when false the sprite renders dimmed (globalAlpha 0.35).
+   * hue:       hue-rotate degrees for SpriteSheet.drawFrame.
+   * onDrained: callback fired when a walk completes (gate drain).
+   */
+  function BoardSprite(spriteSheet, opts) {
+    this.spriteSheet  = spriteSheet;
+    this.x            = opts.x;
+    this.y            = opts.y;
+    this.scale        = opts.scale    || SPRITE_SCALE;
+    this.hue          = opts.hue      || 0;
+    this.online       = opts.online   !== false;
+    this.labelText    = opts.label    || '';
+    // AVATAR_MENU: when true, getLabelSpec returns null so the engine label
+    // pass skips this avatar's floating name. The Desk student board sets it
+    // (names are revealed on click instead); the teacher cockpit leaves it
+    // false so real names keep floating for at-a-glance monitoring.
+    this.hideLabel    = !!opts.hideLabel;
+    this.onDrained    = opts.onDrained || null;
+    // V7.3.6: avatars render ON TOP of doorways + coins + goal so the
+    // doorway mouse-hole shape doesn't occlude the sprite walking past.
+    // See canvas_engine.js render() for the sort.
+    this.zIndex       = 10;
+
+    this.state        = 'idle';
+    this.targetX      = 0;
+    this.walkDir      = 1;   // 1 = right, -1 = left
+    this.facingRight  = true; // sheet bottom row = left-facing; +11 offset via _directedFrame
+    this._yTarget     = null; // Phase 2.2: chased toward by _chaseY when set
+
+    // Idle-blink animation
+    this.idleTimer        = 0;
+    this.currentIdleFrame = 0;
+
+    // Walk cycle animation
+    this.walkTimer        = 0;
+    this.currentWalkFrame = 0;
+
+    this.frameIndex = IDLE_FRAMES[0];
+
+    // Set by CanvasEngine when the entity is added.
+    this.engine = null;
+  }
+
+  BoardSprite.prototype.walkTo = function (targetX) {
+    this.state        = 'walking';
+    this.targetX      = targetX;
+    this.walkDir      = (targetX > this.x) ? 1 : -1;
+    this.facingRight  = (this.walkDir > 0);   // peers walking left now face left
+    this.walkTimer    = 0;
+    this.currentWalkFrame = 0;
+    this.frameIndex   = this._directedFrame(WALK_FRAMES[0]);
+  };
+
+  // Direction-aware frame select: sprite sheet has both directions baked
+  // in (top row 0-10 right-facing, bottom row 11-21 left-facing, mirrored).
+  // Add +11 to any base frame to flip. Per cr/player_sprite.js line 182.
+  BoardSprite.prototype._directedFrame = function (baseFrame) {
+    return this.facingRight ? baseFrame : baseFrame + 11;
+  };
+
+  // Cancel an in-flight walk and return to the idle blink loop.
+  BoardSprite.prototype.resetToIdle = function () {
+    this.state            = 'idle';
+    this.idleTimer        = 0;
+    this.currentIdleFrame = 0;
+    this.frameIndex       = IDLE_FRAMES[0];
+  };
+
+  BoardSprite.prototype.update = function (dt) {
+    if (this.state === 'idle') {
+      this._updateIdle(dt);
+    } else if (this.state === 'walking') {
+      this._updateWalk(dt);
+    }
+    // Phase 2.2 -- chase _yTarget if set (peer y interpolation for jumps).
+    // Set by applyPos for an inbound classroom_pos; chase smooths the 10 Hz
+    // broadcast cadence into a continuous y motion. Idle when _yTarget is null.
+    this._chaseY(dt);
+    // s111 P4 UX rev4: peer-side doorway fade. When state is set to
+    // 'in-doorway' (via applyPos), animate _peerAbsorbProgress 0->1
+    // over 350 ms; on exit (state changes), reverse 1->0. The render
+    // multiplies alpha by (1 - _peerAbsorbProgress).
+    var pStep = dt * 1000 / 350;
+    if (this.state === 'in-doorway') {
+      this._peerAbsorbProgress = Math.min(1, (this._peerAbsorbProgress || 0) + pStep);
+    } else if ((this._peerAbsorbProgress || 0) > 0) {
+      this._peerAbsorbProgress = Math.max(0, this._peerAbsorbProgress - pStep);
+    }
+  };
+
+  // Phase 2.2 -- step y toward _yTarget at Y_CHASE_SPEED. When the gap is
+  // smaller than this tick's step (or negligible), snap and clear the target.
+  // No-op when _yTarget is null (PlayerSprite never sets it; peers only).
+  BoardSprite.prototype._chaseY = function (dt) {
+    if (this._yTarget == null) { return; }
+    var dy = this._yTarget - this.y;
+    if (Math.abs(dy) < 0.5) {
+      this.y        = this._yTarget;
+      this._yTarget = null;
+      return;
+    }
+    var step = Y_CHASE_SPEED * dt;
+    if (Math.abs(dy) <= step) {
+      this.y        = this._yTarget;
+      this._yTarget = null;
+    } else {
+      this.y += (dy > 0 ? 1 : -1) * step;
+    }
+  };
+
+  BoardSprite.prototype._updateIdle = function (dt) {
+    this.idleTimer += dt;
+    if (this.currentIdleFrame === 1) {
+      // Currently blinking -- hold the blink frame for ~0.15s.
+      if (this.idleTimer >= 0.15) {
+        this.currentIdleFrame = 0;
+        this.idleTimer = 0;
+      }
+    } else if (this.idleTimer >= IDLE_BLINK_SPEED) {
+      // Time to blink.
+      this.currentIdleFrame = 1;
+      this.idleTimer = 0;
+    }
+    this.frameIndex = this._directedFrame(IDLE_FRAMES[this.currentIdleFrame]);
+  };
+
+  BoardSprite.prototype._updateWalk = function (dt) {
+    // Advance walk-cycle frame
+    this.walkTimer += dt;
+    if (this.walkTimer >= WALK_FRAME_SPEED) {
+      this.walkTimer -= WALK_FRAME_SPEED;
+      this.currentWalkFrame = (this.currentWalkFrame + 1) % WALK_FRAMES.length;
+      this.frameIndex = this._directedFrame(WALK_FRAMES[this.currentWalkFrame]);
+    }
+
+    // Move toward targetX
+    var step = WALK_SPEED * dt;
+    var remaining = Math.abs(this.targetX - this.x);
+    if (step >= remaining) {
+      this.x = this.targetX;
+      // Arrived -- drain
+      if (typeof this.onDrained === 'function') {
+        this.onDrained();
+      }
+      this.state = 'arrived';
+    } else {
+      this.x += this.walkDir * step;
+    }
+  };
+
+  BoardSprite.prototype.render = function (ctx) {
+    // V7.9 side-scroll: world sprite -- translate by the camera before
+    // drawing; restore to balance below.
+    _translateForCamera(ctx);
+    if (this._hidden) { _restoreFromCamera(ctx); return; }
+    var alpha = this.online ? 1.0 : 0.35;
+    // s111 P4 UX rev4: peer in 'in-doorway' state -> fade out via
+    // _peerAbsorbProgress (animated in update()).
+    if ((this._peerAbsorbProgress || 0) > 0) {
+      alpha *= (1 - this._peerAbsorbProgress);
+    }
+    if (alpha <= 0) { _restoreFromCamera(ctx); return; }
+    if (alpha !== 1.0) { ctx.save(); ctx.globalAlpha = alpha; }
+    this.spriteSheet.drawFrame(ctx, this.frameIndex, this.x, this.y, this.scale, this.hue);
+    if (alpha !== 1.0) { ctx.restore(); }
+    _restoreFromCamera(ctx);
+  };
+
+  BoardSprite.prototype.getLabelSpec = function () {
+    // AVATAR_MENU: Desk student board hides always-on names (revealed on click).
+    if (this.hideLabel) return null;
+    var sw = SPRITE_W * this.scale;
+    // V7.9 side-scroll: world sprite -- the engine draws labels in a
+    // separate pass with NO camera translate, so project this.x into
+    // screen-pixel space here so the label sits over the rendered sprite.
+    var centerX = _projectWorldX(this.x) + sw / 2;
+    var topY    = this.y;
+    return {
+      text:  this.labelText,
+      x:     centerX,
+      y:     topY,
+      isGold: false
+    };
+  };
+
+  // --- PlayerSprite (Phase 1: local keyboard-controlled) -----------------
+  //
+  // Extends BoardSprite. Reads from a shared {left, right, jump, up} object
+  // updated by mount()'s keyboard listener; applies vx + jump physics +
+  // soft-push every tick. When state === 'walking' (drain animation set
+  // by walkTo), the inherited _updateWalk path runs and keyboard input is
+  // ignored -- one way out the door.
+  //
+  // Extra opts (in addition to BoardSprite's):
+  //   input        -- shared {left, right, jump, up} booleans
+  //   peers        -- () -> map<username, BoardSprite>
+  //   onUpPressed  -- edge-triggered callback(player) when Up is pressed
+  //   canvasW      -- () -> current viewport width in CSS px
+
+  function PlayerSprite(spriteSheet, opts) {
+    BoardSprite.call(this, spriteSheet, opts);
+    this.input        = opts.input || { left: false, right: false, jump: false, up: false };
+    this.peers        = (typeof opts.peers === 'function') ? opts.peers : function () { return {}; };
+    this.onUpPressed  = (typeof opts.onUpPressed === 'function') ? opts.onUpPressed : null;
+    this._canvasW     = (typeof opts.canvasW === 'function') ? opts.canvasW : function () { return DEFAULT_BOARD_W; };
+    this.groundY      = opts.y;
+    // Optional local scene terrain, in the board's CSS pixel coordinates.
+    // Omitting it preserves the calendar's flat floor and peer physics.
+    this.terrain = typeof opts.terrain === 'function' ? opts.terrain : null;
+    // Optional physics profile (APStat Park only; apstat-park/physics.mjs).
+    // null or a dt-scaled profile keeps the calendar physics below; a
+    // profile with perFrame:true runs _updatePerFrame instead. Read on
+    // every update, so the park can switch it when a level mounts.
+    this.physics = (opts.physics && typeof opts.physics === 'object') ? opts.physics : null;
+    this.vx           = 0;
+    this.vy           = 0;
+    this._jumpHandled = false;
+    this._upHandled   = false;
+    this._moved       = false;
+    this._spriteSize   = SPRITE_W * (opts.scale || SPRITE_SCALE);
+    this._spriteHeight = SPRITE_H * (opts.scale || SPRITE_SCALE);
+
+    // Phase 2.1 -- carry-while-standing. standingOn is the peer sprite we're
+    // resting on top of (or null = ground / airborne). _standingOnLastX caches
+    // that peer's x at the END of the prior tick so update() can apply the
+    // peer's delta this tick (Mario-style platform carry).
+    this.standingOn       = null;
+    this._standingOnLastX = null;
+
+    // Phase 2.3 -- platform velocity on jump. When the player jumps from a
+    // moving peer, this carries the peer's vx (derived from the carry delta)
+    // through the airborne arc; cleared on landing. 0 for jumps from the
+    // ground or from a stationary carrier.
+    this._jumpInheritedVx = 0;
+
+    // Phase 2.4 -- "blocked" visual feedback. When a jump is refused because
+    // someone is riding our head, this timer (ms) drives a brief y-jitter in
+    // render() so the local player sees their press registered. Local-only;
+    // the actual physics y never moves, so peers don't see the twitch.
+    this._blockedTwitchMs = 0;
+    this._emoteMs         = 0;   // AVATAR_SELF_EMOTE one-shot bounce timer
+
+    // Phase 2 -- position broadcast hook + rate-limit clock.
+    // onPos -- function({x, y, state, vx}); mount() wires it to safeSend.
+    // _now  -- injectable clock for deterministic tests (default Date.now).
+    this.onPos         = (typeof opts.onPos === 'function') ? opts.onPos : null;
+    this._now          = (typeof opts.now === 'function') ? opts.now : function () { return Date.now(); };
+    this._lastPosMs    = 0;
+    this._restEmitted  = false;
+
+    // LIVE_CLASSROOM_SCALING knob 1 -- room-size source. mount() supplies
+    // a closure over state.members so the emit gate can read the live
+    // count each tick. Default returns 1 -- a sprite with no roommates
+    // is just the local player, so 10 Hz is the right back-compat rate
+    // for tests / harness code that omits this opt.
+    this._getMemberCount = (typeof opts.getMemberCount === 'function')
+      ? opts.getMemberCount
+      : function () { return 1; };
+  }
+  PlayerSprite.prototype = Object.create(BoardSprite.prototype);
+  PlayerSprite.prototype.constructor = PlayerSprite;
+
+  PlayerSprite.prototype.update = function (dt) {
+    // Drain (walkTo target-based) overrides keyboard -- one way out the door.
+    // s111 P4 UX: doorway walks are user-initiated optimistic drains.
+    // Pressing Up DURING a doorway walk aborts it (the user changed
+    // their mind). state -> idle so keyboard input works again. The
+    // server-side vote stays cast; the user can walk to a different
+    // doorway + Up to switch votes (server's castDoorwayVote handles
+    // the decrement/increment). The gate drain (also 'walking' state)
+    // is NOT cancelable -- it's server-driven, not optimistic.
+    if (this.state === 'walking') {
+      if (this._isDoorwayWalk && this.input.up && !this._upHandled) {
+        this._upHandled       = true;
+        this._isDoorwayWalk   = false;
+        this.state            = 'idle';
+        this.idleTimer        = 0;
+        this.currentIdleFrame = 0;
+        this.targetX          = null;
+        return;
+      }
+      if (!this.input.up) { this._upHandled = false; }
+      this._updateWalk(dt);
+      return;
+    }
+
+    // s111 P4 UX rev4: in-place doorway absorption. _absorbProgress
+    // (0..1) drives alpha fade in render. Press Up again to reverse.
+    // - progress reaches 1: _hidden=true (local render skips).
+    // - progress reaches 0 with dir<0: cancel complete, back to idle.
+    // - _hidden CLEARED whenever progress < 1 (so a cancel from full
+    //   absorb correctly fades the sprite back in).
+    if (this.state === 'entering-doorway') {
+      if (this.input.up && !this._upHandled) {
+        this._upHandled = true;
+        this._absorbDir = -this._absorbDir;
+      } else if (!this.input.up) {
+        this._upHandled = false;
+      }
+      var stepMs = (dt * 1000);
+      this._absorbProgress += this._absorbDir * (stepMs / this._absorbDurationMs);
+      if (this._absorbProgress < 0) { this._absorbProgress = 0; }
+      if (this._absorbProgress > 1) { this._absorbProgress = 1; }
+      // s111 hotfix: cancel from full absorb left _hidden=true forever.
+      // Clear it whenever progress drops below 1.
+      if (this._absorbProgress < 1) { this._hidden = false; }
+      if (this._absorbProgress === 0 && this._absorbDir < 0) {
+        // s111 P4 HOTFIX: cancel-complete transitions state to 'idle'
+        // but the early return below skipped the emit path, so the
+        // server kept us as 'in-doorway' and a later refresh would
+        // restore us back into the hole. Clear _restEmitted so the
+        // next idle tick fires a rest snapshot with state='idle'.
+        this.state = 'idle';
+        this._isDoorwayWalk = false;
+        this._absorbDir = 1;
+        this._restEmitted = false;
+        // s111 P4 HOTFIX: retract the vote on cancel. handlePlayerUp
+        // stashed a closure with the captured doorway id; calling it
+        // sends classroom_doorway_retract so the count decrements
+        // server-side. Without this, the avatar leaves the hole but
+        // the vote stays attached to that door until the student
+        // votes elsewhere -- incongruent UX.
+        if (typeof this._cancelHandler === 'function') {
+          try { this._cancelHandler(); } catch (_) {}
+          this._cancelHandler = null;
+        }
+        return;
+      }
+      if (this._absorbProgress === 1) {
+        this._hidden = true;
+        return;
+      }
+      return;
+    }
+
+    // Up edge-trigger: fire the action callback once per press, never on hold.
+    if (this.input.up && !this._upHandled) {
+      this._upHandled = true;
+      if (this.onUpPressed) {
+        try { this.onUpPressed(this); } catch (_) {}
+      }
+    } else if (!this.input.up) {
+      this._upHandled = false;
+    }
+
+    var phys = this.physics;
+    if (phys && phys.perFrame) {
+      this._updatePerFrame(dt, phys);
+      this._afterMotion(dt);
+      return;
+    }
+    var walkSpeed = (phys && typeof phys.walkSpeed === 'number') ? phys.walkSpeed : WALK_SPEED;
+    var jumpV0    = (phys && typeof phys.jumpV0 === 'number')    ? phys.jumpV0    : JUMP_V0;
+    var gravity   = (phys && typeof phys.gravity === 'number')   ? phys.gravity   : GRAVITY;
+
+    // Horizontal velocity from L/R; flip facing for direction-aware frames.
+    var vxNext = 0;
+    if (this.input.left)  { vxNext -= walkSpeed; this.facingRight = false; }
+    if (this.input.right) { vxNext += walkSpeed; this.facingRight = true;  }
+    this.vx = vxNext;
+
+    // Jump edge-trigger: only when on a floor (ground OR a peer's head)
+    // AND no peer is standing on top of us; no auto-repeat while Space
+    // held. Jumping hops us OFF the carrier and inherits the carrier's
+    // horizontal velocity (Phase 2.3) so a jump from a moving peer sails
+    // with them, Mario-style. The someone-on-top check exists because a
+    // peer standing on our head has no way to track our upward motion
+    // (Mario platforms don't move up under you) -- without this they'd
+    // fall through the moment we launch.
+    if (this.input.jump && !this._jumpHandled) {
+      this._jumpHandled = true;
+      if (this.state !== 'jumping' && this._onFloor()) {
+        if (this._someoneOnTop()) {
+          // Refused: someone's riding us. Brief visual twitch so the user
+          // sees their press registered even though we can't take off.
+          this._blockedTwitchMs = 150;
+        } else {
+          this.vy    = jumpV0;
+          this.state = 'jumping';
+          // Capture the carrier's vx (from the carry delta) before we cut
+          // the standingOn link. dt > 0 guard avoids /0 in degenerate ticks.
+          if (this.standingOn && typeof this._standingOnLastX === 'number' && dt > 0) {
+            this._jumpInheritedVx = (this.standingOn.x - this._standingOnLastX) / dt;
+          } else {
+            this._jumpInheritedVx = 0;
+          }
+          this.standingOn = null;
+        }
+      }
+    } else if (!this.input.jump) {
+      this._jumpHandled = false;
+    }
+
+    // Phase 2.4 -- tick down the "blocked" twitch timer. render() reads this
+    // to apply a brief y-jitter offset; the timer reaches 0 and the sprite
+    // settles back to its real y.
+    if (this._blockedTwitchMs > 0) {
+      this._blockedTwitchMs = Math.max(0, this._blockedTwitchMs - dt * 1000);
+    }
+
+    // AVATAR_SELF_EMOTE -- tick down the one-shot happy-bounce timer; render()
+    // reads it for a hop + sway. Purely cosmetic (never touches vx/vy/physics).
+    if (this._emoteMs > 0) {
+      this._emoteMs = Math.max(0, this._emoteMs - dt * 1000);
+    }
+
+    // Track active motion -- repositionSprites stops auto-laying the player
+    // out once this flips (D2: stays where last walked).
+    if (this.vx !== 0 || this.state === 'jumping') {
+      this._moved = true;
+    }
+
+    // -- Carry-while-standing (Phase 2.1) -- ride the peer we're on top of.
+    // The peer's x change since our last tick gets added to our x BEFORE we
+    // apply our own input motion. Mario-style platform carry. carryDx is 0
+    // when we're not on anyone or the cache hasn't been seeded yet.
+    // _carriedThisTick is read below by the emit gate -- when carry actually
+    // moved us we must broadcast so observers see the carried motion. The
+    // earlier `standingOn.state === 'walking'` heuristic missed the windows
+    // where the carrier's BoardSprite was in 'arrived' state between
+    // broadcasts (especially on slower clients where a single _updateWalk
+    // tick reaches the target).
+    this._carriedThisTick = false;
+    if (this.standingOn && typeof this._standingOnLastX === 'number') {
+      var carryDx = this.standingOn.x - this._standingOnLastX;
+      if (carryDx !== 0) {
+        this.x += carryDx;
+        this._moved = true;
+        this._carriedThisTick = true;
+      }
+    }
+
+    // Player's own horizontal motion + inherited platform velocity (if any).
+    // The inherited Vx is set on jump-from-a-moving-peer (Phase 2.3) and is
+    // 0 in every other case; while airborne it adds to each tick's x step.
+    var prevX = this.x;
+    this.x += this.vx * dt;
+    if (this.state === 'jumping' && this._jumpInheritedVx) {
+      this.x += this._jumpInheritedVx * dt;
+    }
+
+    var terrain = this.terrain ? this.terrain() : null;
+    if (terrain) {
+      // A tile whose top is under 0.5 px above our falling feet is a floor
+      // to land on (see landSlack below), not a wall.
+      var stepUp = this.vy >= 0 ? 0.5 : 0;
+      for (var ti = 0; ti < terrain.length; ti++) {
+        var wall = terrain[ti];
+        if (this.y + this._spriteHeight <= wall.y + stepUp || this.y >= wall.y + wall.h) continue;
+        if (prevX + this._spriteSize <= wall.x && this.x + this._spriteSize > wall.x) {
+          this.x = wall.x - this._spriteSize;
+        } else if (prevX >= wall.x + wall.w && this.x < wall.x + wall.w) {
+          this.x = wall.x + wall.w;
+        }
+      }
+    }
+
+    // Gravity + vertical integrate, always. The floor snap below puts us
+    // back on whichever surface we crossed (re-lands each tick when at rest
+    // -- cheap and self-correcting if a peer moves under us in Phase 2).
+    this.vy += gravity * dt;
+    var prevY = this.y;
+    this.y   += this.vy * dt;
+
+    // Floor candidates: the ground (always blocks) + each peer's head as a
+    // one-way platform. Land at the highest (smallest y) candidate the
+    // player just crossed FROM ABOVE this tick (prevY <= floor && y >= floor).
+    // Track which peer (if any) we landed on -- becomes the new standingOn.
+    var peersMap    = this.peers();
+    var bestFloor   = null;
+    var landingPeer = null;
+    if (!terrain && prevY <= this.groundY && this.y >= this.groundY) {
+      bestFloor = this.groundY;
+    }
+    if (terrain) {
+      for (var fi = 0; fi < terrain.length; fi++) {
+        var tile = terrain[fi];
+        if (this.x + this._spriteSize <= tile.x || this.x >= tile.x + tile.w) continue;
+        var floorY = tile.y - this._spriteHeight;
+        // Falling, allow re-landing from up to 0.5 px below a surface: one
+        // tick of gravity after stepping off an edge is ~0.22 px, and a
+        // fixed step can put the cat exactly in a sprite-wide seam between
+        // two tiles at the same height (Lift relay: x 400..420).
+        var landSlack = this.vy >= 0 ? 0.5 : 0.01;
+        if (prevY <= floorY + landSlack && this.y >= floorY && (bestFloor === null || floorY < bestFloor)) {
+          bestFloor = floorY;
+        }
+        if (this.vy < 0 && prevY >= tile.y + tile.h && this.y < tile.y + tile.h) {
+          this.y = tile.y + tile.h;
+          this.vy = 0;
+        }
+      }
+    }
+    for (var u in peersMap) {
+      var p = peersMap[u];
+      if (!p || p === this) { continue; }
+      // s111 P4 UX rev4: a peer in 'in-doorway' is non-physical.
+      // Skip them for floor / head-platform candidates.
+      if (p.state === 'in-doorway') { continue; }
+      if (!this._horizontalOverlap(p)) { continue; }
+      var landingY = p.y - this._spriteHeight;
+      if (prevY <= landingY && this.y >= landingY) {
+        if (bestFloor === null || landingY < bestFloor) {
+          bestFloor   = landingY;
+          landingPeer = p;
+        }
+      }
+    }
+    if (bestFloor !== null) {
+      this.y  = bestFloor;
+      this.vy = 0;
+      if (this.state === 'jumping') {
+        this.state            = 'idle';
+        this.idleTimer        = 0;
+        this.currentIdleFrame = 0;
+        this._jumpInheritedVx = 0;     // Phase 2.3 -- arc ends, drop inheritance
+      }
+      this.standingOn = landingPeer;   // peer ref, or null (= on the ground)
+    } else if (this.vy > 0 && this.state !== 'jumping') {
+      // Falling without a floor (walked off a peer / off a ledge) -- mark
+      // airborne so the frame select uses the jump pose AND drop the carry.
+      this.state      = 'jumping';
+      this.standingOn = null;
+    }
+
+    // -- Solid horizontal collision (Phase 2.1) -- a same-level peer in
+    // the path stops motion: snap self to just-touching the peer's edge.
+    // Skipped while airborne -- mid-jump you pass each other laterally.
+    if (this.state !== 'jumping') {
+      for (var u2 in peersMap) {
+        var pp = peersMap[u2];
+        if (!pp || pp === this) { continue; }
+        // s111 P4 UX rev4: a peer in 'in-doorway' is non-physical.
+        // Skip the horizontal collision so the local player can walk
+        // through where the absorbed peer was standing.
+        if (pp.state === 'in-doorway') { continue; }
+        if (!this._sameLevel(pp) || !this._horizontalOverlap(pp)) { continue; }
+        if (this.vx > 0) {
+          this.x = pp.x - this._spriteSize;
+        } else if (this.vx < 0) {
+          this.x = pp.x + this._spriteSize;
+        } else {
+          // Stationary but overlapping (peer walked into us). Push self
+          // outward by the smaller distance.
+          var dxC = this.x - pp.x;
+          this.x = (dxC >= 0) ? (pp.x + this._spriteSize) : (pp.x - this._spriteSize);
+        }
+        this._moved = true;
+      }
+    }
+
+    this._afterMotion(dt);
+  };
+
+  // Shared tail of update() for every physics profile: viewport clamp,
+  // carrier-x cache, animation frame and the position broadcast.
+  PlayerSprite.prototype._afterMotion = function (dt) {
+    // V7.16 viewport-bounded clamp (Pico Park forced-teamwork). LOCAL
+    // player x is clamped to [camera.x, camera.x + viewportW - spriteW]
+    // instead of [0, levelW]. Combined with the V7.15 shared camera
+    // (camera follows leftmost student), this enforces: nobody can
+    // disappear off the right edge of the viewport because the camera
+    // won't advance until the leftmost catches up. Slowest player
+    // constrains the group's forward progress.
+    //
+    // Peers are unaffected (their positions arrive via classroom_pos
+    // broadcasts; each client clamps its OWN player only). Without a
+    // shared camera (legacy / V7.9.0 fallback), fall back to the
+    // V7.9.0 [0, levelW - spriteW] clamp.
+    var minX, maxX;
+    var camActive = (typeof _camera !== 'undefined' && _camera && _camera.enabled
+                     && _camera.cameraStateFn && typeof _camera.cameraStateFn === 'function');
+    var camSt = camActive ? _camera.cameraStateFn() : null;
+    if (camSt && typeof camSt.x === 'number') {
+      var vw = (camSt.viewportFloor && camSt.viewportFloor > 0) ? camSt.viewportFloor : (_camera.vw || this._canvasW());
+      minX = camSt.x;
+      maxX = camSt.x + vw - this._spriteSize;
+    } else {
+      var cw = this._canvasW();
+      minX = 0;
+      maxX = cw - this._spriteSize;
+    }
+    if (this.x < minX) { this.x = minX; }
+    if (this.x > maxX) { this.x = maxX; }
+
+    // Cache the carrier's x for next tick's carry math.
+    this._standingOnLastX = this.standingOn ? this.standingOn.x : null;
+
+    // Frame selection -- direction-aware via _directedFrame.
+    if (this.state === 'jumping') {
+      this.frameIndex = this._directedFrame(JUMP_FRAME);
+    } else if (this.vx !== 0) {
+      this.walkTimer += dt;
+      if (this.walkTimer >= WALK_FRAME_SPEED) {
+        this.walkTimer -= WALK_FRAME_SPEED;
+        this.currentWalkFrame = (this.currentWalkFrame + 1) % WALK_FRAMES.length;
+      }
+      this.frameIndex = this._directedFrame(WALK_FRAMES[this.currentWalkFrame]);
+    } else {
+      // Inherited _updateIdle already routes through _directedFrame.
+      this._updateIdle(dt);
+    }
+
+    // Phase 2 -- broadcast position. 10 Hz while moving (any input held OR
+    // airborne OR carry actually moved us this tick OR the carrier's
+    // BoardSprite is in 'walking' state); ONE final "rest" snapshot when
+    // motion ends; then 0 Hz until the next input. The two carry signals
+    // are belt-and-suspenders -- _carriedThisTick is the precise signal
+    // (we just moved), beingCarried is the heuristic (the carrier is being
+    // chased via walkTo). Without _carriedThisTick the passenger went
+    // silent in the 'arrived' window between the carrier's broadcasts.
+    if (this.onPos) {
+      var beingCarried = (this.standingOn && this.standingOn.state === 'walking');
+      var moving = (this.vx !== 0) || (this.state === 'jumping') ||
+                   this.input.left  || this.input.right ||
+                   this.input.jump  || this.input.up ||
+                   !!beingCarried || this._carriedThisTick;
+      var now = this._now();
+      // s111 P4 UX rev4: translate local 'entering-doorway' state to
+      // the wire-side 'in-doorway' so peers know to fade + skip the
+      // collision check. Same string both before and after the absorb
+      // animation completes; the local _absorbProgress / _hidden flags
+      // stay LOCAL.
+      var wireState = (this.state === 'entering-doorway') ? 'in-doorway' : this.state;
+      if (moving) {
+        // Clear the rest-emitted latch UNCONDITIONALLY on a moving tick so a
+        // brief move that doesn't trip the cadence gate (more likely at the
+        // scaled 200/300/500 ms intervals) still produces a final rest
+        // snapshot on the next idle tick. Without this, a sub-gate burst
+        // emits NOTHING -- peers miss the entire displacement.
+        this._restEmitted = false;
+        if (now - this._lastPosMs >= _currentEmitRateMs(this._getMemberCount())) {
+          try { this.onPos({ x: this.x, y: this.y, state: wireState, vx: this.vx }); } catch (_) {}
+          this._lastPosMs   = now;
+        }
+      } else if (!this._restEmitted) {
+        try { this.onPos({ x: this.x, y: this.y, state: wireState, vx: 0 }); } catch (_) {}
+        this._lastPosMs   = now;
+        this._restEmitted = true;
+      }
+    }
+  };
+
+  // APStat Park per-frame physics (profile `pico` in apstat-park/physics.mjs,
+  // half scale of PICO PARK's measured numbers). One call is one fixed
+  // 1/60 s frame; dt only drives cosmetic timers. vx/vy stay in px/s for
+  // the pose; _vyF is the exact per-frame vertical speed.
+  //   Launch frame: vy = launchVy and nothing moves (no x, no y, no g).
+  //   Other frames: x += walk; y += vy; held boost (k = 1..13); vy += g.
+  //   Coyote: jump allowed after 0..coyoteFrames airborne frames. No buffer:
+  //   a press while airborne is consumed, so holding through a landing
+  //   needs a release. Stacking: riders are carried vertically (snap to the
+  //   carrier's head) but never horizontally; players block each other at
+  //   bodyW centre-to-centre without pushing; a head-bump stops the rising
+  //   player only.
+  PlayerSprite.prototype._updatePerFrame = function (dt, P) {
+    var F = 60;
+    var bw = P.bodyW, off = P.bodyOffsetX, bh = P.bodyH, reach = P.supportHalfWidth;
+    // Hitbox rows y+top .. y+foot. Feet stay at the sprite's bottom (foot = top + bh); teammates
+    // stack bh apart (head-to-feet), so the y - bh / y + bh peer relations below need no offset.
+    var top = P.bodyOffsetY || 0, foot = top + bh;
+    if (this._vyOut !== this.vy) { this._vyF = (this.vy || 0) / F; }   // written from outside
+    if (typeof this._airFrames !== 'number') { this._airFrames = 99; this._boostK = -1; }
+    if (this._blockedTwitchMs > 0) { this._blockedTwitchMs = Math.max(0, this._blockedTwitchMs - dt * 1000); }
+    if (this._emoteMs > 0) { this._emoteMs = Math.max(0, this._emoteMs - dt * 1000); }
+    this._carriedThisTick = false;
+    this._jumpInheritedVx = 0;
+
+    var vxF = 0;
+    if (this.input.left)  { vxF -= P.walk; this.facingRight = false; }
+    if (this.input.right) { vxF += P.walk; this.facingRight = true;  }
+    this.vx = vxF * F;
+
+    var peersMap = this.peers();
+    var terrain = this.terrain ? this.terrain() : null;
+    var u, p;
+
+    if (this.input.jump && !this._jumpHandled) {
+      this._jumpHandled = true;
+      if (this._airFrames <= P.coyoteFrames) {
+        if (this._someoneOnTopPerFrame(P, peersMap)) {
+          this._blockedTwitchMs = 150;
+        } else {
+          this._vyF = P.launchVy;
+          this.state = 'jumping';
+          this.standingOn = null;
+          this._boostK = 0;
+          this._airFrames = 99;   // no coyote or double jump until a landing
+          this.vx = 0;            // launch frame: no horizontal movement
+          this._moved = true;
+          this.vy = this._vyOut = this._vyF * F;
+          return;
+        }
+      }
+    } else if (!this.input.jump) {
+      this._jumpHandled = false;
+      this._boostK = -1;          // releasing ends the held boost for good
+    }
+    if (this.vx !== 0 || this.state === 'jumping') { this._moved = true; }
+
+    // Horizontal: walls, then teammates (block, never push).
+    var prevX = this.x;
+    this.x += vxF;
+    if (terrain) {
+      for (var ti = 0; ti < terrain.length; ti++) {
+        var wall = terrain[ti];
+        if (this.y + foot <= wall.y || this.y + top >= wall.y + wall.h) continue;
+        if (prevX + off + bw <= wall.x && this.x + off + bw > wall.x) {
+          this.x = wall.x - off - bw;
+        } else if (prevX + off >= wall.x + wall.w && this.x + off < wall.x + wall.w) {
+          this.x = wall.x + wall.w - off;
+        }
+      }
+    }
+    for (u in peersMap) {
+      p = peersMap[u];
+      if (!p || p === this || p.state === 'in-doorway') { continue; }
+      if (this.y + bh <= p.y + 0.01 || this.y >= p.y + bh - 0.01) { continue; }
+      var d0 = prevX - p.x, d1 = this.x - p.x;
+      if (Math.abs(d1) >= bw || Math.abs(d1) >= Math.abs(d0)) { continue; }
+      this.x = Math.abs(d0) >= bw ? p.x + (d0 > 0 ? bw : -bw) : prevX;
+    }
+
+    // Vertical: position before velocity.
+    var prevY = this.y;
+    var carrier = this.standingOn;
+    if (carrier) {
+      var present = false;
+      for (u in peersMap) { if (peersMap[u] === carrier) { present = true; break; } }
+      if (!present) { carrier = null; }   // they left the level
+    }
+    this.y += this._vyF;
+    if (this._boostK >= 0) {
+      this._boostK++;
+      if (this._boostK <= P.boostFrames) { this._vyF -= P.boost * (1 - this._boostK / P.boostDiv); }
+      else { this._boostK = -1; }
+    }
+    this._vyF += P.gravity;
+    if (this._vyF > P.terminal) { this._vyF = P.terminal; }
+
+    var bestFloor = null, landingPeer = null, bumped = false;
+    if (terrain) {
+      for (var fi = 0; fi < terrain.length; fi++) {
+        var tile = terrain[fi];
+        if (this.x + off + bw <= tile.x || this.x + off >= tile.x + tile.w) continue;
+        var floorY = tile.y - foot;
+        if (prevY <= floorY + 0.01 && this.y >= floorY && (bestFloor === null || floorY < bestFloor)) {
+          bestFloor = floorY;
+        }
+        if (this.y < prevY && prevY + top >= tile.y + tile.h - 0.01 && this.y + top < tile.y + tile.h) {
+          this.y = tile.y + tile.h - top;
+          bumped = true;
+        }
+      }
+    }
+    // Standing on a teammate: follow their head up or down while centres
+    // stay within reach. Their own jump/fall carries us; their walk does not.
+    if (carrier && carrier !== this && carrier.state !== 'in-doorway'
+        && Math.abs(this.x - carrier.x) < reach) {
+      var ride = carrier.y - bh;
+      if (Math.abs(ride - prevY) <= P.snapMax && (bestFloor === null || ride < bestFloor)) {
+        bestFloor = ride;
+        landingPeer = carrier;
+      }
+    }
+    for (u in peersMap) {
+      p = peersMap[u];
+      if (!p || p === this || p === carrier || p.state === 'in-doorway') { continue; }
+      var dx = Math.abs(this.x - p.x);
+      if (dx < reach) {
+        var landingY = p.y - bh;
+        if (prevY <= landingY + 0.01 && this.y >= landingY && (bestFloor === null || landingY < bestFloor)) {
+          bestFloor = landingY;
+          landingPeer = p;
+        }
+      }
+      // Rising into a teammate's feet: we stop; they are not launched.
+      if (dx < bw && this.y < prevY && prevY >= p.y + bh - 0.01 && this.y < p.y + bh) {
+        this.y = p.y + bh;
+        bumped = true;
+      }
+    }
+    if (bumped) {
+      if (this._vyF < 0) { this._vyF = 0; }
+      this._boostK = -1;
+    }
+    if (bestFloor !== null && !(bumped && bestFloor < this.y - 0.01 && this.y < prevY)) {
+      if (landingPeer && landingPeer === carrier && bestFloor !== this.y) { this._carriedThisTick = true; }
+      this.y = bestFloor;
+      this._vyF = 0;
+      this._boostK = -1;
+      if (this.state === 'jumping') {
+        this.state            = 'idle';
+        this.idleTimer        = 0;
+        this.currentIdleFrame = 0;
+      }
+      this.standingOn = landingPeer;
+      this._airFrames = 0;
+    } else {
+      this.standingOn = null;
+      if (this.state !== 'jumping') { this.state = 'jumping'; }
+      this._airFrames = Math.min(99, this._airFrames + 1);
+    }
+    this.vy = this._vyOut = this._vyF * F;
+  };
+
+  // Per-frame twin of _someoneOnTop: a teammate standing on our head
+  // (within the support reach) stops us from jumping.
+  PlayerSprite.prototype._someoneOnTopPerFrame = function (P, peersMap) {
+    var headY = this.y - P.bodyH;
+    for (var u in peersMap) {
+      var p = peersMap[u];
+      if (!p || p === this || p.state === 'in-doorway') { continue; }
+      if (Math.abs(this.x - p.x) >= P.supportHalfWidth) { continue; }
+      if (Math.abs(p.y - headY) < 3) { return true; }
+    }
+    return false;
+  };
+
+  // Re-anchor groundY when the engine resizes (the platform under the
+  // sprite shifts as the canvas height changes).
+  PlayerSprite.prototype.onResize = function () {
+    if (this.engine && typeof this.engine.groundY === 'number') {
+      this.groundY = this.engine.groundY - SPRITE_H * this.scale;
+      if (this.y > this.groundY && this.state !== 'jumping') {
+        this.y = this.groundY;
+      }
+    }
+  };
+
+  // Collision helpers (Phase 1.5).
+  PlayerSprite.prototype._horizontalOverlap = function (peer) {
+    return Math.abs(this.x - peer.x) < this._spriteSize;
+  };
+  PlayerSprite.prototype._sameLevel = function (peer) {
+    // "Same level" = at the same y to within half a sprite. Soft-push only
+    // applies horizontally; when stacked, the y delta is a full sprite and
+    // this returns false (no kicking off heads).
+    return Math.abs(this.y - peer.y) < (this._spriteHeight / 2);
+  };
+  PlayerSprite.prototype._onFloor = function () {
+    if (!this.terrain && this.y >= this.groundY - 0.01) { return true; }
+    if (this.terrain) {
+      var terrain = this.terrain();
+      for (var i = 0; i < terrain.length; i++) {
+        var tile = terrain[i];
+        if (this.x + this._spriteSize > tile.x && this.x < tile.x + tile.w
+            && Math.abs(this.y + this._spriteHeight - tile.y) < 0.01) return true;
+      }
+    }
+    var peersMap = this.peers();
+    for (var u in peersMap) {
+      var p = peersMap[u];
+      if (!p || p === this) { continue; }
+      if (!this._horizontalOverlap(p)) { continue; }
+      var landingY = p.y - this._spriteHeight;
+      if (Math.abs(this.y - landingY) < 1) { return true; }
+    }
+    return false;
+  };
+
+  // True when a peer is standing on this player's head (their y matches our
+  // head y within sprite tolerance AND they horizontally overlap us). Used
+  // to gate jump: if someone's riding us, we can't launch -- they have no
+  // way to follow our upward motion (one-way platforms don't go up under
+  // you in Mario rules) and would fall through to ground level on every jump.
+  // The tolerance is intentionally tight (~3 px) so a peer FLOATING BELOW
+  // the head line doesn't count as riding -- only an actual head-stack does.
+  // 3 px covers interpolation jitter (_chaseY toward the broadcast y) plus
+  // the per-tick gravity bump on the rider.
+  PlayerSprite.prototype._someoneOnTop = function () {
+    var peersMap = this.peers();
+    var headY = this.y - this._spriteHeight;
+    for (var u in peersMap) {
+      var p = peersMap[u];
+      if (!p || p === this) { continue; }
+      // s111 P4 UX rev4: an in-doorway peer is non-physical -- don't
+      // block our jump just because they happen to be at our head y.
+      if (p.state === 'in-doorway') { continue; }
+      if (!this._horizontalOverlap(p)) { continue; }
+      if (Math.abs(p.y - headY) < 3) { return true; }
+    }
+    return false;
+  };
+
+  // Phase 2.4 -- render override that applies the "blocked" jitter offset
+  // when _blockedTwitchMs > 0. Damped sine: amplitude ~3 px, frequency ~30 Hz
+  // over the 150 ms lifetime, fades to zero. Local-only -- the actual y
+  // (and therefore the broadcast y) never moves, so peers don't see it.
+  PlayerSprite.prototype.render = function (ctx) {
+    // V7.9 side-scroll: world sprite -- translate by the camera before
+    // drawing; restore to balance below.
+    _translateForCamera(ctx);
+    // s111 P4 UX rev4: skip when fully absorbed into a doorway.
+    if (this._hidden) { _restoreFromCamera(ctx); return; }
+    var yOffset = 0;
+    if (this._blockedTwitchMs > 0) {
+      var phase = this._blockedTwitchMs / 1000 * 30; // ~30 Hz oscillation
+      var decay = this._blockedTwitchMs / 150;       // 1.0 -> 0 over lifetime
+      yOffset = Math.sin(phase * Math.PI * 2) * 3 * decay;
+    }
+    // AVATAR_SELF_EMOTE: a happy double-bounce + sway when you click your own
+    // avatar. Pure render offsets (no physics); optionally poses on EMOTE_FRAME.
+    var fIndex = this.frameIndex;
+    var emoteX = 0;
+    if (this._emoteMs > 0) {
+      var ep = 1 - this._emoteMs / EMOTE_DURATION_MS;                   // 0 -> 1
+      yOffset -= Math.abs(Math.sin(ep * Math.PI * 2)) * EMOTE_HOP_PX;   // two hops, up = -y
+      emoteX = Math.sin(ep * Math.PI * 6) * EMOTE_SWAY_PX * (1 - ep);   // decaying wiggle
+      if (EMOTE_FRAME != null) fIndex = this._directedFrame(EMOTE_FRAME);
+    }
+    var alpha = this.online ? 1.0 : 0.35;
+    // s111 P4 UX rev4: doorway absorption is fade-only (the prior
+    // scale-down was indistinguishable in practice; just the alpha
+    // fade reads as "entering the hole"). Multiply alpha by (1-p).
+    if (typeof this._absorbProgress === 'number' && this._absorbProgress > 0) {
+      alpha *= (1 - this._absorbProgress);
+    }
+    if (alpha <= 0) { _restoreFromCamera(ctx); return; }
+    if (alpha !== 1.0) { ctx.save(); ctx.globalAlpha = alpha; }
+    this.spriteSheet.drawFrame(ctx, fIndex, this.x + emoteX, this.y + yOffset, this.scale, this.hue);
+    if (alpha !== 1.0) { ctx.restore(); }
+    _restoreFromCamera(ctx);
+  };
+
+  // AVATAR_SELF_EMOTE: trigger the one-shot happy bounce (idempotent re-trigger
+  // just restarts it). Cosmetic only — update()/render() handle the animation.
+  PlayerSprite.prototype.playEmote = function () {
+    this._emoteMs = EMOTE_DURATION_MS;
+  };
+
+  // --- GreenLightOverlay entity -----------------------------------------
+
+  /**
+   * A one-shot scene overlay entity that renders the "GO!" banner.
+   * Fades out over GREENLIGHT_MS ms then removes itself.
+   */
+  function GreenLightOverlay(getElapsedFn) {
+    this.getElapsed = getElapsedFn;
+    this.engine = null;
+  }
+
+  GreenLightOverlay.prototype.update = function () {};  // no physics
+
+  GreenLightOverlay.prototype.render = function (ctx) {
+    var age = this.getElapsed();
+    if (age > GREENLIGHT_MS) {
+      // Let the engine hold it; the board's manager removes it.
+      return;
+    }
+    var alpha = 1 - (age / GREENLIGHT_MS);
+    var cw = this.engine ? (this.engine.canvas.width  / (root.devicePixelRatio || 1)) : 400;
+    var ch = this.engine ? (this.engine.canvas.height / (root.devicePixelRatio || 1)) : 300;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle   = '#22AA22';
+    ctx.fillRect(0, 0, cw, 24);
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle   = '#FFFFFF';
+    ctx.font        = 'bold 16px Arial';
+    ctx.textAlign   = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('GO!', cw / 2, 12);
+    ctx.restore();
+  };
+
+  // --- GateDoor entity --------------------------------------------------
+
+  /**
+   * Draws the gate door on the right side of the scene.
+   * Drawn whenever the gate is armed.
+   */
+  function GateDoor(getGroundY) {
+    this.getGroundY = getGroundY;
+    this.engine = null;
+  }
+
+  GateDoor.prototype.update = function () {};
+
+  GateDoor.prototype.render = function (ctx) {
+    var cw = this.engine ? (this.engine.canvas.width  / (root.devicePixelRatio || 1)) : 400;
+    var gy = this.getGroundY();
+    var x  = cw - DOOR_W - 10;
+    var y  = gy - DOOR_H;
+    var w  = DOOR_W;
+    var h  = DOOR_H;
+
+    // Door frame
+    ctx.save();
+    ctx.strokeStyle = '#8B5E1A';
+    ctx.lineWidth   = 4;
+    ctx.fillStyle   = '#3B2008';
+    ctx.fillRect(x, y, w, h);
+    ctx.strokeRect(x, y, w, h);
+
+    // Door knob
+    ctx.fillStyle   = '#D4AF37';
+    ctx.beginPath();
+    ctx.arc(x + w - 10, y + h / 2, 5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Arrow pointing right into door
+    ctx.fillStyle   = '#FFD700';
+    ctx.font        = 'bold 18px Arial';
+    ctx.textAlign   = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('>', x + w / 2, y + h / 2);
+    ctx.restore();
+  };
+
+  // --- Doorway entity (v3 P4) ------------------------------------------
+  //
+  // One labelled doorway. Multiple instances spread evenly across the
+  // canvas when state.doorways is open. Each renders a vertical hole
+  // identical visually to GateDoor; the label sits above and a count
+  // sits below. Walking into the doorway's x range + pressing Up casts
+  // a vote (the matched doorway's doorId is the choice).
+
+  function Doorway(getGroundY, opts) {
+    this.getGroundY = getGroundY;
+    this.x          = opts.x;        // center x of the hole
+    this.width      = opts.width || 28;
+    this.label      = opts.label || '';
+    this.doorId     = opts.doorId || '';
+    this.count      = 0;             // updated from state.doorways.tally
+    // V7.3.6 z-order: doorways are background -- avatars + coins paint
+    // on top so the mouse-hole black doesn't occlude characters.
+    this.zIndex     = 1;
+  }
+  Doorway.prototype.update = function () {};
+  Doorway.prototype.render = function (ctx) {
+    // V7.9 side-scroll: world sprite -- translate by the camera, restore
+    // at the end. Doorways are still positioned in viewport pixels at the
+    // time a doorways round opens (showDoorways spreads them across the
+    // viewport width); during a doorways round there's no active level
+    // (mutually exclusive on the server), so levelW defaults to viewport
+    // width and the translate is identity (no visual change).
+    _translateForCamera(ctx);
+    var groundY = this.getGroundY();
+    var holeH   = 32;
+    var holeW   = this.width;
+    var halfW   = holeW / 2;
+    // s111 P4 visual: tom-and-jerry mouse hole -- black rectangle
+    // sitting on the ground with a black semicircular dome ON TOP
+    // (a half-circle bulging UPWARD, away from the rectangle).
+    //
+    // Canvas convention: y-axis flipped. Angles measured CLOCKWISE
+    // from +x. So 0=right, pi/2=DOWN, pi=left, 3pi/2=UP. Drawing arc
+    // from pi to 0 with counterclockwise=FALSE goes pi -> 3pi/2 (up)
+    // -> 0 -- the UPPER half-circle (the dome). counterclockwise=true
+    // would go through pi/2 (down) -- inverted, eating INTO the rect.
+    ctx.fillStyle = '#000';
+    ctx.beginPath();
+    ctx.moveTo(this.x - halfW, groundY);
+    ctx.lineTo(this.x - halfW, groundY - holeH);
+    ctx.arc(this.x, groundY - holeH, halfW, Math.PI, 0, false);
+    ctx.lineTo(this.x + halfW, groundY);
+    ctx.closePath();
+    ctx.fill();
+    // Label above the dome.
+    ctx.fillStyle = '#000';
+    ctx.font = 'bold 11px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText(this.label, this.x, groundY - holeH - halfW - 6);
+    // Count below the baseline.
+    ctx.font = '10px Arial';
+    ctx.fillText(String(this.count), this.x, groundY + 14);
+    _restoreFromCamera(ctx);
+  };
+  Doorway.prototype.containsX = function (x, halfPlayerW) {
+    // Hit-test: is the player's center inside the doorway's hole?
+    var slack = halfPlayerW || 8;
+    return Math.abs(x - this.x) <= (this.width / 2 + slack);
+  };
+
+  // --- CoinSprite entity (V7.2 sprite-collide) --------------------------
+
+  /**
+   * Coin sprite rendered ON the avatar canvas (NOT the activity overlay)
+   * so collision with avatars is native sprite-vs-sprite proximity, not
+   * server-side abstract math. Pico-park feel: walk into the coin to
+   * collect it. V7.3.1: cycles through a 3-frame spin animation
+   * (bright / mid / dark) at COIN_FRAME_MS cadence; collected state
+   * freezes on frame 0 + greys out.
+   *
+   * V7.4 blind-test: when `revealed` is false, the drink label renders
+   * as '?' so the kids have to discover the identity by collecting.
+   * Defaults to true so legacy (non-hidden) levels see no change.
+   *
+   * opts:
+   *   x, y           -- canvas pixel coords (top-left of the sprite)
+   *   size           -- render size in px (sprite is 32x32 source)
+   *   coinId         -- stable id from the level state (e.g. 's1')
+   *   drink          -- the drink label ('A'/'B') rendered above the coin
+   *   collected      -- initial collected flag from server (true = grey)
+   *   revealed       -- (V7.4) identity visible flag; default true. When
+   *                     false, getLabelSpec returns '?' instead of drink.
+   *   getLocalSprite -- () -> BoardSprite (the local player) for collision
+   *   onCollect      -- (coinId) -> void; fired ONCE on first collision
+   *   spawnReveal    -- (coinId, drink, x, y) -> void; (V7.4) fired ONCE
+   *                     when the local player triggers a collect, so the
+   *                     mount-scope wiring can spawn a RevealTextSprite.
+   *   images         -- [Image, Image, Image] -- 3 spin frames in order
+   */
+  // V7.3.4: X+Y collision (was X-only). Without the Y check, walking
+  // left-right past a coin counted as collecting it -- the "race to
+  // mash arrow keys" anti-pattern (teacher feedback). Now players have
+  // to JUMP up into a coin to grab it, so deciding WHICH coin matters.
+  // X-tolerance stays generous so the moment of contact is forgiving;
+  // Y-tolerance is sized to the natural jump arc.
+  //
+  // V7.3.5 tune: jump physics give peak height = JUMP_V0^2 / (2*GRAVITY)
+  // = 280^2 / 1600 = 49 px above standing. Coin is positioned so peak
+  // jump lands inside Y-tolerance and standing is well outside. See
+  // _coinCanvasY below for the resulting math.
+  var COIN_COLLISION_X_PX = 18;
+  var COIN_COLLISION_Y_PX = 24;
+  var COIN_DEFAULT_SIZE   = 24;   // render dim; source PNG is 32x32
+  var COIN_FRAME_MS       = 280;  // V7.3.3: half the previous 140 -> ~3.5 Hz cycle, ~840 ms per full spin
+  // V7.4 Codex MAJOR fold: if the optimistic local _sentCollect isn't
+  // confirmed by the server within this window, the collect was rejected
+  // (anti-cheat fail, race, stale position). syncLevelCoins clears the
+  // flag so the coin reappears for the local player and a later
+  // legitimate collect can still pop the reveal text.
+  var COIN_SENT_TTL_MS    = 600;
+
+  function CoinSprite(opts) {
+    this.images         = Array.isArray(opts.images) ? opts.images : [];
+    this.x              = opts.x;
+    this.y              = opts.y;
+    this.size           = opts.size || COIN_DEFAULT_SIZE;
+    this.coinId         = opts.coinId;
+    this.drink          = opts.drink || '';
+    this.collected      = opts.collected === true;
+    // V7.4 blind-test: default true so existing levels (no hidden field
+    // on the server-side SipStation) keep identity visible from t=0.
+    this._revealed      = opts.revealed !== false;
+    this.getLocalSprite = (typeof opts.getLocalSprite === 'function') ? opts.getLocalSprite : function () { return null; };
+    this.onCollect      = (typeof opts.onCollect === 'function') ? opts.onCollect : null;
+    // V7.4: optional callback fired ONCE when the local player triggers
+    // collect. syncLevelCoins wires it to spawn a RevealTextSprite at
+    // the coin's position so the floating '+A' / '+B' appears for the
+    // collecting client (peers spawn their own from the wire transition).
+    this.spawnReveal    = (typeof opts.spawnReveal === 'function') ? opts.spawnReveal : null;
+    this._bobT          = 0;
+    this._frameMs       = 0;     // accumulator for spin frame advance
+    this._frameIdx      = 0;
+    this._sentCollect   = false;
+    this._sentCollectAt = 0;     // V7.4: ms timestamp; gated by COIN_SENT_TTL_MS
+    // V7.3.6 z-order: above doorways/default, below avatars.
+    this.zIndex         = 5;
+    this.engine         = null;
+  }
+
+  // V7.3.3 cross-screen disappearance contract:
+  //
+  //   1. Local player walks into coin -> CoinSprite.update sets
+  //      _sentCollect=true and fires onCollect (sends
+  //      classroom_activity_value {kind:'collect',coinId}). render
+  //      starts returning early -> coin gone for the local player.
+  //   2. Server (level-engine.applyInput) validates + sets the
+  //      coin's `collected` flag, bumps the tally.
+  //   3. Next classroom_activity_state tick (5 Hz) broadcasts the
+  //      updated state.coins[] to every client in the section.
+  //   4. Each client's _reduce updates state.activity.state, then
+  //      syncLevelCoins (in mount()) does `existing.collected =
+  //      c.collected === true` for every coin -- peer CoinSprite
+  //      instances flip their `collected` to true.
+  //   5. _isCollecting() returns true on peers -> render returns
+  //      early there too -> coin gone on every screen.
+  CoinSprite.prototype._isCollecting = function () {
+    return this.collected || this._sentCollect;
+  };
+
+  CoinSprite.prototype.update = function (dt) {
+    this._bobT += dt;
+    var collecting = this._isCollecting();
+    // Advance spin frame while NOT collecting. Collected coins are
+    // hidden from render entirely, so the frame counter doesn't matter.
+    if (!collecting) {
+      this._frameMs += dt * 1000;
+      while (this._frameMs >= COIN_FRAME_MS) {
+        this._frameMs -= COIN_FRAME_MS;
+        this._frameIdx = (this._frameIdx + 1) % Math.max(1, this.images.length);
+      }
+      var me = this.getLocalSprite();
+      if (!me) return;
+      // V7.3.4 X+Y collision: player must jump up to coin's vertical band.
+      // Walking under the coin (player y is ~28 px below coin y when
+      // standing) stays outside Y-tolerance and doesn't collide. Jumping
+      // brings player y closer to coin y; collision fires mid-jump.
+      var myCx   = me.x + (me._spriteSize   || 24) / 2;
+      var myCy   = me.y + (me._spriteHeight || 24) / 2;
+      var coinCx = this.x + this.size / 2;
+      var coinCy = this.y + this.size / 2;
+      if (Math.abs(myCx - coinCx) <= COIN_COLLISION_X_PX &&
+          Math.abs(myCy - coinCy) <= COIN_COLLISION_Y_PX) {
+        this._sentCollect   = true;   // optimistic; cleared by syncLevelCoins if server doesn't confirm within COIN_SENT_TTL_MS
+        this._sentCollectAt = (typeof Date !== 'undefined' && Date.now) ? Date.now() : 0;
+        if (this.onCollect) {
+          try { this.onCollect(this.coinId); } catch (_) {}
+        }
+        // V7.4 blind-test: also fire the local reveal-text spawn so the
+        // collecting client sees '+A' / '+B' float up immediately. Peers
+        // get their own spawn when syncLevelCoins observes the wire
+        // collected=false->true transition (see syncLevelCoins).
+        if (this.spawnReveal) {
+          try { this.spawnReveal(this.coinId, this.drink, this.x + this.size / 2, this.y + this.size / 2); } catch (_) {}
+        }
+      }
+    }
+  };
+
+  CoinSprite.prototype.render = function (ctx) {
+    // V7.9 side-scroll: world sprite -- translate, restore at end.
+    _translateForCamera(ctx);
+    // V7.3.3: collected / locally-collected coins disappear instantly.
+    // No animation -- the absence IS the feedback.
+    if (this._isCollecting()) { _restoreFromCamera(ctx); return; }
+    var img = this.images[this._frameIdx] || this.images[0];
+    if (!img || !img.complete || img.naturalWidth === 0) { _restoreFromCamera(ctx); return; }
+    var bobOffset = Math.sin(this._bobT * 4) * 2;
+    try {
+      ctx.drawImage(img, this.x, this.y + bobOffset, this.size, this.size);
+    } catch (_) {}
+    _restoreFromCamera(ctx);
+  };
+
+  CoinSprite.prototype.getLabelSpec = function () {
+    // V7.9 side-scroll: project the world-space x into screen pixels so
+    // the label rides over the rendered coin (engine label pass has no
+    // camera translate of its own).
+    var cx   = _projectWorldX(this.x) + this.size / 2;
+    var topY = this.y - 4;
+    // V7.4 blind-test: pre-reveal coins show '?' instead of the drink
+    // identity. isGold stays true pre-reveal so the gold '?' reads as a
+    // collectible target. Post-reveal the drink letter ('A' / 'B') paints
+    // in the normal label color band (isGold == !collected as before).
+    var text = (this._revealed === false) ? '?' : (this.drink || '');
+    var isGold = (this._revealed === false) ? true : !this.collected;
+    return { text: text, x: cx, y: topY, isGold: isGold };
+  };
+
+  // Module-scope coin frame loader. Loads all 3 spin frames once;
+  // CoinSprite.render is a no-op until the frames are ready. Each
+  // PNG is 32x32 RGBA (see coin_0.png / coin_1.png / coin_2.png --
+  // bright / mid / dark frames of the source-atlas spin strip).
+  var _coinFrames = null;
+  function _ensureCoinFrames() {
+    if (_coinFrames) return _coinFrames;
+    if (typeof Image === 'undefined') return [];   // jsdom may stub Image; OK either way
+    _coinFrames = [];
+    for (var i = 0; i < 3; i++) {
+      var im = new Image();
+      im.src = 'coin_' + i + '.png';
+      _coinFrames.push(im);
+    }
+    return _coinFrames;
+  }
+
+  // --- RevealTextSprite entity (V7.4 blind-test) ------------------------
+
+  /**
+   * Floating "+A" / "+B" text that pops on coin collect. Pure visual --
+   * NO collision logic. Spawns at the coin's center, drifts up, and
+   * fades out over durationMs (default 900 ms), then schedules its own
+   * removal via engine.removeEntity. The caller is responsible for
+   * generating a unique entity id (sprite is registered as
+   * 'reveal_<id>' in syncLevelCoins).
+   *
+   * opts:
+   *   x, y       -- canvas pixel coords (TEXT IS CENTERED at (x, y))
+   *   text       -- the label (e.g. '+A' or '+B')
+   *   color      -- CSS color string (gold for A, cyan for B)
+   *   durationMs -- ms before auto-despawn (default 900)
+   */
+  var REVEAL_DEFAULT_MS    = 900;
+  var REVEAL_RISE_PX       = 24;
+  var REVEAL_COLOR_DEFAULT = '#FFD700';   // gold
+
+  function RevealTextSprite(opts) {
+    this.x          = opts.x;
+    this.y          = opts.y;
+    this.text       = opts.text || '';
+    this.color      = opts.color || REVEAL_COLOR_DEFAULT;
+    this.durationMs = (typeof opts.durationMs === 'number' && opts.durationMs > 0) ? opts.durationMs : REVEAL_DEFAULT_MS;
+    this._elapsedMs = 0;
+    this._id        = null;   // set by syncLevelCoins so update() can self-remove
+    this._removed   = false;
+    // zIndex = 20 -- paint above everything else (avatars/coins/goal).
+    this.zIndex     = 20;
+    this.engine     = null;
+  }
+
+  RevealTextSprite.prototype.update = function (dt) {
+    if (this._removed) return;
+    this._elapsedMs += dt * 1000;
+    if (this._elapsedMs >= this.durationMs) {
+      this._removed = true;
+      if (this.engine && this._id) {
+        try { this.engine.removeEntity('reveal_' + this._id); } catch (_) {}
+      }
+    }
+  };
+
+  RevealTextSprite.prototype.render = function (ctx) {
+    if (this._removed) return;
+    if (!ctx || typeof ctx.fillText !== 'function') return;
+    // V7.9 side-scroll: world sprite -- it follows the coin it spawned
+    // at, so the floater should scroll with the camera too. Translate +
+    // restore at the end.
+    _translateForCamera(ctx);
+    var progress = Math.min(1, this._elapsedMs / this.durationMs);
+    var dy       = progress * REVEAL_RISE_PX;
+    var alpha    = 1 - progress;
+    var prevAlpha = (typeof ctx.globalAlpha === 'number') ? ctx.globalAlpha : 1;
+    var prevFont  = ctx.font;
+    var prevAlign = ctx.textAlign;
+    var prevFill  = ctx.fillStyle;
+    ctx.globalAlpha = Math.max(0, alpha);
+    ctx.font        = 'bold 14px monospace';
+    ctx.textAlign   = 'center';
+    ctx.fillStyle   = this.color;
+    try {
+      ctx.fillText(this.text, this.x, this.y - dy);
+    } catch (_) {}
+    ctx.globalAlpha = prevAlpha;
+    ctx.font        = prevFont;
+    ctx.textAlign   = prevAlign;
+    ctx.fillStyle   = prevFill;
+    _restoreFromCamera(ctx);
+  };
+
+  // The reveal text draws itself; the engine's label-pass should skip it.
+  RevealTextSprite.prototype.getLabelSpec = function () { return null; };
+
+  // V7.4: color pick for the floating "+<drink>" pop. Gold reads as
+  // 'good' / canonical-A; cyan distinguishes B without screaming. Add
+  // more letters here if a level ever introduces drink C/D/etc.
+  function _revealColorForDrink(drink) {
+    if (drink === 'A') return '#FFD700';   // gold
+    if (drink === 'B') return '#55ccff';   // cyan
+    return '#FFFFFF';                      // fallback: plain white
+  }
+
+  // --- TallyDisplay entity (V7.4 blind-test) ----------------------------
+
+  /**
+   * Live tally chip rendered on the avatar canvas. Shows the running
+   * count of sips per drink letter (e.g. "Sips - A: 2  B: 1"). Spawns
+   * when state.activity.level.actors contains a TallyDisplay actor
+   * bound to tally.sips and an activity is live; despawns when the
+   * level ends. The actor's chip-X position is rescaled into canvas
+   * pixel space (same mapping as coins) and Y sits above the coin row.
+   *
+   * opts:
+   *   x, y     -- canvas pixel coords (center-bottom of the chip)
+   *   getTally -- () -> { A: number, B: number, ... }; null/missing OK
+   */
+  var TALLY_FONT   = '10px monospace';
+  var TALLY_PAD_X  = 6;
+  var TALLY_PAD_Y  = 3;
+  var TALLY_ALPHA  = 0.85;
+  var TALLY_BG     = '#222';
+  var TALLY_FG     = '#FFFFFF';
+
+  function TallyDisplay(opts) {
+    this.x            = opts.x;
+    this.y            = opts.y;
+    this.getTally     = (typeof opts.getTally === 'function')     ? opts.getTally     : function () { return null; };
+    // V7.7 -- optional threshold source. When present + non-null, the
+    // tally text appends "/N" to each letter's count ("A: 2/3" instead
+    // of "A: 2"). Default = () => null so legacy levels render unchanged.
+    this.getThreshold = (typeof opts.getThreshold === 'function') ? opts.getThreshold : function () { return null; };
+    // zIndex = 5 -- same band as coins/goal; below avatars (z >= 10).
+    this.zIndex       = 5;
+    this.engine       = null;
+  }
+
+  TallyDisplay.prototype.update = function (/* dt */) { /* no-op */ };
+
+  // Tally has no separate label; render draws the text inside its own
+  // background rect so the engine's label pass should skip it.
+  TallyDisplay.prototype.getLabelSpec = function () { return null; };
+
+  // Build the display string: "Sips - A: N  B: N  ...". A and B are
+  // always shown (canonical drinks) even if zero; any other non-zero
+  // letters tag onto the end so future drinks render without a code
+  // change.
+  //
+  // V7.7 -- when getThreshold() returns a non-null map, append "/N" to
+  // each letter that has an entry in the threshold map ("A: 2/3").
+  // Letters without a threshold entry render without the slash even in
+  // mixed levels. Letters with ONLY a threshold entry (no tally) still
+  // appear ("A: 0/3") so authors can preview the goal up front.
+  TallyDisplay.prototype._buildText = function () {
+    var sips   = this.getTally() || {};
+    var thresh = this.getThreshold() || null;
+
+    function fmt(letter) {
+      var have = (typeof sips[letter]    === 'number') ? sips[letter]    : 0;
+      var need = (thresh && typeof thresh[letter] === 'number') ? thresh[letter] : null;
+      return letter + ': ' + have + (need != null ? '/' + need : '');
+    }
+
+    var parts = [];
+    var seen  = { A: true, B: true };
+    parts.push(fmt('A'));
+    parts.push(fmt('B'));
+
+    // Append any other non-A/non-B letter present in tally or threshold.
+    // Tally entries appear only if their value is > 0 (legacy behavior).
+    // Threshold entries always appear (so authors see the goal up front).
+    function appendLetters(obj, requireNonZero) {
+      if (!obj) return;
+      var keys = Object.keys(obj);
+      for (var i = 0; i < keys.length; i++) {
+        var k = keys[i];
+        if (seen[k]) continue;
+        var v = obj[k];
+        if (typeof v !== 'number') continue;
+        if (requireNonZero && !(v > 0)) continue;
+        parts.push(fmt(k));
+        seen[k] = true;
+      }
+    }
+    appendLetters(sips,   true);   // legacy: only non-zero tally letters
+    appendLetters(thresh, false);  // threshold letters always shown
+
+    return 'Sips - ' + parts.join('  ');
+  };
+
+  TallyDisplay.prototype.render = function (ctx) {
+    if (!ctx || typeof ctx.fillText !== 'function') return;
+    var text = this._buildText();
+
+    var prevAlpha = (typeof ctx.globalAlpha === 'number') ? ctx.globalAlpha : 1;
+    var prevFont  = ctx.font;
+    var prevAlign = ctx.textAlign;
+    var prevFill  = ctx.fillStyle;
+
+    ctx.font      = TALLY_FONT;
+    ctx.textAlign = 'center';
+
+    // Measure for the background rect. measureText can be missing in
+    // some test stubs -- fall back to a rough estimate so we still draw.
+    var textW = 0;
+    if (typeof ctx.measureText === 'function') {
+      try { textW = ctx.measureText(text).width || 0; } catch (_) { textW = text.length * 6; }
+    } else {
+      textW = text.length * 6;
+    }
+    var rectW = textW + TALLY_PAD_X * 2;
+    var rectH = 14   + TALLY_PAD_Y * 2;
+    var rectX = this.x - rectW / 2;
+    var rectY = this.y - rectH;
+
+    ctx.globalAlpha = TALLY_ALPHA;
+    ctx.fillStyle   = TALLY_BG;
+    if (typeof ctx.fillRect === 'function') {
+      try { ctx.fillRect(rectX, rectY, rectW, rectH); } catch (_) {}
+    }
+    ctx.globalAlpha = 1;
+    ctx.fillStyle   = TALLY_FG;
+    try { ctx.fillText(text, this.x, this.y - TALLY_PAD_Y - 2); } catch (_) {}
+
+    ctx.globalAlpha = prevAlpha;
+    ctx.font        = prevFont;
+    ctx.textAlign   = prevAlign;
+    ctx.fillStyle   = prevFill;
+  };
+
+  // --- GoalSprite entity (V7.2 sprite-collide) --------------------------
+
+  /**
+   * Goal sprite rendered ON the avatar canvas (mirrors CoinSprite). The
+   * goal flag was a paint on the activity overlay in V7.1; V7.2 moves
+   * it onto the sprite engine so completion is native collision (walk
+   * into the door to clear the level). V7.3 swap: two-state door art
+   * (canonical pico park asset) -- door_closed.png while !reached,
+   * door_open.png once reached. Reads as 'walk through to exit'.
+   *
+   * V7.5 key-gate: the goal can also be "locked" -- a third render state
+   * where the door is closed AND collision is a no-op. Set by the
+   * server's goal.locked flag (true while key && !key.collected). Once
+   * the key is collected, locked flips false; render returns to the
+   * standard reached / not-reached two-state logic.
+   *
+   * opts:
+   *   x, y           -- canvas pixel coords (top-left of the sprite)
+   *   size           -- render size in px
+   *   reached        -- initial reached flag from server
+   *   locked         -- (V7.5) initial locked flag from server (default false)
+   *   getLocalSprite -- () -> BoardSprite (the local player) for collision
+   *   onReach        -- () -> void; fired ONCE on first collision
+   *   imageClosed    -- Image() for the locked / not-yet-reached state
+   *   imageOpen      -- Image() for the unlocked / reached state
+   */
+  var GOAL_COLLISION_PX = 20;
+  var GOAL_DEFAULT_SIZE = 28;
+
+  function GoalSprite(opts) {
+    this.imageClosed    = opts.imageClosed || null;
+    this.imageOpen      = opts.imageOpen   || null;
+    this.x              = opts.x;
+    this.y              = opts.y;
+    this.size           = opts.size || GOAL_DEFAULT_SIZE;
+    this.reached        = opts.reached === true;
+    // V7.5 key-gate: locked stays false for legacy levels (no key actor on
+    // the server side -> server emits locked=false on every state tick).
+    this.locked         = opts.locked === true;
+    this.getLocalSprite = (typeof opts.getLocalSprite === 'function') ? opts.getLocalSprite : function () { return null; };
+    this.onReach        = (typeof opts.onReach === 'function') ? opts.onReach : null;
+    this._bobT          = 0;
+    this._sentReach     = false;
+    // V7.3.6 z-order: same band as coins (above doorways, below avatars).
+    this.zIndex         = 5;
+    this.engine         = null;
+  }
+
+  GoalSprite.prototype.update = function (dt) {
+    this._bobT += dt;
+    // V7.5 key-gate: locked goal is a no-op for collision -- player walks
+    // up to it but cannot fire reach-goal until the key is collected.
+    if (this.locked) return;
+    if (this.reached || this._sentReach) return;
+    var me = this.getLocalSprite();
+    if (!me) return;
+    var myCx   = me.x + (me._spriteSize || 24) / 2;
+    var goalCx = this.x + this.size / 2;
+    if (Math.abs(myCx - goalCx) <= GOAL_COLLISION_PX) {
+      this._sentReach = true;
+      if (this.onReach) {
+        try { this.onReach(); } catch (_) {}
+      }
+    }
+  };
+
+  GoalSprite.prototype.render = function (ctx) {
+    // V7.9 side-scroll: world sprite -- translate + restore.
+    _translateForCamera(ctx);
+    // V7.5 three-state render:
+    //   locked === true                  -> door_closed (key not yet collected)
+    //   locked === false && !reached     -> door_open   (unlocked, walking toward it)
+    //   reached === true                 -> door_open + pulse alpha (existing)
+    var img;
+    if (this.locked) {
+      img = this.imageClosed;
+    } else if (this.reached) {
+      img = this.imageOpen;
+    } else {
+      img = this.imageOpen;
+    }
+    if (!img || !img.complete || img.naturalWidth === 0) { _restoreFromCamera(ctx); return; }
+    var bobOffset = this.reached ? 0 : Math.sin(this._bobT * 3) * 1.5;
+    var prevAlpha = (typeof ctx.globalAlpha === 'number') ? ctx.globalAlpha : 1;
+    if (this.reached) {
+      // Brighten / pulse on reached so the moment of completion reads.
+      ctx.globalAlpha = 0.85 + 0.15 * Math.sin(this._bobT * 6);
+    }
+    try {
+      ctx.drawImage(img, this.x, this.y + bobOffset, this.size, this.size);
+    } catch (_) {}
+    ctx.globalAlpha = prevAlpha;
+    _restoreFromCamera(ctx);
+  };
+
+  GoalSprite.prototype.getLabelSpec = function () {
+    // V7.9 side-scroll: project to screen space so the label rides over
+    // the rendered goal door.
+    var cx   = _projectWorldX(this.x) + this.size / 2;
+    var topY = this.y - 4;
+    // V7.5: locked goal reads as 'LOCKED' so the player can see the door
+    // is gated on the key (not just visually closed-and-broken).
+    var text;
+    if (this.reached) { text = 'CLEARED!'; }
+    else if (this.locked) { text = 'LOCKED'; }
+    else { text = 'GOAL'; }
+    return { text: text, x: cx, y: topY, isGold: true };
+  };
+
+  var _doorClosedImage = null;
+  function _ensureDoorClosedImage() {
+    if (_doorClosedImage) return _doorClosedImage;
+    if (typeof Image === 'undefined') return null;
+    _doorClosedImage = new Image();
+    _doorClosedImage.src = 'door_closed.png';
+    return _doorClosedImage;
+  }
+  var _doorOpenImage = null;
+  function _ensureDoorOpenImage() {
+    if (_doorOpenImage) return _doorOpenImage;
+    if (typeof Image === 'undefined') return null;
+    _doorOpenImage = new Image();
+    _doorOpenImage.src = 'door_open.png';
+    return _doorOpenImage;
+  }
+
+  // --- KeySprite entity (V7.5 key-gate) ---------------------------------
+
+  /**
+   * Single shared key sprite rendered ON the avatar canvas (mirrors
+   * CoinSprite's collision shape). Only one key per level -- spawned
+   * when state.activity.state.phase === 'KEY_HUNT' AND state.key is
+   * present AND !state.key.collected. The first player to JUMP into it
+   * (X+Y collision, same tolerances as a coin) fires onCollect which
+   * sends `classroom_activity_value { kind: 'collect-key' }` and sets
+   * _sentCollect=true so render bails immediately (instant vanish).
+   *
+   * NO coinId on the wire payload -- key is the singleton.
+   *
+   * opts:
+   *   x, y           -- canvas pixel coords (top-left of the sprite)
+   *   size           -- render size in px (default 24, same as a coin)
+   *   getLocalSprite -- () -> BoardSprite (the local player) for collision
+   *   onCollect      -- () -> void; fired ONCE on first collision
+   *   images         -- [Image, ...] -- first frame is rendered. If a
+   *                     non-empty array is passed, additional frames are
+   *                     not animated (the key art is static at V7.5);
+   *                     accepting an array keeps the wiring symmetric
+   *                     with CoinSprite for future spin support.
+   */
+  var KEY_COLLISION_X_PX = 18;   // same as coin
+  var KEY_COLLISION_Y_PX = 24;   // same as coin
+  var KEY_DEFAULT_SIZE   = 24;
+  var KEY_SENT_TTL_MS    = 600;  // same TTL as coin; clears stale optimistic
+
+  function KeySprite(opts) {
+    this.images         = Array.isArray(opts.images) ? opts.images : [];
+    this.x              = opts.x;
+    this.y              = opts.y;
+    this.size           = opts.size || KEY_DEFAULT_SIZE;
+    this.collected      = opts.collected === true;
+    this.getLocalSprite = (typeof opts.getLocalSprite === 'function') ? opts.getLocalSprite : function () { return null; };
+    this.onCollect      = (typeof opts.onCollect === 'function') ? opts.onCollect : null;
+    this._bobT          = 0;
+    this._sentCollect   = false;
+    this._sentCollectAt = 0;     // ms timestamp; gated by KEY_SENT_TTL_MS
+    // zIndex 5 -- same band as coins/goal; below avatars.
+    this.zIndex         = 5;
+    this.engine         = null;
+  }
+
+  KeySprite.prototype._isCollecting = function () {
+    return this.collected || this._sentCollect;
+  };
+
+  KeySprite.prototype.update = function (dt) {
+    this._bobT += dt;
+    if (this._isCollecting()) return;
+    var me = this.getLocalSprite();
+    if (!me) return;
+    // X+Y collision (identical to CoinSprite). Player must JUMP up into
+    // the key's vertical band; walking under it does not trigger.
+    var myCx  = me.x + (me._spriteSize   || 24) / 2;
+    var myCy  = me.y + (me._spriteHeight || 24) / 2;
+    var keyCx = this.x + this.size / 2;
+    var keyCy = this.y + this.size / 2;
+    if (Math.abs(myCx - keyCx) <= KEY_COLLISION_X_PX &&
+        Math.abs(myCy - keyCy) <= KEY_COLLISION_Y_PX) {
+      this._sentCollect   = true;   // optimistic; vanish instantly
+      this._sentCollectAt = (typeof Date !== 'undefined' && Date.now) ? Date.now() : 0;
+      if (this.onCollect) {
+        try { this.onCollect(); } catch (_) {}
+      }
+    }
+  };
+
+  KeySprite.prototype.render = function (ctx) {
+    // V7.9 side-scroll: world sprite -- translate + restore.
+    _translateForCamera(ctx);
+    // Collected / locally-collected keys disappear instantly (same as a coin).
+    if (this._isCollecting()) { _restoreFromCamera(ctx); return; }
+    var img = this.images[0];
+    if (!img || !img.complete || img.naturalWidth === 0) { _restoreFromCamera(ctx); return; }
+    var bobOffset = Math.sin(this._bobT * 3) * 2;
+    try {
+      ctx.drawImage(img, this.x, this.y + bobOffset, this.size, this.size);
+    } catch (_) {}
+    _restoreFromCamera(ctx);
+  };
+
+  KeySprite.prototype.getLabelSpec = function () {
+    // Hide the label once the key is collected (or pending collection),
+    // so a transient 'KEY' floater doesn't outlive the sprite render.
+    if (this._isCollecting()) return null;
+    // V7.9 side-scroll: project to screen space so the label rides over
+    // the rendered key sprite.
+    var cx   = _projectWorldX(this.x) + this.size / 2;
+    var topY = this.y - 4;
+    return { text: 'KEY', x: cx, y: topY, isGold: true };
+  };
+
+  var _keyImage = null;
+  function _ensureKeyImage() {
+    if (_keyImage) return _keyImage;
+    if (typeof Image === 'undefined') return null;
+    _keyImage = new Image();
+    _keyImage.src = 'key.png';
+    return _keyImage;
+  }
+
+  // V7.8.1: button.png was ported to fa root in V7.3 (alongside coin/key/
+  // door PNGs) but the V7.8 ChoicePadSprite ship used Graphics shapes. The
+  // user flagged the visual mismatch in PeriodX smoke -- swap to the
+  // Pico Park button asset for visual continuity with coins/keys/doors.
+  var _buttonImage = null;
+  function _ensureButtonImage() {
+    if (_buttonImage) return _buttonImage;
+    if (typeof Image === 'undefined') return null;
+    _buttonImage = new Image();
+    _buttonImage.src = 'button.png';
+    return _buttonImage;
+  }
+
+  // V7.10.1: door_closed.png and door_open.png are the Pico Park door
+  // sprites the Goal already uses (V7.3 ship). GateSprite reuses them
+  // for the Zone 4 doors: closed render for always_false (red tint
+  // overlay) and tally_nonzero locked state; open render when the
+  // tally_nonzero door's predicate flips true. Loaded singletons.
+  var _doorClosedImageForGate = null;
+  var _doorOpenImageForGate   = null;
+  function _ensureDoorClosedImage() {
+    if (_doorClosedImageForGate) return _doorClosedImageForGate;
+    if (typeof Image === 'undefined') return null;
+    _doorClosedImageForGate = new Image();
+    _doorClosedImageForGate.src = 'door_closed.png';
+    return _doorClosedImageForGate;
+  }
+  function _ensureDoorOpenImage() {
+    if (_doorOpenImageForGate) return _doorOpenImageForGate;
+    if (typeof Image === 'undefined') return null;
+    _doorOpenImageForGate = new Image();
+    _doorOpenImageForGate.src = 'door_open.png';
+    return _doorOpenImageForGate;
+  }
+
+  // --- ChoicePadSprite entity (V7.8 mechanic-first / Zone 1) ------------
+
+  /**
+   * Per-player preference recorder. Player walks onto the pad WITH both
+   * marks.sampledA AND marks.sampledB true -> server records
+   * player.marks.choice = this.value. One-shot per instance: a player
+   * who stepped on pad A then walks onto pad B keeps the FIRST choice
+   * (BUILD doc section 4 risk area).
+   *
+   * Rendered on the avatar canvas at zIndex 5 (same band as coins,
+   * key, goal, tally; below avatars at zIndex 10). Three visual states:
+   *
+   *   IDLE                   default; light platform with a centered
+   *                          letter (A or B).
+   *   HOVERED-WITHOUT-MARKS  local player overlaps but lacks one or
+   *                          both sample marks -- pulse alpha as a
+   *                          cue: "sip both cups first".
+   *   RECORDED               local player's marks.choice === this.value
+   *                          (they chose this pad) -- solid color
+   *                          (warm amber for A, cool blue for B) with
+   *                          a checkmark glyph.
+   *
+   * opts:
+   *   x, y           -- canvas pixel coords (top-left of the sprite)
+   *   value          -- 'A' or 'B' (pad's preference value)
+   *   size           -- render size in px (default 28)
+   *   getLocalSprite -- () -> BoardSprite (the local player) for collision
+   *   getLocalMarks  -- () -> { sampledA, sampledB, choice } | null
+   *   onChoose       -- (choicePadId) -> void; fired ONCE on first
+   *                     valid contact (both samples + no prior choice)
+   *
+   * V7.4 _sentCollect Codex MAJOR fold is mirrored as _sentChoice: TTL
+   * 600 ms; clears either via timeout OR when server-confirmed
+   * marks.choice flips to a truthy value.
+   */
+  var CHOICEPAD_COLLISION_X_PX = 22;   // generous X for "walk onto pad"
+  var CHOICEPAD_COLLISION_Y_PX = 28;   // generous Y -- pad sits at floor level, no jump required
+  var CHOICEPAD_DEFAULT_SIZE   = 28;
+  var CHOICEPAD_SENT_TTL_MS    = 600;  // mirror COIN_SENT_TTL_MS / KEY_SENT_TTL_MS
+  var CHOICEPAD_COLOR_A        = '#FFB74D';   // warm amber
+  var CHOICEPAD_COLOR_B        = '#64B5F6';   // cool blue
+  var CHOICEPAD_COLOR_BORDER   = '#BBBBBB';   // light gray idle border
+  var CHOICEPAD_COLOR_BG       = '#FFFFFF';   // white idle interior
+  var CHOICEPAD_COLOR_TEXT     = '#222222';   // dark letter on idle
+  var CHOICEPAD_COLOR_CHECK    = '#FFFFFF';   // checkmark on recorded
+  var CHOICEPAD_PULSE_HZ       = 2.5;         // hover-without-marks pulse
+
+  function ChoicePadSprite(opts) {
+    this.x              = opts.x;
+    this.y              = opts.y;
+    this.value          = (typeof opts.value === 'string') ? opts.value : 'A';
+    this.size           = opts.size || CHOICEPAD_DEFAULT_SIZE;
+    this.id             = (typeof opts.id === 'string') ? opts.id : '';
+    // V7.8.1: Pico Park button.png (loaded by syncLevelChoicePads via
+    // _ensureButtonImage). render() falls back to a colored rect if the
+    // image hasn't loaded yet OR isn't supplied (tests stub).
+    this.images         = Array.isArray(opts.images) ? opts.images : [];
+    this.getLocalSprite = (typeof opts.getLocalSprite === 'function') ? opts.getLocalSprite : function () { return null; };
+    this.getLocalMarks  = (typeof opts.getLocalMarks === 'function')  ? opts.getLocalMarks  : function () { return null; };
+    this.onChoose       = (typeof opts.onChoose === 'function')       ? opts.onChoose       : null;
+    this._sentChoice    = false;
+    this._sentChoiceAt  = 0;     // ms timestamp; gated by CHOICEPAD_SENT_TTL_MS
+    this._pulseT        = 0;     // accumulator for hover pulse
+    // zIndex 5 -- same band as coins/key/goal/tally; below avatars.
+    this.zIndex         = 5;
+    this.engine         = null;
+  }
+
+  // Local-only "we already fired" predicate. Server-confirmed
+  // marks.choice flips _sentChoice false (cleared by syncLevelChoicePads
+  // on the wire transition) so the visual state can switch IDLE ->
+  // RECORDED without keeping the local guard stuck.
+  ChoicePadSprite.prototype._isChoosing = function () {
+    return this._sentChoice === true;
+  };
+
+  // Local player has both samples + has NOT yet recorded a choice.
+  ChoicePadSprite.prototype._canChoose = function () {
+    var marks = this.getLocalMarks();
+    if (!marks) return false;
+    if (!marks.sampledA || !marks.sampledB) return false;
+    if (marks.choice) return false;   // already chose (one-shot per player)
+    return true;
+  };
+
+  // Local player overlaps this pad's pixel band.
+  ChoicePadSprite.prototype._isOverlapping = function () {
+    var me = this.getLocalSprite();
+    if (!me) return false;
+    var myCx  = me.x + (me._spriteSize   || 24) / 2;
+    var myCy  = me.y + (me._spriteHeight || 24) / 2;
+    var padCx = this.x + this.size / 2;
+    var padCy = this.y + this.size / 2;
+    return (Math.abs(myCx - padCx) <= CHOICEPAD_COLLISION_X_PX &&
+            Math.abs(myCy - padCy) <= CHOICEPAD_COLLISION_Y_PX);
+  };
+
+  ChoicePadSprite.prototype.update = function (dt) {
+    this._pulseT += dt;
+    // Already fired (one-shot per instance, TTL-guarded). The TTL is
+    // cleared by syncLevelChoicePads on the server-confirmed marks.choice
+    // transition (mirrors syncLevelCoins / syncLevelKey TTL clear).
+    if (this._isChoosing()) return;
+    var marks = this.getLocalMarks();
+    // No marks at all (player not joined, or wire shape missing) -- no fire.
+    if (!marks) return;
+    // Local player already chose a value (could be this pad's OR the
+    // sibling pad's) -- no fire. One-shot per player.
+    if (marks.choice) return;
+    // Missing at least one sample -- visual cue only (pulse), no fire.
+    if (!marks.sampledA || !marks.sampledB) return;
+    // Not overlapping -- no fire.
+    if (!this._isOverlapping()) return;
+    // Eligible: both samples + no choice yet + overlapping. Fire once.
+    this._sentChoice   = true;
+    this._sentChoiceAt = (typeof Date !== 'undefined' && Date.now) ? Date.now() : 0;
+    if (this.onChoose) {
+      try { this.onChoose(this.id); } catch (_) {}
+    }
+  };
+
+  // Returns 'IDLE' | 'HOVER' | 'RECORDED' for the local player's current
+  // state. RECORDED takes precedence (sticky) once marks.choice matches.
+  // HOVER means overlapping but lacks samples (pulse cue). IDLE is
+  // everything else.
+  ChoicePadSprite.prototype._visualState = function () {
+    var marks = this.getLocalMarks();
+    if (marks && marks.choice === this.value) return 'RECORDED';
+    if (this._isOverlapping() && marks && (!marks.sampledA || !marks.sampledB)) {
+      return 'HOVER';
+    }
+    return 'IDLE';
+  };
+
+  ChoicePadSprite.prototype.render = function (ctx) {
+    if (!ctx) return;
+    // V7.9 side-scroll: world sprite -- translate before drawing; the
+    // ctx.restore() at the end of render() balances the save in
+    // _translateForCamera (matched OUTSIDE the existing prev* save/restore
+    // shape that ChoicePadSprite already uses internally).
+    _translateForCamera(ctx);
+    var visual = this._visualState();
+    var prevAlpha = (typeof ctx.globalAlpha === 'number') ? ctx.globalAlpha : 1;
+    var prevFill  = ctx.fillStyle;
+    var prevStroke = ctx.strokeStyle;
+    var prevLine  = ctx.lineWidth;
+    var prevFont  = ctx.font;
+    var prevAlign = ctx.textAlign;
+    var prevBase  = (typeof ctx.textBaseline === 'string') ? ctx.textBaseline : '';
+
+    // Alpha modulation: HOVER pulses (0.5 .. 1.0) to cue "sip both first".
+    // IDLE + RECORDED render at full alpha.
+    var alpha = 1;
+    if (visual === 'HOVER') {
+      alpha = 0.75 + Math.sin(this._pulseT * CHOICEPAD_PULSE_HZ * Math.PI * 2) * 0.25;
+      if (alpha < 0.5) alpha = 0.5;
+      if (alpha > 1)   alpha = 1;
+    }
+    ctx.globalAlpha = alpha;
+
+    // V7.8.1: prefer the Pico Park button.png. Fallback (image not loaded
+    // or absent in test stubs): the V7.8 colored-rect render so the sprite
+    // is always visible. RECORDED state overlays a colored tint regardless
+    // of which path renders the base.
+    var img = this.images[0];
+    var imgReady = img && img.complete && img.naturalWidth > 0;
+    if (imgReady && typeof ctx.drawImage === 'function') {
+      try { ctx.drawImage(img, this.x, this.y, this.size, this.size); } catch (_) { imgReady = false; }
+    }
+    if (!imgReady) {
+      // Fallback shape render (test stubs without Image / asset miss).
+      var fill = CHOICEPAD_COLOR_BG;
+      var stroke = CHOICEPAD_COLOR_BORDER;
+      if (visual === 'RECORDED') {
+        fill   = (this.value === 'B') ? CHOICEPAD_COLOR_B : CHOICEPAD_COLOR_A;
+        stroke = fill;
+      }
+      if (typeof ctx.fillRect === 'function') {
+        ctx.fillStyle = fill;
+        try { ctx.fillRect(this.x, this.y, this.size, this.size); } catch (_) {}
+      }
+      if (typeof ctx.strokeRect === 'function') {
+        ctx.strokeStyle = stroke;
+        ctx.lineWidth   = 2;
+        try { ctx.strokeRect(this.x, this.y, this.size, this.size); } catch (_) {}
+      }
+    } else if (visual === 'RECORDED' && typeof ctx.fillRect === 'function') {
+      // Image rendered AND player picked this pad -- overlay a translucent
+      // value-colored wash so the chosen pad reads as "yours" at a glance.
+      var prevComposite = (typeof ctx.globalCompositeOperation === 'string') ? ctx.globalCompositeOperation : 'source-over';
+      ctx.fillStyle = (this.value === 'B') ? CHOICEPAD_COLOR_B : CHOICEPAD_COLOR_A;
+      var prevWashAlpha = ctx.globalAlpha;
+      ctx.globalAlpha = Math.min(prevWashAlpha, 0.45);
+      try { ctx.fillRect(this.x, this.y, this.size, this.size); } catch (_) {}
+      ctx.globalAlpha = prevWashAlpha;
+      try { ctx.globalCompositeOperation = prevComposite; } catch (_) {}
+    }
+
+    if (typeof ctx.fillText === 'function') {
+      ctx.font        = 'bold 14px monospace';
+      ctx.textAlign   = 'center';
+      try { ctx.textBaseline = 'middle'; } catch (_) {}
+      ctx.fillStyle   = (visual === 'RECORDED') ? CHOICEPAD_COLOR_CHECK : CHOICEPAD_COLOR_TEXT;
+      // RECORDED uses 'x' as an ASCII-safe checkmark stand-in (BUILD doc
+      // hard constraint: no non-ASCII bytes anywhere). The pad value
+      // letter ('A' / 'B') prints in IDLE / HOVER.
+      var label = (visual === 'RECORDED') ? 'x' : (this.value || '');
+      try {
+        ctx.fillText(label, this.x + this.size / 2, this.y + this.size / 2);
+      } catch (_) {}
+    }
+
+    ctx.globalAlpha = prevAlpha;
+    ctx.fillStyle   = prevFill;
+    ctx.strokeStyle = prevStroke;
+    ctx.lineWidth   = prevLine;
+    ctx.font        = prevFont;
+    ctx.textAlign   = prevAlign;
+    if (prevBase) { try { ctx.textBaseline = prevBase; } catch (_) {} }
+    // V7.9 side-scroll: balance the save in _translateForCamera at the top
+    // of render(). The save/restore wraps the entire pad render so the
+    // camera translate applies to BOTH the image draw and the fallback
+    // shape + letter paths.
+    _restoreFromCamera(ctx);
+  };
+
+  ChoicePadSprite.prototype.getLabelSpec = function () {
+    // Pad paints its own centered letter; engine's label pass should skip.
+    return null;
+  };
+
+  // --- GateSprite entity (V7.10 Zones 2 + 4 / Gate actor) ---------------
+
+  /**
+   * Physical block + walkthrough advance trigger. Three visual variants
+   * keyed off the wire's gate.predicate:
+   *
+   *   always_false               red pillar with the label text + 'X'
+   *                              overlay; on overlap fires onAttempt +
+   *                              shakes; never opens. Tempting wrong-
+   *                              question door (Zone 4 Door 1 + 2).
+   *
+   *   every_player_row_complete  gray scanner with A / B / CHOICE
+   *                              checklist icons; icons turn green as
+   *                              the LOCAL player completes each mark.
+   *                              Fades out when gate.opened flips true.
+   *                              Zone 2 row scanner.
+   *
+   *   tally_nonzero              blue door with the label text. Closed
+   *                              = locked icon; opens with green glow
+   *                              when the class tally has any rows.
+   *                              Walk-through fires onWalkThrough ->
+   *                              phase advances to KEY_HUNT. Zone 4
+   *                              Door 3 / advance gate.
+   *
+   * Collision push-out (CLOSED gate): player overlapping the bbox gets
+   * X-clamped to the gate's left or right edge depending on approach
+   * side. Mirrors recovered KeyGate.ts resolveClosedGateCollision but
+   * X-only (LC floor is fixed Y; no vertical push needed).
+   *
+   * Walk-through detection (OPEN gate): player overlapping the bbox
+   * fires onWalkThrough ONCE per overlap session (TTL guard mirrors
+   * V7.5 KeySprite _sentCollect pattern).
+   *
+   * opts:
+   *   id              gate id (matches wire's gates[i].id)
+   *   x, y            canvas pixel coords (top-left of the sprite)
+   *   value           label text (forwarded from wire's gates[i].label)
+   *   size            render size in px (default 32)
+   *   predicate       'always_false' | 'every_player_row_complete' | 'tally_nonzero'
+   *   getOpened       () -> bool. Wire's gates[i].opened, read each tick.
+   *   getLocalSprite  () -> BoardSprite (the local player) for collision
+   *   getLocalMarks   () -> { sampledA, sampledB, choice } | null. Only
+   *                   used by the every_player_row_complete variant to
+   *                   paint the per-mark checklist icons green.
+   *   onAttempt       () -> void. Fired ONCE per closed-gate overlap
+   *                   session (TTL-guarded, mirrors _sentChoice pattern).
+   *                   Wired by syncLevelGates to send attempt-gate input.
+   *   onWalkThrough   () -> void. Fired ONCE per open-gate overlap
+   *                   session (TTL-guarded). Wired to walk-through-gate.
+   */
+  var GATE_DEFAULT_SIZE        = 32;
+  var GATE_COLLISION_X_PX      = 22;   // generous X bbox (gate is a wall)
+  var GATE_COLLISION_Y_PX      = 32;   // generous Y bbox (gate is full-height)
+  var GATE_SENT_TTL_MS         = 600;  // mirror KEY_SENT_TTL_MS / CHOICEPAD_SENT_TTL_MS
+  var GATE_SHAKE_AMPLITUDE_PX  = 3;    // visible shake amplitude
+  var GATE_SHAKE_HZ            = 12;   // shake oscillation frequency
+  var GATE_SHAKE_DURATION_MS   = 1500; // shake + bubble lifespan per attempt
+  var GATE_COLOR_LOCKED        = '#C62828';  // red (always_false)
+  var GATE_COLOR_SCANNER       = '#9E9E9E';  // gray (every_player_row_complete)
+  var GATE_COLOR_DOOR_CLOSED   = '#1976D2';  // blue (tally_nonzero closed)
+  var GATE_COLOR_DOOR_OPEN     = '#43A047';  // green (tally_nonzero open glow)
+  var GATE_COLOR_CHECK_DONE    = '#66BB6A';  // checklist icon -- mark complete
+  var GATE_COLOR_CHECK_TODO    = '#BBBBBB';  // checklist icon -- mark missing
+  var GATE_COLOR_BORDER        = '#222222';
+  var GATE_COLOR_TEXT          = '#FFFFFF';
+  var GATE_COLOR_TEXT_DARK     = '#222222';
+
+  function GateSprite(opts) {
+    this.id             = (typeof opts.id === 'string') ? opts.id : '';
+    this.x              = opts.x;
+    this.y              = opts.y;
+    this.value          = (typeof opts.value === 'string') ? opts.value : '';
+    this.size           = opts.size || GATE_DEFAULT_SIZE;
+    this.predicate      = (typeof opts.predicate === 'string') ? opts.predicate : 'always_false';
+    // V7.10.1: optional Pico Park door images for the door-style
+    // variants (always_false + tally_nonzero). Wired by syncLevelGates
+    // via _ensureDoorClosedImage / _ensureDoorOpenImage. Falls back to
+    // the V7.10.0 procedural shape render when images are absent /
+    // not yet loaded / on jsdom test stubs.
+    this.imageClosed    = (opts && opts.imageClosed) || null;
+    this.imageOpen      = (opts && opts.imageOpen) || null;
+    this.getOpened      = (typeof opts.getOpened === 'function') ? opts.getOpened : function () { return false; };
+    this.getLocalSprite = (typeof opts.getLocalSprite === 'function') ? opts.getLocalSprite : function () { return null; };
+    this.getLocalMarks  = (typeof opts.getLocalMarks === 'function')  ? opts.getLocalMarks  : function () { return null; };
+    this.onAttempt      = (typeof opts.onAttempt === 'function')      ? opts.onAttempt      : null;
+    this.onWalkThrough  = (typeof opts.onWalkThrough === 'function')  ? opts.onWalkThrough  : null;
+    // _sentAttempt / _sentWalkThrough: single-fire guards mirroring
+    // KeySprite _sentCollect / ChoicePadSprite _sentChoice (TTL-cleared
+    // by syncLevelGates each tick + naturally by overlap exit).
+    this._sentAttempt        = false;
+    this._sentAttemptAt      = 0;
+    this._sentWalkThrough    = false;
+    this._sentWalkThroughAt  = 0;
+    // _shakeStartedAt: when the most recent attempt fired -- drives the
+    // sin-based shake amplitude in render(). Cleared after duration.
+    this._shakeStartedAt     = 0;
+    // _bobT accumulates dt for the open-door pulse glow.
+    this._bobT               = 0;
+    // zIndex 5 -- same band as coins / key / goal / tally / pads; below avatars.
+    this.zIndex              = 5;
+    this.engine              = null;
+  }
+
+  // _visualState() returns one of:
+  //   'OPEN'          gate.opened === true (any predicate). For the
+  //                   scanner this means "fade out + walk-through-able".
+  //                   For tally_nonzero this means "green glow door".
+  //                   For always_false this is never returned (predicate
+  //                   never opens), but the helper is defensive.
+  //   'CLOSED-LOCKED' always_false predicate (red pillar, never opens).
+  //   'CLOSED-SCAN'   every_player_row_complete predicate while closed
+  //                   (gray scanner with per-mark checklist).
+  //   'CLOSED-DOOR'   tally_nonzero predicate while closed (blue door
+  //                   with locked icon).
+  GateSprite.prototype._visualState = function () {
+    if (this.getOpened()) return 'OPEN';
+    if (this.predicate === 'every_player_row_complete') return 'CLOSED-SCAN';
+    if (this.predicate === 'tally_nonzero')             return 'CLOSED-DOOR';
+    return 'CLOSED-LOCKED';
+  };
+
+  // _isOverlapping(): local player's X center within the gate's X bbox.
+  //
+  // V7.10.1 fix: dropped the Y check. Gates are FULL-HEIGHT WALLS --
+  // a player who walks INTO a gate's x band (even on the floor below
+  // the gate's visual sprite, or at jump peak above it) is blocked.
+  // The V7.10.0 X+Y check meant a scanner gate at chip y=3 (level
+  // pixel 30) was unreachable from the floor (player y~146): the
+  // gate sprite floated visually but never collided. User smoke
+  // ("the avatar slides right past the scanner"): exactly this bug.
+  //
+  // Cooperative pedagogy intent: the scanner is a wall; you can't
+  // walk through OR jump over it. X-only is the correct primitive.
+  GateSprite.prototype._isOverlapping = function () {
+    var me = this.getLocalSprite();
+    if (!me) return false;
+    var myCx   = me.x + (me._spriteSize || 24) / 2;
+    var gateCx = this.x + this.size / 2;
+    return Math.abs(myCx - gateCx) <= GATE_COLLISION_X_PX;
+  };
+
+  // Collision push-out: when the local player's bbox overlaps a CLOSED
+  // gate, clamp their x to the gate's near edge (mutates me.x in place,
+  // mirrors recovered KeyGate.ts resolveClosedGateCollision math). X-only
+  // since LC floor is fixed Y. Approach direction inferred from current
+  // player center vs. gate center (left -> push back left; right ->
+  // push back right).
+  GateSprite.prototype._resolveClosedCollision = function () {
+    var me = this.getLocalSprite();
+    if (!me) return;
+    if (!this._isOverlapping()) return;
+    var spriteW = me._spriteSize || 24;
+    var myCx    = me.x + spriteW / 2;
+    var gateCx  = this.x + this.size / 2;
+    if (myCx <= gateCx) {
+      // Approached from the left -- push player back to gate's left edge.
+      me.x = this.x - spriteW;
+    } else {
+      // Approached from the right -- push player back to gate's right edge.
+      me.x = this.x + this.size;
+    }
+  };
+
+  GateSprite.prototype.update = function (dt) {
+    this._bobT += dt;
+    var opened = this.getOpened();
+    if (!opened) {
+      // CLOSED branch: snapshot overlap BEFORE push-out (so we can fire
+      // onAttempt on the contact tick), then push the player back to
+      // the gate's near edge. The TTL is cleared by syncLevelGates each
+      // tick when the player has stepped off the gate (no overlap) so
+      // a second approach re-fires.
+      var wasOverlapping = this._isOverlapping();
+      if (wasOverlapping) this._resolveClosedCollision();
+      if (this._sentAttempt) return;
+      if (!wasOverlapping) return;
+      this._sentAttempt   = true;
+      this._sentAttemptAt = (typeof Date !== 'undefined' && Date.now) ? Date.now() : 0;
+      this._shakeStartedAt = this._sentAttemptAt;
+      if (this.onAttempt) {
+        try { this.onAttempt(); } catch (_) {}
+      }
+      return;
+    }
+    // OPEN branch: fire onWalkThrough ONCE per overlap session. Mirrors
+    // KeySprite _sentCollect TTL: the guard prevents per-tick spam while
+    // the player stands on the open gate.
+    if (this._sentWalkThrough) return;
+    if (!this._isOverlapping()) return;
+    this._sentWalkThrough    = true;
+    this._sentWalkThroughAt  = (typeof Date !== 'undefined' && Date.now) ? Date.now() : 0;
+    if (this.onWalkThrough) {
+      try { this.onWalkThrough(); } catch (_) {}
+    }
+  };
+
+  // _shakeOffsetX(): computes the per-frame x jitter while a recent
+  // attempt is within GATE_SHAKE_DURATION_MS. Decays linearly to 0 as
+  // the duration elapses. Returns 0 outside the window.
+  GateSprite.prototype._shakeOffsetX = function () {
+    if (!this._shakeStartedAt) return 0;
+    var nowMs = (typeof Date !== 'undefined' && Date.now) ? Date.now() : 0;
+    var elapsed = nowMs - this._shakeStartedAt;
+    if (elapsed >= GATE_SHAKE_DURATION_MS) return 0;
+    var decay = 1 - (elapsed / GATE_SHAKE_DURATION_MS);
+    return Math.sin(elapsed / 1000 * GATE_SHAKE_HZ * Math.PI * 2) * GATE_SHAKE_AMPLITUDE_PX * decay;
+  };
+
+  GateSprite.prototype.render = function (ctx) {
+    if (!ctx) return;
+    // V7.9 side-scroll: world sprite -- translate + restore wraps the
+    // entire render so the gate paints in level-coord space (camera
+    // helper handles the per-frame scroll / fit-to-width).
+    _translateForCamera(ctx);
+
+    var visual = this._visualState();
+    var prevAlpha   = (typeof ctx.globalAlpha === 'number') ? ctx.globalAlpha : 1;
+    var prevFill    = ctx.fillStyle;
+    var prevStroke  = ctx.strokeStyle;
+    var prevLine    = ctx.lineWidth;
+    var prevFont    = ctx.font;
+    var prevAlign   = ctx.textAlign;
+    var prevBase    = (typeof ctx.textBaseline === 'string') ? ctx.textBaseline : '';
+
+    var shakeX = (visual === 'CLOSED-LOCKED') ? this._shakeOffsetX() : 0;
+    var rectX  = this.x + shakeX;
+    var rectY  = this.y;
+    var rectW  = this.size;
+    var rectH  = this.size;
+
+    // V7.10.1: prefer Pico Park door art for door-style variants.
+    // OPEN uses door_open.png; CLOSED-LOCKED + CLOSED-DOOR use
+    // door_closed.png with a tint overlay distinguishing locked vs
+    // openable. Fallback to V7.10.0 procedural shape render if the
+    // image isn't loaded yet OR not supplied (jsdom test stubs).
+    var imgOpen   = this.imageOpen;
+    var imgClosed = this.imageClosed;
+    var imgOpenReady   = imgOpen   && imgOpen.complete   && imgOpen.naturalWidth   > 0;
+    var imgClosedReady = imgClosed && imgClosed.complete && imgClosed.naturalWidth > 0;
+
+    // OPEN gates fade out (scanner) or glow green (door). Always_false
+    // can't reach OPEN, but defensive paint as a green glow if it does.
+    if (visual === 'OPEN') {
+      if (imgOpenReady && typeof ctx.drawImage === 'function') {
+        ctx.globalAlpha = 1;
+        try { ctx.drawImage(imgOpen, rectX, rectY, rectW, rectH); } catch (_) {}
+        // Pulse a thin green border to draw the eye through the open door.
+        var pulseImg = 0.7 + 0.3 * Math.sin(this._bobT * 4);
+        ctx.globalAlpha = pulseImg;
+        ctx.strokeStyle = GATE_COLOR_DOOR_OPEN;
+        ctx.lineWidth   = 2;
+        if (typeof ctx.strokeRect === 'function') {
+          try { ctx.strokeRect(rectX, rectY, rectW, rectH); } catch (_) {}
+        }
+      } else {
+        // Fallback: alpha-faded green rect.
+        ctx.globalAlpha = 0.35;
+        ctx.fillStyle   = GATE_COLOR_DOOR_OPEN;
+        if (typeof ctx.fillRect === 'function') {
+          try { ctx.fillRect(rectX, rectY, rectW, rectH); } catch (_) {}
+        }
+        var pulse = 0.7 + 0.3 * Math.sin(this._bobT * 4);
+        ctx.globalAlpha = pulse;
+        ctx.strokeStyle = GATE_COLOR_DOOR_OPEN;
+        ctx.lineWidth   = 2;
+        if (typeof ctx.strokeRect === 'function') {
+          try { ctx.strokeRect(rectX, rectY, rectW, rectH); } catch (_) {}
+        }
+        if (typeof ctx.fillText === 'function') {
+          ctx.globalAlpha = 1;
+          ctx.font        = 'bold 14px monospace';
+          ctx.textAlign   = 'center';
+          try { ctx.textBaseline = 'middle'; } catch (_) {}
+          ctx.fillStyle   = GATE_COLOR_DOOR_OPEN;
+          try { ctx.fillText('+', rectX + rectW / 2, rectY + rectH / 2); } catch (_) {}
+        }
+      }
+    } else if (visual === 'CLOSED-LOCKED') {
+      // Pico Park door + RED tint overlay + 'X' (perma-locked
+      // wrong-question door).
+      if (imgClosedReady && typeof ctx.drawImage === 'function') {
+        ctx.globalAlpha = 1;
+        try { ctx.drawImage(imgClosed, rectX, rectY, rectW, rectH); } catch (_) {}
+        // Red tint overlay so always_false reads as "blocked / wrong"
+        // distinct from the openable tally_nonzero door.
+        ctx.globalAlpha = 0.45;
+        ctx.fillStyle   = GATE_COLOR_LOCKED;
+        if (typeof ctx.fillRect === 'function') {
+          try { ctx.fillRect(rectX, rectY, rectW, rectH); } catch (_) {}
+        }
+      } else {
+        // Fallback shape.
+        ctx.globalAlpha = 1;
+        ctx.fillStyle   = GATE_COLOR_LOCKED;
+        if (typeof ctx.fillRect === 'function') {
+          try { ctx.fillRect(rectX, rectY, rectW, rectH); } catch (_) {}
+        }
+        ctx.strokeStyle = GATE_COLOR_BORDER;
+        ctx.lineWidth   = 2;
+        if (typeof ctx.strokeRect === 'function') {
+          try { ctx.strokeRect(rectX, rectY, rectW, rectH); } catch (_) {}
+        }
+      }
+      // 'X' overlay centered (over the image OR the fallback).
+      if (typeof ctx.fillText === 'function') {
+        ctx.globalAlpha = 1;
+        ctx.font        = 'bold 18px monospace';
+        ctx.textAlign   = 'center';
+        try { ctx.textBaseline = 'middle'; } catch (_) {}
+        ctx.fillStyle   = GATE_COLOR_TEXT;
+        try { ctx.fillText('X', rectX + rectW / 2, rectY + rectH / 2); } catch (_) {}
+      }
+    } else if (visual === 'CLOSED-SCAN') {
+      // Gray scanner gate (every_player_row_complete) with 3-icon
+      // checklist (A / B / CHOICE). Icons turn green as the LOCAL
+      // player completes the corresponding mark.
+      ctx.globalAlpha = 1;
+      ctx.fillStyle   = GATE_COLOR_SCANNER;
+      if (typeof ctx.fillRect === 'function') {
+        try { ctx.fillRect(rectX, rectY, rectW, rectH); } catch (_) {}
+      }
+      ctx.strokeStyle = GATE_COLOR_BORDER;
+      ctx.lineWidth   = 2;
+      if (typeof ctx.strokeRect === 'function') {
+        try { ctx.strokeRect(rectX, rectY, rectW, rectH); } catch (_) {}
+      }
+      // 3 mark-state indicators stacked vertically -- top: A, mid: B,
+      // bottom: CHOICE. Each is a tiny filled rect + letter glyph.
+      var marks = this.getLocalMarks() || {};
+      var iconLabels = ['A', 'B', 'C'];           // 'C' as ASCII stand-in for CHOICE
+      var iconStates = [
+        !!marks.sampledA,
+        !!marks.sampledB,
+        !!marks.choice
+      ];
+      var iconSize = Math.max(6, Math.floor(rectW / 4));
+      var iconGap  = 2;
+      var iconBlockH = iconSize * 3 + iconGap * 2;
+      var iconStartY = rectY + (rectH - iconBlockH) / 2;
+      var iconX      = rectX + (rectW - iconSize) / 2;
+      for (var i = 0; i < 3; i++) {
+        var iy = iconStartY + i * (iconSize + iconGap);
+        ctx.fillStyle = iconStates[i] ? GATE_COLOR_CHECK_DONE : GATE_COLOR_CHECK_TODO;
+        if (typeof ctx.fillRect === 'function') {
+          try { ctx.fillRect(iconX, iy, iconSize, iconSize); } catch (_) {}
+        }
+        if (typeof ctx.fillText === 'function') {
+          ctx.font        = 'bold 8px monospace';
+          ctx.textAlign   = 'center';
+          try { ctx.textBaseline = 'middle'; } catch (_) {}
+          ctx.fillStyle   = GATE_COLOR_TEXT_DARK;
+          try { ctx.fillText(iconLabels[i], iconX + iconSize / 2, iy + iconSize / 2); } catch (_) {}
+        }
+      }
+    } else {
+      // CLOSED-DOOR (tally_nonzero, locked). Pico Park door image +
+      // 'L' (lock) glyph. No tint -- this door can open; players read
+      // it as "the openable one" once the data has any rows.
+      if (imgClosedReady && typeof ctx.drawImage === 'function') {
+        ctx.globalAlpha = 1;
+        try { ctx.drawImage(imgClosed, rectX, rectY, rectW, rectH); } catch (_) {}
+      } else {
+        ctx.globalAlpha = 1;
+        ctx.fillStyle   = GATE_COLOR_DOOR_CLOSED;
+        if (typeof ctx.fillRect === 'function') {
+          try { ctx.fillRect(rectX, rectY, rectW, rectH); } catch (_) {}
+        }
+        ctx.strokeStyle = GATE_COLOR_BORDER;
+        ctx.lineWidth   = 2;
+        if (typeof ctx.strokeRect === 'function') {
+          try { ctx.strokeRect(rectX, rectY, rectW, rectH); } catch (_) {}
+        }
+      }
+      if (typeof ctx.fillText === 'function') {
+        ctx.globalAlpha = 1;
+        ctx.font        = 'bold 18px monospace';
+        ctx.textAlign   = 'center';
+        try { ctx.textBaseline = 'middle'; } catch (_) {}
+        ctx.fillStyle   = GATE_COLOR_TEXT;
+        // 'L' as ASCII-safe stand-in for a lock glyph.
+        try { ctx.fillText('L', rectX + rectW / 2, rectY + rectH / 2); } catch (_) {}
+      }
+    }
+
+    ctx.globalAlpha = prevAlpha;
+    ctx.fillStyle   = prevFill;
+    ctx.strokeStyle = prevStroke;
+    ctx.lineWidth   = prevLine;
+    ctx.font        = prevFont;
+    ctx.textAlign   = prevAlign;
+    if (prevBase) { try { ctx.textBaseline = prevBase; } catch (_) {} }
+    // V7.9 side-scroll: balance the save in _translateForCamera at top.
+    _restoreFromCamera(ctx);
+  };
+
+  GateSprite.prototype.getLabelSpec = function () {
+    // Gate's label is the wire's gate.label text, projected to screen
+    // space so it rides over the rendered sprite. Skipped while the
+    // gate is OPEN (the door has done its job; label would clutter the
+    // walk-through moment).
+    if (this.getOpened()) return null;
+    if (!this.value) return null;
+    var cx   = _projectWorldX(this.x) + this.size / 2;
+    var topY = this.y - 4;
+    return { text: this.value, x: cx, y: topY, isGold: false };
+  };
+
+  // --- TallyChuteSprite entity (V7.11 Zone 3 / TallyChute actor) --------
+
+  /**
+   * Vertical stacked-block column visualizing per-label sip counts.
+   * Pure display -- NOT a gate; players walk through it without
+   * collision. Reads its count via the getCount closure (which walks
+   * state.activity.state.tally.sips[label]); each tick rebuilds the
+   * stack from scratch. Mirrors KeySprite singleton lifecycle shape
+   * but with no collision / no onCollect / no TTL guard.
+   *
+   * Visual (per BUILD doc section 5):
+   *   - Vertical column rooted at (x, y) (floor anchor at sprite top-left).
+   *   - Each block is TALLYCHUTE_BLOCK_H px tall, stacked bottom-up.
+   *   - Count > 12 -> render 12 blocks + "12+" overflow indicator.
+   *   - Label glyph ("A" / "B") above the top of the stack.
+   *   - Count number above the label.
+   *   - Color per label: A = warm amber (matches ChoicePad-A);
+   *     B = cool blue (matches ChoicePad-B); any other letter falls
+   *     back to a neutral gray so future drinks render without crash.
+   *
+   * opts:
+   *   id        chute id (matches wire's tallyChutes[i].id)
+   *   x, y      canvas pixel coords (top-left of the sprite footprint)
+   *   size      render footprint width in px (default 28). Y stack
+   *             extends UPWARD from (y + size); count rows live above.
+   *   label     drink letter ('A', 'B', ...) bound to the chute
+   *   getCount  () -> number; reads state.tally.sips[label] each tick
+   */
+  var TALLYCHUTE_DEFAULT_SIZE = 28;
+  var TALLYCHUTE_BLOCK_H      = 6;       // px per stacked block
+  var TALLYCHUTE_BLOCK_GAP    = 1;       // px gap between blocks
+  var TALLYCHUTE_MAX_BLOCKS   = 12;      // overflow shows "12+" instead
+  var TALLYCHUTE_COLOR_A      = '#FFB74D';   // warm amber (mirror CHOICEPAD_COLOR_A)
+  var TALLYCHUTE_COLOR_B      = '#64B5F6';   // cool blue  (mirror CHOICEPAD_COLOR_B)
+  var TALLYCHUTE_COLOR_OTHER  = '#BBBBBB';   // neutral gray fallback
+  var TALLYCHUTE_COLOR_BORDER = '#222222';
+  var TALLYCHUTE_COLOR_LABEL  = '#FFFFFF';
+  var TALLYCHUTE_COLOR_COUNT  = '#FFD700';   // gold count number reads as "score"
+  var TALLYCHUTE_LABEL_FONT   = 'bold 10px monospace';
+  var TALLYCHUTE_COUNT_FONT   = 'bold 10px monospace';
+
+  function TallyChuteSprite(opts) {
+    this.id       = (typeof opts.id === 'string') ? opts.id : '';
+    this.x        = opts.x;
+    this.y        = opts.y;
+    this.size     = opts.size || TALLYCHUTE_DEFAULT_SIZE;
+    this.label    = (typeof opts.label === 'string') ? opts.label : 'A';
+    this.getCount = (typeof opts.getCount === 'function') ? opts.getCount : function () { return 0; };
+    // _bobT accumulates dt -- reserved for future subtle pulse on count
+    // increment. Not driving any animation in V7.11 MVP, but kept so the
+    // tick path matches the other world sprites (no API churn later).
+    this._bobT    = 0;
+    // zIndex 5 -- same band as coins / key / goal / tally / pads / gates; below avatars.
+    this.zIndex   = 5;
+    this.engine   = null;
+  }
+
+  TallyChuteSprite.prototype._colorForLabel = function () {
+    if (this.label === 'A') return TALLYCHUTE_COLOR_A;
+    if (this.label === 'B') return TALLYCHUTE_COLOR_B;
+    return TALLYCHUTE_COLOR_OTHER;
+  };
+
+  TallyChuteSprite.prototype.update = function (dt) {
+    this._bobT += dt;
+    // No collision / no onCollect. Pure visualization -- the count is
+    // pulled from the wire each render(). update() exists so the engine
+    // can tick the sprite alongside the others (uniform contract).
+  };
+
+  TallyChuteSprite.prototype.render = function (ctx) {
+    if (!ctx) return;
+    // V7.9 side-scroll: world sprite -- translate + restore wraps the
+    // entire render so the column paints in level-coord space.
+    _translateForCamera(ctx);
+
+    var prevAlpha   = (typeof ctx.globalAlpha === 'number') ? ctx.globalAlpha : 1;
+    var prevFill    = ctx.fillStyle;
+    var prevStroke  = ctx.strokeStyle;
+    var prevLine    = ctx.lineWidth;
+    var prevFont    = ctx.font;
+    var prevAlign   = ctx.textAlign;
+    var prevBase    = (typeof ctx.textBaseline === 'string') ? ctx.textBaseline : '';
+
+    var rawCount = 0;
+    try { rawCount = this.getCount() || 0; } catch (_) { rawCount = 0; }
+    if (typeof rawCount !== 'number' || !isFinite(rawCount) || rawCount < 0) rawCount = 0;
+    rawCount = Math.floor(rawCount);
+
+    var blocksToDraw = Math.min(rawCount, TALLYCHUTE_MAX_BLOCKS);
+    var overflow     = rawCount > TALLYCHUTE_MAX_BLOCKS;
+
+    var color       = this._colorForLabel();
+    var blockWidth  = this.size;
+    // Floor anchor: stack bottom sits at (y + size). Blocks march UP.
+    var floorY      = this.y + this.size;
+
+    ctx.globalAlpha = 1;
+    ctx.fillStyle   = color;
+    ctx.strokeStyle = TALLYCHUTE_COLOR_BORDER;
+    ctx.lineWidth   = 1;
+
+    // Draw the stacked blocks bottom-up.
+    for (var i = 0; i < blocksToDraw; i++) {
+      var blockY = floorY - (i + 1) * TALLYCHUTE_BLOCK_H - i * TALLYCHUTE_BLOCK_GAP;
+      if (typeof ctx.fillRect === 'function') {
+        try { ctx.fillRect(this.x, blockY, blockWidth, TALLYCHUTE_BLOCK_H); } catch (_) {}
+      }
+      if (typeof ctx.strokeRect === 'function') {
+        try { ctx.strokeRect(this.x, blockY, blockWidth, TALLYCHUTE_BLOCK_H); } catch (_) {}
+      }
+    }
+
+    // Top-of-stack y -- where the label + count number live.
+    var topOfStackY;
+    if (blocksToDraw > 0) {
+      topOfStackY = floorY - blocksToDraw * TALLYCHUTE_BLOCK_H - (blocksToDraw - 1) * TALLYCHUTE_BLOCK_GAP;
+    } else {
+      // Empty column: anchor labels at the floor.
+      topOfStackY = floorY;
+    }
+
+    var centerX = this.x + blockWidth / 2;
+
+    if (typeof ctx.fillText === 'function') {
+      ctx.textAlign = 'center';
+      try { ctx.textBaseline = 'middle'; } catch (_) {}
+
+      // Label glyph (A / B) just above the stack top.
+      ctx.font      = TALLYCHUTE_LABEL_FONT;
+      ctx.fillStyle = TALLYCHUTE_COLOR_LABEL;
+      var labelY    = topOfStackY - 8;
+      try { ctx.fillText(this.label || '', centerX, labelY); } catch (_) {}
+
+      // Count number (or overflow indicator) above the label.
+      ctx.font      = TALLYCHUTE_COUNT_FONT;
+      ctx.fillStyle = TALLYCHUTE_COLOR_COUNT;
+      var countText = overflow ? '12+' : String(rawCount);
+      var countY    = labelY - 11;
+      try { ctx.fillText(countText, centerX, countY); } catch (_) {}
+    }
+
+    ctx.globalAlpha = prevAlpha;
+    ctx.fillStyle   = prevFill;
+    ctx.strokeStyle = prevStroke;
+    ctx.lineWidth   = prevLine;
+    ctx.font        = prevFont;
+    ctx.textAlign   = prevAlign;
+    if (prevBase) { try { ctx.textBaseline = prevBase; } catch (_) {} }
+
+    // V7.9 side-scroll: balance the save in _translateForCamera at top.
+    _restoreFromCamera(ctx);
+  };
+
+  TallyChuteSprite.prototype.getLabelSpec = function () {
+    // Chute paints its own label + count inside render(); engine's label
+    // pass should skip it (mirrors TallyDisplay / ChoicePadSprite).
+    return null;
+  };
+
+  // --- ContextSlotSprite entity (V7.14 Zone 5 / ContextSlot actor) ------
+
+  /**
+   * Walk-past-to-light slot embedded in the bridge. One of N labeled
+   * cells (typically 3: QUESTION / VARIABLE / CONTEXT) that students
+   * physically walk through to "read" the statistical claim. Server
+   * flips slot.lit on any-player overlap; client just renders the
+   * UNLIT / LIT state. No collision push-out; players walk through.
+   *
+   * Visual (per BUILD doc section 9):
+   *   - UNLIT: gray rect with label text below. When the LOCAL player
+   *     is near (overlapping), the rect pulses alpha as a "walk to me"
+   *     cue. The label sits below the rect so it doesn't overlap.
+   *   - LIT: green rect with a "+" ASCII checkmark glyph centered.
+   *     The label is still painted (so the student remembers what
+   *     claim component they just lit).
+   *
+   * opts:
+   *   id              slot id (matches wire's contextSlots[i].id)
+   *   x, y            canvas pixel coords (top-left of the sprite footprint)
+   *   label           full label text from the wire (e.g. "QUESTION: ...")
+   *   size            render footprint width in px (default 32)
+   *   getLit          () -> boolean; reads slot.lit from the wire each tick
+   *   getLocalSprite  () -> BoardSprite (the local player) for overlap pulse
+   */
+  var CONTEXTSLOT_DEFAULT_SIZE     = 32;
+  var CONTEXTSLOT_OVERLAP_PX       = 24;     // local-player overlap radius for pulse cue
+  var CONTEXTSLOT_PULSE_HZ         = 3;      // 3 Hz alpha pulse when near (gentle, not panicky)
+  var CONTEXTSLOT_COLOR_UNLIT      = '#9E9E9E';   // neutral gray (mirrors GATE_COLOR_SCANNER)
+  var CONTEXTSLOT_COLOR_LIT        = '#43A047';   // green (mirrors GATE_COLOR_DOOR_OPEN)
+  var CONTEXTSLOT_COLOR_BORDER     = '#222222';
+  var CONTEXTSLOT_COLOR_CHECK      = '#FFFFFF';
+  var CONTEXTSLOT_COLOR_LABEL      = '#FFFFFF';
+  var CONTEXTSLOT_LABEL_FONT       = 'bold 9px monospace';
+  var CONTEXTSLOT_CHECK_FONT       = 'bold 18px monospace';
+
+  function ContextSlotSprite(opts) {
+    this.id             = (typeof opts.id === 'string') ? opts.id : '';
+    this.x              = opts.x;
+    this.y              = opts.y;
+    this.label          = (typeof opts.label === 'string') ? opts.label : '';
+    this.size           = opts.size || CONTEXTSLOT_DEFAULT_SIZE;
+    this.getLit         = (typeof opts.getLit === 'function') ? opts.getLit : function () { return false; };
+    this.getLocalSprite = (typeof opts.getLocalSprite === 'function') ? opts.getLocalSprite : function () { return null; };
+    // _bobT accumulates dt for the UNLIT "walk to me" pulse (mirrors
+    // GateSprite / TallyChuteSprite pattern).
+    this._bobT          = 0;
+    // zIndex 5 -- same band as coins / key / goal / tally / pads / gates / chutes; below avatars.
+    this.zIndex         = 5;
+    this.engine         = null;
+  }
+
+  // _visualState() returns 'LIT' or 'UNLIT'. One-way per server
+  // semantics (slot.lit only ever flips false -> true), but the client
+  // re-reads every render so a level reset / hot-swap cleanly redraws.
+  ContextSlotSprite.prototype._visualState = function () {
+    return this.getLit() ? 'LIT' : 'UNLIT';
+  };
+
+  // _isLocalPlayerNear(): local player's X center within the slot's
+  // overlap radius. Used only as the "walk to me" pulse cue; server
+  // owns the actual lit transition.
+  ContextSlotSprite.prototype._isLocalPlayerNear = function () {
+    var me = this.getLocalSprite();
+    if (!me) return false;
+    var myCx   = me.x + (me._spriteSize || 24) / 2;
+    var slotCx = this.x + this.size / 2;
+    return Math.abs(myCx - slotCx) <= CONTEXTSLOT_OVERLAP_PX;
+  };
+
+  ContextSlotSprite.prototype.update = function (dt) {
+    this._bobT += dt;
+    // No collision / no callback. Server lights the slot via per-tick
+    // overlap evaluation; client just animates the pulse + re-renders.
+  };
+
+  ContextSlotSprite.prototype.render = function (ctx) {
+    if (!ctx) return;
+    // V7.9 side-scroll: world sprite -- translate + restore wraps the
+    // entire render so the slot paints in level-coord space (camera
+    // helper handles the per-frame scroll / fit-to-width).
+    _translateForCamera(ctx);
+
+    var prevAlpha   = (typeof ctx.globalAlpha === 'number') ? ctx.globalAlpha : 1;
+    var prevFill    = ctx.fillStyle;
+    var prevStroke  = ctx.strokeStyle;
+    var prevLine    = ctx.lineWidth;
+    var prevFont    = ctx.font;
+    var prevAlign   = ctx.textAlign;
+    var prevBase    = (typeof ctx.textBaseline === 'string') ? ctx.textBaseline : '';
+
+    var visual = this._visualState();
+    var rectX  = this.x;
+    var rectY  = this.y;
+    var rectW  = this.size;
+    var rectH  = this.size;
+
+    if (visual === 'LIT') {
+      // Solid green rect (claim component acknowledged).
+      ctx.globalAlpha = 1;
+      ctx.fillStyle   = CONTEXTSLOT_COLOR_LIT;
+      if (typeof ctx.fillRect === 'function') {
+        try { ctx.fillRect(rectX, rectY, rectW, rectH); } catch (_) {}
+      }
+      ctx.strokeStyle = CONTEXTSLOT_COLOR_BORDER;
+      ctx.lineWidth   = 2;
+      if (typeof ctx.strokeRect === 'function') {
+        try { ctx.strokeRect(rectX, rectY, rectW, rectH); } catch (_) {}
+      }
+      // "+" ASCII checkmark glyph centered in the rect.
+      if (typeof ctx.fillText === 'function') {
+        ctx.font        = CONTEXTSLOT_CHECK_FONT;
+        ctx.textAlign   = 'center';
+        try { ctx.textBaseline = 'middle'; } catch (_) {}
+        ctx.fillStyle   = CONTEXTSLOT_COLOR_CHECK;
+        try { ctx.fillText('+', rectX + rectW / 2, rectY + rectH / 2); } catch (_) {}
+      }
+    } else {
+      // UNLIT: gray rect; pulse alpha when local player is near as a
+      // "walk through me to light" cue. Far-away slots paint at flat
+      // alpha so the bridge reads as a row of cells, not a flashing
+      // disco floor.
+      var nearAlpha = 1;
+      if (this._isLocalPlayerNear()) {
+        // 0.55 -> 1.0 pulse so the cue is visible but not jarring.
+        nearAlpha = 0.55 + 0.45 * (0.5 + 0.5 * Math.sin(this._bobT * CONTEXTSLOT_PULSE_HZ * Math.PI * 2));
+      }
+      ctx.globalAlpha = nearAlpha;
+      ctx.fillStyle   = CONTEXTSLOT_COLOR_UNLIT;
+      if (typeof ctx.fillRect === 'function') {
+        try { ctx.fillRect(rectX, rectY, rectW, rectH); } catch (_) {}
+      }
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = CONTEXTSLOT_COLOR_BORDER;
+      ctx.lineWidth   = 2;
+      if (typeof ctx.strokeRect === 'function') {
+        try { ctx.strokeRect(rectX, rectY, rectW, rectH); } catch (_) {}
+      }
+    }
+
+    // Label below the rect (both visual states). The label is the
+    // FULL "QUESTION: Which cup did students prefer?" string from the
+    // wire; the engine wraps long labels by clipping.
+    if (this.label && typeof ctx.fillText === 'function') {
+      ctx.globalAlpha = 1;
+      ctx.font        = CONTEXTSLOT_LABEL_FONT;
+      ctx.textAlign   = 'center';
+      try { ctx.textBaseline = 'top'; } catch (_) {}
+      ctx.fillStyle   = CONTEXTSLOT_COLOR_LABEL;
+      var labelX = rectX + rectW / 2;
+      var labelY = rectY + rectH + 2;
+      try { ctx.fillText(this.label, labelX, labelY); } catch (_) {}
+    }
+
+    ctx.globalAlpha = prevAlpha;
+    ctx.fillStyle   = prevFill;
+    ctx.strokeStyle = prevStroke;
+    ctx.lineWidth   = prevLine;
+    ctx.font        = prevFont;
+    ctx.textAlign   = prevAlign;
+    if (prevBase) { try { ctx.textBaseline = prevBase; } catch (_) {} }
+    // V7.9 side-scroll: balance the save in _translateForCamera at top.
+    _restoreFromCamera(ctx);
+  };
+
+  ContextSlotSprite.prototype.getLabelSpec = function () {
+    // Slot paints its own label inside render(); engine's label pass
+    // should skip it (mirrors TallyChuteSprite / TallyDisplay).
+    return null;
+  };
+
+  // --- GoalPadSprite entity (V7.14 Zone 5 / GoalPad actor) --------------
+
+  /**
+   * Whole-class presence pad at the far end of the level. Replaces the
+   * V7.5 legacy GoalSprite for V7.14+ levels: instead of a single
+   * player touching a door to fire LEVEL_CLEARED, ALL online players
+   * must stand on the GoalPad simultaneously for `triggerMs` (default
+   * 1500 ms). If anyone steps off, the timer resets server-side and
+   * the ring snaps back to empty.
+   *
+   * Visual (per BUILD doc section 10):
+   *   - DORMANT: dim gray pad with "ALL CLASS" label. Renders while
+   *     ContextSlots are NOT all lit (the pad isn't accepting presence
+   *     yet -- there's no reason to stand there).
+   *   - ACTIVE: solid green pad with a pulsing 4 Hz outer ring. Renders
+   *     when all ContextSlots are lit (presence accumulation enabled);
+   *     the ring is at minimum thickness while presenceMs == 0.
+   *   - FILLING: same as ACTIVE but ring thickness scales with
+   *     presenceMs / triggerMs. Visual feedback that the class is
+   *     "filling up the timer" together.
+   *
+   * opts:
+   *   id              pad id (matches wire's goalPad.id)
+   *   x, y            canvas pixel coords (top-left of the sprite footprint)
+   *   size            render footprint width in px (default 36)
+   *   getActive       () -> boolean; true when all ContextSlots are lit
+   *                   (pad is accepting presence). Source: closure over
+   *                   state.contextSlots.every(s => s.lit).
+   *   getPresenceMs   () -> number; ms accumulated this sustained-presence
+   *                   session. Source: state.goalPad.presenceMs.
+   *   getTriggerMs    () -> number; ms required to fire LEVEL_CLEARED.
+   *                   Source: state.goalPad.triggerMs (default 1500).
+   *   getLocalSprite  () -> BoardSprite (the local player) -- reserved
+   *                   for future per-player cues (no V7.14 use yet).
+   */
+  var GOALPAD_DEFAULT_SIZE       = 36;
+  var GOALPAD_PULSE_HZ           = 4;        // 4 Hz pulse per BUILD doc
+  var GOALPAD_RING_MIN_PX        = 2;        // ring thickness at presenceMs == 0
+  var GOALPAD_RING_MAX_PX        = 8;        // ring thickness at presenceMs >= triggerMs
+  var GOALPAD_COLOR_DORMANT      = '#666666';   // dim gray
+  var GOALPAD_COLOR_ACTIVE       = '#43A047';   // solid green (mirrors ContextSlot LIT)
+  var GOALPAD_COLOR_RING         = '#66BB6A';   // lighter green for the pulsing ring
+  var GOALPAD_COLOR_BORDER       = '#222222';
+  var GOALPAD_COLOR_LABEL        = '#FFFFFF';
+  var GOALPAD_LABEL_FONT         = 'bold 9px monospace';
+
+  function GoalPadSprite(opts) {
+    this.id             = (typeof opts.id === 'string') ? opts.id : '';
+    this.x              = opts.x;
+    this.y              = opts.y;
+    this.size           = opts.size || GOALPAD_DEFAULT_SIZE;
+    this.getActive      = (typeof opts.getActive === 'function')     ? opts.getActive     : function () { return false; };
+    this.getPresenceMs  = (typeof opts.getPresenceMs === 'function') ? opts.getPresenceMs : function () { return 0; };
+    this.getTriggerMs   = (typeof opts.getTriggerMs === 'function')  ? opts.getTriggerMs  : function () { return 1500; };
+    this.getLocalSprite = (typeof opts.getLocalSprite === 'function') ? opts.getLocalSprite : function () { return null; };
+    // _bobT accumulates dt for the ACTIVE 4 Hz ring pulse.
+    this._bobT          = 0;
+    // zIndex 5 -- same band as the other world sprites; below avatars.
+    this.zIndex         = 5;
+    this.engine         = null;
+  }
+
+  // _visualState() returns 'DORMANT' (slots not all lit), 'ACTIVE'
+  // (slots lit but presence empty), or 'FILLING' (slots lit AND
+  // presence accumulating).
+  GoalPadSprite.prototype._visualState = function () {
+    if (!this.getActive()) return 'DORMANT';
+    var pres = 0;
+    try { pres = this.getPresenceMs() || 0; } catch (_) { pres = 0; }
+    return (pres > 0) ? 'FILLING' : 'ACTIVE';
+  };
+
+  GoalPadSprite.prototype.update = function (dt) {
+    this._bobT += dt;
+    // No collision / no callback. Server owns the presence transition
+    // via broadcast-position evaluation; client just animates the ring.
+  };
+
+  GoalPadSprite.prototype.render = function (ctx) {
+    if (!ctx) return;
+    // V7.9 side-scroll: world sprite -- translate + restore wraps the
+    // entire render so the pad paints in level-coord space.
+    _translateForCamera(ctx);
+
+    var prevAlpha   = (typeof ctx.globalAlpha === 'number') ? ctx.globalAlpha : 1;
+    var prevFill    = ctx.fillStyle;
+    var prevStroke  = ctx.strokeStyle;
+    var prevLine    = ctx.lineWidth;
+    var prevFont    = ctx.font;
+    var prevAlign   = ctx.textAlign;
+    var prevBase    = (typeof ctx.textBaseline === 'string') ? ctx.textBaseline : '';
+
+    var visual = this._visualState();
+    var rectX  = this.x;
+    var rectY  = this.y;
+    var rectW  = this.size;
+    var rectH  = this.size;
+
+    if (visual === 'DORMANT') {
+      // Dim gray pad -- "this is where you'll need to gather, but not yet".
+      ctx.globalAlpha = 0.6;
+      ctx.fillStyle   = GOALPAD_COLOR_DORMANT;
+      if (typeof ctx.fillRect === 'function') {
+        try { ctx.fillRect(rectX, rectY, rectW, rectH); } catch (_) {}
+      }
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = GOALPAD_COLOR_BORDER;
+      ctx.lineWidth   = 2;
+      if (typeof ctx.strokeRect === 'function') {
+        try { ctx.strokeRect(rectX, rectY, rectW, rectH); } catch (_) {}
+      }
+    } else {
+      // ACTIVE or FILLING -- solid green pad with pulsing ring.
+      ctx.globalAlpha = 1;
+      ctx.fillStyle   = GOALPAD_COLOR_ACTIVE;
+      if (typeof ctx.fillRect === 'function') {
+        try { ctx.fillRect(rectX, rectY, rectW, rectH); } catch (_) {}
+      }
+      ctx.strokeStyle = GOALPAD_COLOR_BORDER;
+      ctx.lineWidth   = 2;
+      if (typeof ctx.strokeRect === 'function') {
+        try { ctx.strokeRect(rectX, rectY, rectW, rectH); } catch (_) {}
+      }
+
+      // FILLING: ring thickness scales with presenceMs / triggerMs
+      // progress. ACTIVE (presence == 0): ring sits at min thickness.
+      var ringThickness = GOALPAD_RING_MIN_PX;
+      if (visual === 'FILLING') {
+        var pres = 0;
+        var trig = 1500;
+        try { pres = this.getPresenceMs() || 0; } catch (_) { pres = 0; }
+        try { trig = this.getTriggerMs() || 1500; } catch (_) { trig = 1500; }
+        if (trig <= 0) trig = 1500;
+        var progress = Math.max(0, Math.min(1, pres / trig));
+        ringThickness = GOALPAD_RING_MIN_PX + (GOALPAD_RING_MAX_PX - GOALPAD_RING_MIN_PX) * progress;
+      }
+
+      // 4 Hz pulse on the ring alpha so the pad reads as "alive" even
+      // before anyone steps on it.
+      var pulseAlpha = 0.6 + 0.4 * (0.5 + 0.5 * Math.sin(this._bobT * GOALPAD_PULSE_HZ * Math.PI * 2));
+      ctx.globalAlpha = pulseAlpha;
+      ctx.strokeStyle = GOALPAD_COLOR_RING;
+      ctx.lineWidth   = ringThickness;
+      if (typeof ctx.strokeRect === 'function') {
+        // Outer ring sits just outside the pad rect so the inner fill
+        // is fully visible. Inset is half the ring thickness.
+        var inset = ringThickness / 2;
+        try {
+          ctx.strokeRect(rectX - inset, rectY - inset,
+                         rectW + ringThickness, rectH + ringThickness);
+        } catch (_) {}
+      }
+    }
+
+    // Label above the pad. DORMANT shows "ALL CLASS"; ACTIVE / FILLING
+    // shows "STAND HERE" so the class knows the pad is accepting
+    // presence (the visual ring also cues this, but the text is
+    // unambiguous for the first encounter).
+    if (typeof ctx.fillText === 'function') {
+      ctx.globalAlpha = 1;
+      ctx.font        = GOALPAD_LABEL_FONT;
+      ctx.textAlign   = 'center';
+      try { ctx.textBaseline = 'bottom'; } catch (_) {}
+      ctx.fillStyle   = GOALPAD_COLOR_LABEL;
+      var labelX = rectX + rectW / 2;
+      var labelY = rectY - 2;
+      var labelText = (visual === 'DORMANT') ? 'ALL CLASS' : 'STAND HERE';
+      try { ctx.fillText(labelText, labelX, labelY); } catch (_) {}
+    }
+
+    ctx.globalAlpha = prevAlpha;
+    ctx.fillStyle   = prevFill;
+    ctx.strokeStyle = prevStroke;
+    ctx.lineWidth   = prevLine;
+    ctx.font        = prevFont;
+    ctx.textAlign   = prevAlign;
+    if (prevBase) { try { ctx.textBaseline = prevBase; } catch (_) {} }
+    // V7.9 side-scroll: balance the save in _translateForCamera at top.
+    _restoreFromCamera(ctx);
+  };
+
+  GoalPadSprite.prototype.getLabelSpec = function () {
+    // Pad paints its own label inside render(); engine's label pass
+    // should skip it (mirrors TallyChuteSprite / ContextSlotSprite).
+    return null;
+  };
+
+  // --- StageIndicator entity (V7.5 sequential-stages) -------------------
+
+  /**
+   * Tiny "Stage N / M" panel pinned top-right of the avatar canvas. Shows
+   * during VOTING phase for any multi-stage level (stagesTotal > 1).
+   * Hidden otherwise. The text is built from getter callbacks so the
+   * sprite reads the latest state on every render tick (no need to
+   * rebuild the entity when currentStage advances).
+   *
+   * opts:
+   *   getCurrent   -- () -> number (1-based for display; computed from
+   *                   currentStage + 1 by the caller).
+   *   getTotal     -- () -> number (stagesTotal).
+   *   getViewportW -- () -> number (canvas width in CSS pixels). Used to
+   *                   compute the right-aligned x position on every render.
+   */
+  var STAGE_FONT     = '10px monospace';
+  var STAGE_PAD_X    = 6;
+  var STAGE_PAD_Y    = 3;
+  var STAGE_ALPHA    = 0.85;
+  var STAGE_BG       = '#222';
+  var STAGE_FG       = '#FFD700';   // gold reads as 'progress meter'
+  var STAGE_TOP_Y    = 12;          // px from the top of the canvas
+  var STAGE_RIGHT_PX = 6;           // px gap from the right edge
+
+  function StageIndicator(opts) {
+    this.getCurrent   = (typeof opts.getCurrent === 'function') ? opts.getCurrent : function () { return 1; };
+    this.getTotal     = (typeof opts.getTotal === 'function') ? opts.getTotal : function () { return 1; };
+    this.getViewportW = (typeof opts.getViewportW === 'function') ? opts.getViewportW : function () { return 320; };
+    // zIndex 5 -- same band as coins/goal/tally; above doorways, below avatars.
+    this.zIndex       = 5;
+    this.engine       = null;
+  }
+
+  StageIndicator.prototype.update = function (/* dt */) { /* no-op */ };
+
+  // Indicator paints its own text+bg; engine's label pass should skip it.
+  StageIndicator.prototype.getLabelSpec = function () { return null; };
+
+  StageIndicator.prototype._buildText = function () {
+    var n = this.getCurrent() || 1;
+    var m = this.getTotal()   || 1;
+    return n + ' / ' + m;
+  };
+
+  StageIndicator.prototype.render = function (ctx) {
+    if (!ctx || typeof ctx.fillText !== 'function') return;
+    var text = this._buildText();
+
+    var prevAlpha = (typeof ctx.globalAlpha === 'number') ? ctx.globalAlpha : 1;
+    var prevFont  = ctx.font;
+    var prevAlign = ctx.textAlign;
+    var prevFill  = ctx.fillStyle;
+
+    ctx.font      = STAGE_FONT;
+    ctx.textAlign = 'left';
+
+    var textW = 0;
+    if (typeof ctx.measureText === 'function') {
+      try { textW = ctx.measureText(text).width || 0; } catch (_) { textW = text.length * 6; }
+    } else {
+      textW = text.length * 6;
+    }
+    var rectW = textW + STAGE_PAD_X * 2;
+    var rectH = 14    + STAGE_PAD_Y * 2;
+    var vw    = this.getViewportW() || 320;
+    var rectX = vw - rectW - STAGE_RIGHT_PX;
+    var rectY = STAGE_TOP_Y;
+
+    ctx.globalAlpha = STAGE_ALPHA;
+    ctx.fillStyle   = STAGE_BG;
+    if (typeof ctx.fillRect === 'function') {
+      try { ctx.fillRect(rectX, rectY, rectW, rectH); } catch (_) {}
+    }
+    ctx.globalAlpha = 1;
+    ctx.fillStyle   = STAGE_FG;
+    try { ctx.fillText(text, rectX + STAGE_PAD_X, rectY + STAGE_PAD_Y + 10); } catch (_) {}
+
+    ctx.globalAlpha = prevAlpha;
+    ctx.font        = prevFont;
+    ctx.textAlign   = prevAlign;
+    ctx.fillStyle   = prevFill;
+  };
+
+  // --- ResultPanel entity (V7.6 doorways-close in-canvas) ---------------
+
+  /**
+   * Monochrome in-canvas panel rendered above the avatar scene when the
+   * server closes a doorways round. Shows the per-option dot plot tally
+   * and (when the engine emits reflection.active===true for a wrong-door
+   * win) the substituted reflection text below the chart.
+   *
+   * Replaces the legacy DOM histogram pulldown on the doorways-close path.
+   * The v2.1 poll pulldown (showResultScreen / hideResultScreen) is
+   * preserved for the closedPoll path -- ResultPanel is doorways-only.
+   *
+   * opts:
+   *   getClosedDoorways -- () -> { question, options:[{label, doorId}],
+   *                                 tally:[{doorId, count}] } | null
+   *   getReflection     -- () -> { active, reflectionText, ... } | null
+   *   getViewportW      -- () -> number (canvas width, CSS px)
+   *
+   * Styling is pure black on white. zIndex 15 -- above coins/goal/key/tally
+   * (band 5) but below RevealTextSprite which paints on top of everything.
+   */
+  var RP_FONT_TITLE    = 'bold 11px monospace';
+  var RP_FONT_LABEL    = '10px monospace';
+  var RP_FONT_REFL     = '10px monospace';
+  var RP_BG            = '#FFFFFF';
+  var RP_FG            = '#000000';
+  var RP_STROKE        = '#000000';
+  var RP_DOT_R         = 3;       // radius -> ~6 px diameter
+  var RP_DOT_GAP       = 1;
+  var RP_DOT_COL_STACK = 15;      // wrap a stack into a new column after N
+  var RP_PAD_X         = 10;
+  var RP_PAD_Y         = 8;
+  var RP_DEFAULT_W     = 280;
+  var RP_TOP_Y         = 6;
+  var RP_LABEL_GAP     = 4;
+  var RP_TITLE_TEXT    = 'Class Vote';
+
+  function ResultPanel(opts) {
+    this.getClosedDoorways = (typeof opts.getClosedDoorways === 'function') ? opts.getClosedDoorways : function () { return null; };
+    this.getReflection     = (typeof opts.getReflection === 'function')     ? opts.getReflection     : function () { return null; };
+    this.getViewportW      = (typeof opts.getViewportW === 'function')      ? opts.getViewportW      : function () { return DEFAULT_BOARD_W; };
+    // zIndex 15: above the band-5 cluster (coins/goal/key/tally/stage),
+    // below RevealTextSprite (typically renders without a zIndex, so it
+    // ends up on top via insertion order; ResultPanel never overlaps a
+    // reveal anyway -- doors close after a vote, reveals fire from coins).
+    this.zIndex = 15;
+    this.engine = null;
+  }
+
+  ResultPanel.prototype.update = function (/* dt */) { /* no-op */ };
+
+  // Panel paints its own title + labels + body; engine label pass skips it.
+  ResultPanel.prototype.getLabelSpec = function () { return null; };
+
+  ResultPanel.prototype._wrapText = function (ctx, text, maxWidth) {
+    if (!text) { return []; }
+    var words = String(text).split(/\s+/);
+    var lines = [];
+    var cur   = '';
+    for (var i = 0; i < words.length; i++) {
+      var w = words[i];
+      if (!w) { continue; }
+      var trial = cur ? (cur + ' ' + w) : w;
+      var width = 0;
+      if (typeof ctx.measureText === 'function') {
+        try { width = ctx.measureText(trial).width || 0; } catch (_) { width = trial.length * 6; }
+      } else {
+        width = trial.length * 6;
+      }
+      if (width <= maxWidth || !cur) {
+        cur = trial;
+      } else {
+        lines.push(cur);
+        cur = w;
+      }
+    }
+    if (cur) { lines.push(cur); }
+    return lines;
+  };
+
+  ResultPanel.prototype.render = function (ctx) {
+    if (!ctx || typeof ctx.fillText !== 'function') return;
+    var doorways = this.getClosedDoorways();
+    if (!doorways || !Array.isArray(doorways.options) || doorways.options.length === 0) return;
+
+    var options = doorways.options;
+    var tally   = Array.isArray(doorways.tally) ? doorways.tally : [];
+    var reflection = this.getReflection();
+    var reflActive = !!(reflection && reflection.active);
+    var reflText   = reflActive ? String(reflection.reflectionText || '') : '';
+
+    // Build counts-by-doorId for fast lookup.
+    var countByDoor = {};
+    for (var t = 0; t < tally.length; t++) {
+      var row = tally[t];
+      if (row && row.doorId != null) { countByDoor[row.doorId] = row.count || 0; }
+    }
+
+    // Layout: width = min(RP_DEFAULT_W, 70% of canvas), centered horizontally.
+    var vw    = this.getViewportW() || DEFAULT_BOARD_W;
+    var panelW = Math.min(RP_DEFAULT_W, Math.max(160, Math.floor(vw * 0.7)));
+    var panelX = Math.floor((vw - panelW) / 2);
+    var panelY = RP_TOP_Y;
+
+    // Compute max stack height across options so columns share a baseline.
+    var maxCount = 0;
+    for (var i = 0; i < options.length; i++) {
+      var c = countByDoor[options[i].doorId] || 0;
+      if (c > maxCount) { maxCount = c; }
+    }
+    var stackRows  = Math.min(maxCount, RP_DOT_COL_STACK);
+    var stackCols  = Math.ceil(Math.max(1, maxCount) / RP_DOT_COL_STACK);
+    var dotPitch   = (RP_DOT_R * 2) + RP_DOT_GAP;
+    var dotsH      = Math.max(dotPitch, stackRows * dotPitch);
+    var labelH     = 12;
+
+    // Reflection text wrap (only when active).
+    var prevFont = ctx.font;
+    ctx.font = RP_FONT_REFL;
+    var reflLines = reflActive ? this._wrapText(ctx, reflText, panelW - RP_PAD_X * 2) : [];
+    var reflH     = reflLines.length * 12;
+    ctx.font = prevFont;
+
+    var hrH       = 6;
+    var titleH    = 14;
+    var bodyH     = dotsH + RP_LABEL_GAP + labelH;
+    var panelH    = RP_PAD_Y * 2 + titleH + hrH + bodyH + hrH + (reflActive ? (reflH + 4) : 0);
+
+    var prevAlpha = (typeof ctx.globalAlpha === 'number') ? ctx.globalAlpha : 1;
+    var prevAlign = ctx.textAlign;
+    var prevFill  = ctx.fillStyle;
+    var prevStroke = ctx.strokeStyle;
+    var prevLineW = ctx.lineWidth;
+
+    // Background + border.
+    ctx.globalAlpha = 1;
+    ctx.fillStyle   = RP_BG;
+    if (typeof ctx.fillRect === 'function') {
+      try { ctx.fillRect(panelX, panelY, panelW, panelH); } catch (_) {}
+    }
+    ctx.strokeStyle = RP_STROKE;
+    ctx.lineWidth   = 1;
+    if (typeof ctx.strokeRect === 'function') {
+      try { ctx.strokeRect(panelX + 0.5, panelY + 0.5, panelW - 1, panelH - 1); } catch (_) {}
+    }
+
+    // Title.
+    ctx.fillStyle = RP_FG;
+    ctx.font      = RP_FONT_TITLE;
+    ctx.textAlign = 'center';
+    try { ctx.fillText(RP_TITLE_TEXT, panelX + panelW / 2, panelY + RP_PAD_Y + 10); } catch (_) {}
+
+    // Top horizontal rule.
+    var hr1Y = panelY + RP_PAD_Y + titleH;
+    if (typeof ctx.beginPath === 'function' && typeof ctx.moveTo === 'function') {
+      try {
+        ctx.beginPath();
+        ctx.moveTo(panelX + RP_PAD_X, hr1Y);
+        ctx.lineTo(panelX + panelW - RP_PAD_X, hr1Y);
+        ctx.stroke();
+      } catch (_) {}
+    }
+
+    // Dot columns + labels.
+    var colCount = options.length;
+    var colW     = (panelW - RP_PAD_X * 2) / colCount;
+    var colsBaseY = hr1Y + hrH + dotsH;       // dots stack UP from this baseline
+    var labelY    = colsBaseY + RP_LABEL_GAP + 10;
+
+    ctx.font      = RP_FONT_LABEL;
+    ctx.textAlign = 'center';
+    for (var k = 0; k < colCount; k++) {
+      var opt   = options[k];
+      var label = (opt && opt.label != null) ? String(opt.label) : '';
+      var count = countByDoor[opt && opt.doorId] || 0;
+      var colCx = panelX + RP_PAD_X + colW * (k + 0.5);
+
+      // Stack dots upward from baseline; wrap into extra columns at RP_DOT_COL_STACK.
+      for (var d = 0; d < count; d++) {
+        var stackIdx = Math.floor(d / RP_DOT_COL_STACK);
+        var rowIdx   = d % RP_DOT_COL_STACK;
+        var dotX     = colCx + (stackIdx - (stackCols - 1) / 2) * (RP_DOT_R * 2 + RP_DOT_GAP);
+        var dotY     = colsBaseY - rowIdx * dotPitch - RP_DOT_R;
+        if (typeof ctx.beginPath === 'function' && typeof ctx.arc === 'function') {
+          try {
+            ctx.beginPath();
+            ctx.fillStyle = RP_FG;
+            ctx.arc(dotX, dotY, RP_DOT_R, 0, Math.PI * 2);
+            ctx.fill();
+          } catch (_) {}
+        } else if (typeof ctx.fillRect === 'function') {
+          try { ctx.fillRect(dotX - RP_DOT_R, dotY - RP_DOT_R, RP_DOT_R * 2, RP_DOT_R * 2); } catch (_) {}
+        }
+      }
+      // Column label (door short label).
+      ctx.fillStyle = RP_FG;
+      try { ctx.fillText(label, colCx, labelY); } catch (_) {}
+    }
+
+    // Bottom horizontal rule.
+    var hr2Y = labelY + 4;
+    if (typeof ctx.beginPath === 'function' && typeof ctx.moveTo === 'function') {
+      try {
+        ctx.beginPath();
+        ctx.moveTo(panelX + RP_PAD_X, hr2Y);
+        ctx.lineTo(panelX + panelW - RP_PAD_X, hr2Y);
+        ctx.stroke();
+      } catch (_) {}
+    }
+
+    // Reflection text (only when active).
+    if (reflActive && reflLines.length > 0) {
+      ctx.font      = RP_FONT_REFL;
+      ctx.textAlign = 'left';
+      ctx.fillStyle = RP_FG;
+      var ry = hr2Y + 12;
+      for (var r = 0; r < reflLines.length; r++) {
+        try { ctx.fillText(reflLines[r], panelX + RP_PAD_X, ry); } catch (_) {}
+        ry += 12;
+      }
+    }
+
+    ctx.globalAlpha = prevAlpha;
+    ctx.font        = prevFont;
+    ctx.textAlign   = prevAlign;
+    ctx.fillStyle   = prevFill;
+    ctx.strokeStyle = prevStroke;
+    ctx.lineWidth   = prevLineW;
+  };
+
+  // --- PollColumnsOverlay entity (v2) -----------------------------------
+
+  /**
+   * Draws evenly spaced option label columns when a poll is open.
+   * Each option label is shown at the top of its column zone.
+   * The label is a thin strip -- full-width dividers would occlude sprites.
+   */
+  function PollColumnsOverlay(getPoll, getViewportW) {
+    this.getPoll      = getPoll;
+    this.getViewportW = getViewportW;
+    this.engine       = null;
+  }
+
+  PollColumnsOverlay.prototype.update = function () {};
+
+  PollColumnsOverlay.prototype.render = function (ctx) {
+    var poll = this.getPoll();
+    if (!poll || !poll.options || poll.options.length < 2) { return; }
+
+    var options = poll.options;
+    var count   = options.length;
+    var vw      = this.getViewportW();
+    var colW    = vw / count;
+
+    ctx.save();
+    for (var i = 0; i < count; i++) {
+      var cx = i * colW;
+
+      // Light alternating column shade so columns are visible but not harsh.
+      ctx.globalAlpha = 0.08;
+      ctx.fillStyle   = (i % 2 === 0) ? '#4488FF' : '#44AAFF';
+      ctx.fillRect(cx, 0, colW, 40);
+
+      // Column separator line.
+      ctx.globalAlpha = 0.3;
+      ctx.strokeStyle = '#AACCFF';
+      ctx.lineWidth   = 1;
+      if (i > 0) {
+        ctx.beginPath();
+        ctx.moveTo(cx, 0);
+        ctx.lineTo(cx, 40);
+        ctx.stroke();
+      }
+
+      // Option label text.
+      ctx.globalAlpha  = 1.0;
+      ctx.fillStyle    = '#FFFFFF';
+      ctx.font         = 'bold 11px Arial';
+      ctx.textAlign    = 'center';
+      ctx.textBaseline = 'middle';
+      var label = options[i];
+      if (label.length > 12) { label = label.slice(0, 11) + '...'; }
+      ctx.fillText(label, cx + colW / 2, 20);
+    }
+    ctx.restore();
+  };
+
+  // --- scene layout helpers ---------------------------------------------
+
+  /**
+   * Compute evenly spaced x positions for count avatars within the scene.
+   * Mirrors SpriteManager.computeSlots from cr (adapted).
+   */
+  function computeSlots(count, spriteWidth, viewportWidth) {
+    if (count <= 0) { return []; }
+    var leftMargin = viewportWidth * 0.10;
+    var usable     = viewportWidth - (leftMargin * 2) - DOOR_W - 20;
+    if (count === 1) {
+      return [leftMargin + usable / 2 - spriteWidth / 2];
+    }
+    var gap = usable / (count - 1);
+    var slots = [];
+    for (var i = 0; i < count; i++) {
+      slots.push(leftMargin + i * gap - spriteWidth / 2);
+    }
+    return slots;
+  }
+
+  // --- mount ------------------------------------------------------------
+
+  /**
+   * mount(container, opts) -> handle
+   *
+   * Creates a normally-sized responsive canvas inside `container`,
+   * attaches a CanvasEngine RAF loop, and renders animated student sprites.
+   *
+   * r3 opts gains: { hue: integer|null }
+   *
+   * Preserved public API: { destroy, setNameMap, armGate, greenLight, reset }
+   */
+  function mount(container, opts) {
+    if (!container || !opts) {
+      throw new Error('ClassroomBoard.mount: container and opts are required');
+    }
+
+    var wsUrl         = opts.wsUrl;
+    var section       = opts.section;
+    var username      = opts.username;
+    var role          = opts.role || 'student';
+    var canPlayPark   = role === 'student' || opts.playable === true;
+    var nameMap       = opts.nameMap || null;
+    var onStateChange = opts.onStateChange || null;
+    var mountHue      = (opts.hue != null) ? opts.hue : null;
+    var onStartVideo  = (typeof opts.onStartVideo === 'function') ? opts.onStartVideo : null;
+    // P3 nudges (TEACHER_STUDENT_CONSOLE_SPEC.md section 6): caller-supplied raw-
+    // message hook. Fires for every classroom_* message BEFORE _reduce runs.
+    // Used by the Desk to surface 'classroom_teacher_nudge' as a toast, and
+    // by the cockpit to surface 'classroom_student_nudge_reply' as a reply.
+    var onClassroomMessage = (typeof opts.onClassroomMessage === 'function') ? opts.onClassroomMessage : null;
+    // P4 Select Students (TEACHER_STUDENT_CONSOLE_SPEC.md section 11): caller-supplied
+    // avatar-click callback + select-mode toggle. While selectModeActive is
+    // true, peer position updates are gated (applyPos) so the teacher can
+    // click reliably, AND canvas clicks fire onAvatarClick with the hit
+    // sprite's username.
+    var onAvatarClick = (typeof opts.onAvatarClick === 'function') ? opts.onAvatarClick : null;
+    var selectModeActive = false;
+    // AVATAR_MENU (DESK ONLY): suppress the always-on floating name labels so the
+    // Desk can reveal a name (then a candy/challenge menu) on click instead. The
+    // teacher cockpit omits this opt, so its real-name labels keep floating.
+    var hideNameLabels = !!opts.hideNameLabels;
+    // AVATAR_MENU (DESK ONLY): when true, clicking YOUR OWN avatar fires onAvatarClick
+    // with isSelf:true (the Desk opens My Ledger). The cockpit omits it, so self stays
+    // unclickable there (a teacher has no wallet panel + must not nudge themselves).
+    var selfClickable = !!opts.selfClickable;
+
+    // Ensure the container clips the off-screen pull-down panel.
+    if (container.style.position !== 'relative' &&
+        container.style.position !== 'absolute' &&
+        container.style.position !== 'fixed') {
+      container.style.position = 'relative';
+    }
+    container.style.overflow = 'hidden';
+
+    // --- canvas setup ---------------------------------------------------
+
+    var canvasId = nextCanvasId();
+    var doc = (root.document || document);
+    var canvas = doc.createElement('canvas');
+    canvas.id = canvasId;
+    canvas.style.display = 'block';
+    canvas.style.width   = '100%';
+    // Reserve the student room before the socket, sprites, or module imports load.
+    var initialBoardH = canPlayPark
+      ? Math.round(750 * Math.min(1, (container.clientWidth || DEFAULT_BOARD_W) / 720)) : BOARD_H;
+    canvas.style.height = initialBoardH + 'px';
+    container.appendChild(canvas);
+
+    // P4+P9: canvas click -> avatar hit-test. Always fires onAvatarClick when
+    // one is registered; the cockpit consumer decides routing (select-toggle
+    // vs popup). selectMode flag is passed so the cockpit can branch.
+    // Hit zone is generous (40x40) since rendered sprites are ~20x24 px.
+    canvas.addEventListener('click', function (ev) {
+      if (!onAvatarClick) return;
+      var rect = canvas.getBoundingClientRect();
+      // 2026-05-24 fix: sprite.x is in CSS-pixel space (engine.ctx applies a
+      // setTransform(dpr,...) so drawFrame at sp.x lands at pixel sp.x*dpr).
+      // ev.clientX is also in CSS space. The previous formula multiplied
+      // cssX by canvas.width/clientWidth (= DPR), pushing the click coord
+      // into pixel space and mismatching by a factor of DPR on HiDPI
+      // displays. jsdom's DPR is always 1 so no test caught it.
+      var cx = (ev.clientX != null) ? (ev.clientX - rect.left) : 0;
+      var cy = (ev.clientY != null) ? (ev.clientY - rect.top)  : 0;
+      var HIT = 20;
+      var hit = null;
+      for (var u in spriteEntities) {
+        if (!Object.prototype.hasOwnProperty.call(spriteEntities, u)) continue;
+        var sp = spriteEntities[u];
+        if (!sp) continue;
+        // Self is clickable only when the mount opts in (Desk → open My Ledger);
+        // otherwise skip self exactly as before (cockpit unchanged).
+        if (u === username && !selfClickable) continue;
+        var dx = Math.abs(cx - sp.x);
+        var dy = Math.abs(cy - sp.y);
+        if (dx <= HIT && dy <= HIT) { hit = u; break; }
+      }
+      if (hit) {
+        // AVATAR_MENU: forward the click's viewport coords so a Desk popover can
+        // anchor at the tapped avatar, and flag a self-click (Desk → My Ledger).
+        // Additive — existing consumers ignore them, and `selectMode` stays
+        // first-after-username so the cockpit `onAvatarClick({...selectMode...})`
+        // source pin still matches.
+        try {
+          onAvatarClick({
+            username: hit,
+            selectMode: selectModeActive,
+            clientX: (ev.clientX != null) ? ev.clientX : (rect.left + cx),
+            clientY: (ev.clientY != null) ? ev.clientY : (rect.top + cy),
+            isSelf: (hit === username)
+          });
+        } catch (_) {}
+      }
+    });
+
+    // --- check-in button (B3) ------------------------------------------
+
+    var checkinBtn = doc.createElement('button');
+    checkinBtn.textContent = 'Check in';
+    checkinBtn.style.display = 'none';
+    checkinBtn.setAttribute('data-classroom-checkin', '1');
+    container.appendChild(checkinBtn);
+
+    var nativePanel = null;
+    var nativeActive = false;
+    var nativeLoading = false, nativeSwitching = false;
+    var parkReturnAt = 0;
+    var parkExitKeyHeld = false;
+    // APStat Park: one door on the calendar board itself (no lobby). It opens level 6, a faithful
+    // original 48-stage PICO PARK campaign, straight away. Screen-space x of door i is
+    // PARK_DOOR_X0 + i*PARK_DOOR_STEP (the list could hold more doors again).
+    var PARK_DOORS = [
+      { level: 7, title: 'PICO PARK campaign' }
+    ];
+    // Retired doors (protocol-4 levels 0-5 stay in the relay; only the test-only openParkLevel(n) opens them):
+    // var PARK_DOORS_V4 = [{ level: 0, title: 'Hello together' }, { level: 3, title: 'Moving walls' }, { level: 4, title: 'Upstairs / downstairs' }];
+    var PARK_DOOR_X0 = 24, PARK_DOOR_W = 38, PARK_DOOR_STEP = 54, PARK_DOOR_H = 50;
+    function parkDoorCenter(i) { return PARK_DOOR_X0 + i * PARK_DOOR_STEP + PARK_DOOR_W / 2; }
+    // The door looks like the park's own doors: PICO PARK's open door from the level-6 atlas
+    // (apstat-park/assets/pico-1-1.png, rect `doorOpen` in pico-atlas.mjs; this classic script
+    // cannot import it), drawn 32x32 with smoothing like the level's goal door, centred at x 43.
+    // The atlas is preloaded and decoded when the board mounts (students only) and handed to the
+    // park, so the level never loads or decodes a second copy. Until it is decoded nothing is
+    // drawn (the hit area stays); only if it can never load (error, or not decoded within
+    // PARK_ATLAS_TIMEOUT_MS) is a plain rectangle in the page's text colour drawn instead.
+    var PARK_DOOR_SPRITE = { sx: 96, sy: 0, sw: 48, sh: 48, size: 32 };
+    var PARK_ATLAS_TIMEOUT_MS = 4000;
+    var parkDoorImage = null, parkAtlasState = 'none';   // none | loading | ready | failed
+    function parkDoorSpriteReady() { return parkAtlasState === 'ready' && !!parkDoorImage; }
+    function preloadParkAtlas() {
+      if (parkDoorImage || typeof root.Image !== 'function') { return; }
+      try {
+        var image = new root.Image();
+        parkDoorImage = image; parkAtlasState = 'loading';
+        var decoded = function () { if (image.naturalWidth > 0) { parkAtlasState = 'ready'; } else if (parkAtlasState === 'loading') { parkAtlasState = 'failed'; } };
+        image.onload = function () {
+          if (typeof image.decode === 'function') { image.decode().then(decoded, decoded); } else { decoded(); }
+        };
+        image.onerror = function () { if (parkAtlasState !== 'ready') { parkAtlasState = 'failed'; } };
+        image.src = 'apstat-park/assets/pico-1-1.png' + parkBuildQuery();
+        if (image.complete && image.naturalWidth > 0) { image.onload(); }
+        root.setTimeout(function () { if (parkAtlasState === 'loading') { parkAtlasState = 'failed'; } }, PARK_ATLAS_TIMEOUT_MS);
+      } catch (_) { parkDoorImage = null; parkAtlasState = 'failed'; }
+    }
+    // Screen-space box of door i: the sprite's 32x32. The click/touch button covers it.
+    function parkDoorBox(i) {
+      var cx = parkDoorCenter(i), ground = engine ? engine.groundY : 170, n = PARK_DOOR_SPRITE.size;
+      return { left: cx - n / 2, top: ground - n, width: n, height: n, radius: '14px 14px 0 0' };
+    }
+    // Who is inside each level (relay park_lobby, polled every 3 s while on the board):
+    // [{ levelIndex, online: [usernames] }]. Drawn on the doors so friends can meet without planning.
+    var parkOccupancy = [], parkLobbyAt = 0, parkLobbyN = 0;
+    var PARK_LOBBY_POLL_MS = 3000;
+    function parkOccupants(levelIndex) {
+      for (var i = 0; i < parkOccupancy.length; i++) {
+        var row = parkOccupancy[i];
+        if (!row || row.levelIndex !== levelIndex || !Array.isArray(row.online)) continue;
+        return row.online.filter(function (name) { return typeof name === 'string' && name && name !== username; });
+      }
+      return [];
+    }
+    function parkOccupantLabel(names, max) {
+      if (!names.length) return '';
+      var shown = names.slice(0, max).join(', ');
+      return names.length > max ? shown + ' +' + (names.length - max) : shown;
+    }
+    var nativeButtons = PARK_DOORS.map(function (door, i) {
+      var button = doc.createElement('button');
+      button.type = 'button';
+      button.setAttribute('data-classroom-native', String(i + 1));
+      button.setAttribute('aria-label', 'Enter APStat Park: ' + door.title);
+      button.title = 'APStat Park (' + door.title + '): stand on it and press Up, or click';
+      // Invisible click/touch + accessible target over the door. The doors are painted on the
+      // board canvas by the park_doorway entity below, in the scenery z-band BEHIND the avatars,
+      // so a student walks across them instead of vanishing behind a DOM box. No label: it's a door.
+      button.style.cssText = 'position:absolute;left:' + (PARK_DOOR_X0 - 3 + i * PARK_DOOR_STEP) + 'px;top:123px;width:44px;height:53px;background:transparent;border:0;border-radius:21px 21px 0 0;cursor:pointer;z-index:4;padding:0;-webkit-tap-highlight-color:transparent;outline-offset:2px';
+      container.appendChild(button);
+      if (!canPlayPark) { button.style.display = 'none'; }   // students only (self-directed)
+      button.onclick = function () { enterPark(door.level); };
+      return button;
+    });
+    var nativeButton = nativeButtons[0];   // door 1: the walk-in door at the left edge (legacy name)
+    function setParkButtons(fn) { for (var i = 0; i < nativeButtons.length; i++) fn(nativeButtons[i]); }
+    function parkBuildQuery() {
+      var build = (typeof root.APP_BUILD === 'string' && root.APP_BUILD) ? root.APP_BUILD : '';
+      return build ? '?v=' + encodeURIComponent(build) : '';
+    }
+    function freezeParkFrame() {
+      if (!engine || !engine.canvas.width) return null;
+      var frame = doc.createElement('canvas'), ctx = frame.getContext('2d');
+      if (!ctx) return null;
+      frame.width = engine.canvas.width; frame.height = engine.canvas.height;
+      var element = container, colour = 'transparent';
+      while (element) {
+        colour = root.getComputedStyle(element).backgroundColor;
+        if (colour && colour !== 'transparent' && colour !== 'rgba(0, 0, 0, 0)') break;
+        element = element.parentElement;
+      }
+      ctx.fillStyle = element ? colour : '#ffffff';
+      ctx.fillRect(0, 0, frame.width, frame.height);
+      ctx.drawImage(engine.canvas, 0, 0);
+      return frame;
+    }
+    function enterPark(levelIndex) {
+      if (destroyed || !engineReady || nativeLoading || !canPlayPark || classroomBusy()) { return; }
+      if (levelIndex >= 0 && nativePanel?.kind === 'calculator' && !nativePanel.getView().campaignUnlocked) return;
+      nativeLoading = true;
+      var previousPanel = nativePanel, previousScene = engine.sceneEntities;
+      var transitionFrame = nativeActive ? freezeParkFrame() : null;
+      if (transitionFrame) engine.sceneEntities = new Map([['handoff', { render: function (ctx) {
+        ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(transitionFrame, 0, 0); ctx.restore();
+      } }]]);
+      setParkButtons(function (b) { b.disabled = true; });
+      // ?v=<APP_BUILD>: the park modules (and their art and sounds, which inherit the query) come
+      // from the same deploy as this board, never from a stale HTTP/CDN cache entry.
+      var roomPromise = levelIndex === -1
+        ? import('./apstat-park/calculator-room.mjs' + parkBuildQuery())
+        : import('./apstat-park/panel.mjs' + parkBuildQuery());
+      roomPromise.then(function (module) {
+        nativeLoading = false;
+        if (destroyed || classroomBusy() || !engineReady) {
+          if (nativePanel) nativePanel.dispose();
+          engine.sceneEntities = null; nativeActive = false;
+          if (!destroyed) setBoardHeight();
+          setParkButtons(function (b) { b.disabled = false; }); return;
+        }
+        nativeSwitching = true;
+        try { if (previousPanel) previousPanel.dispose(); } finally { nativeSwitching = false; }
+        nativeActive = true;
+        setParkButtons(function (b) { b.style.visibility = 'hidden'; });
+        for (var key in playerInput) { playerInput[key] = false; }
+        nativePanel = module.mountParkPanel({
+          container: container,
+          getSocket: function () { return ws; },
+          levelIndex: levelIndex,
+          onPark: function () { enterPark(7); },
+          board: {
+            engine: engine, input: playerInput, presses: parkPresses, username: username, role: role, api: root.ClassroomBoard,
+            // Park music / re-voiced sounds are off while the room is live unless the teacher allowed sound.
+            classroom: { isLive: function () { return !!(state && state.live); }, soundAllowed: function () { return classSound; } },
+            viewportW: _viewportW,
+            roomPresentation: { width: 720, height: 750, floor: 700, doorX: 30, doorSize: 40 },
+            transitionFrame: transitionFrame,
+            // Scene disposal must not shrink the canvas between two student rooms.
+            setBoardHeight: function (h) { if (h !== undefined) setBoardHeight(h); },
+            // The calendar's decoded atlas (null until decoded): the park draws from it directly.
+            atlas: function () { return parkDoorSpriteReady() ? parkDoorImage : null; },
+            createPlayer: function (options) {
+              var local = spriteEntities[username];
+              return new PlayerSprite(spriteSheet, Object.assign({ scale: SPRITE_SCALE,
+                hue: local ? local.hue : hashStringToHue(username), hideLabel: true }, options));
+            },
+            createPeer: function (name, pose) {
+              var peer = state.members[name];
+              return new BoardSprite(spriteSheet, { x: pose.x, y: pose.y, scale: SPRITE_SCALE,
+                hue: peer && peer.hue != null ? peer.hue : hashStringToHue(name), hideLabel: true });
+            }
+          },
+          onClose: function () {
+            if (nativeSwitching) return;
+            nativePanel = null; nativeActive = false;
+            if (levelIndex >= 0 && !destroyed && !classroomBusy()) {
+              nativeActive = true;
+              enterPark(-1);
+              return;
+            }
+            setBoardHeight();
+            setParkButtons(function (b) { b.disabled = false; b.style.visibility = ''; });
+            parkReturnAt = Date.now();
+            parkExitKeyHeld = true;
+            for (var key in playerInput) playerInput[key] = false;
+            if (!destroyed && engineReady) _refreshCameraDims();
+          }
+        });
+      }).catch(function (error) {
+        nativeLoading = false;
+        nativeActive = !!nativePanel;
+        if (nativePanel === previousPanel) engine.sceneEntities = previousScene;
+        setParkButtons(function (b) { b.disabled = false; b.style.visibility = ''; b.title = 'APStat Park did not load (' + error.message + ') \u2014 click the door to retry'; });
+        if (!destroyed && engineReady) engine.start();
+      });
+    }
+
+    // --- poll vote buttons (v2) ----------------------------------------
+    // One <button> per option, shown only when a poll is open and this
+    // client is a student who has not yet voted.  Mirrors the check-in
+    // button pattern.
+
+    var pollVoteContainer = doc.createElement('div');
+    pollVoteContainer.setAttribute('data-classroom-poll-votes', '1');
+    pollVoteContainer.style.display = 'none';
+    container.appendChild(pollVoteContainer);
+
+    // --- result screen (v2.1) ------------------------------------------
+    // A pull-down <div> that slides into view when a poll closes.
+    // hidden: transform translateY(-100%)  shown: translateY(0)
+    // Created here; shown/hidden via showResultScreen / hideResultScreen.
+
+    var resultScreen = doc.createElement('div');
+    resultScreen.setAttribute('data-classroom-result-screen', '1');
+    resultScreen.style.position   = 'absolute';
+    resultScreen.style.left       = '0';
+    resultScreen.style.top        = '0';
+    resultScreen.style.width      = '100%';
+    resultScreen.style.background = '#1a1a2e';
+    resultScreen.style.zIndex     = '10';
+    resultScreen.style.transform  = 'translateY(-100%)';
+    resultScreen.style.transition = 'transform 0.3s ease';
+    resultScreen.style.padding    = '8px';
+    resultScreen.style.boxSizing  = 'border-box';
+
+    var resultCanvas = doc.createElement('canvas');
+    resultCanvas.setAttribute('data-classroom-result-canvas', '1');
+    resultCanvas.style.display = 'block';
+    resultCanvas.style.width   = '100%';
+    resultCanvas.width  = 320;
+    resultCanvas.height = 160;
+    resultScreen.appendChild(resultCanvas);
+
+    var resultQuestion = doc.createElement('div');
+    resultQuestion.setAttribute('data-classroom-result-question', '1');
+    resultQuestion.style.color      = '#ffffff';
+    resultQuestion.style.fontSize   = '12px';
+    resultQuestion.style.marginTop  = '4px';
+    resultQuestion.style.textAlign  = 'center';
+    resultScreen.appendChild(resultQuestion);
+
+    var resultStepper = doc.createElement('div');
+    resultStepper.setAttribute('data-classroom-result-stepper', '1');
+    resultStepper.style.display    = 'none';
+    resultStepper.style.textAlign  = 'center';
+    resultStepper.style.marginTop  = '4px';
+    resultScreen.appendChild(resultStepper);
+
+    var resultClose = doc.createElement('button');
+    resultClose.setAttribute('data-classroom-result-close', '1');
+    resultClose.textContent      = 'close';
+    resultClose.style.display    = 'block';
+    resultClose.style.margin     = '4px auto 0';
+    resultClose.style.fontSize   = '11px';
+    resultClose.style.cursor     = 'pointer';
+    resultScreen.appendChild(resultClose);
+
+    container.appendChild(resultScreen);
+
+    // Internal stepper state for showResultScreen.
+    var _resultPolls  = [];
+    var _resultIndex  = 0;
+
+    // V7.5: histogram auto-dismiss timer. Each showResultScreen schedules
+    // a 2 s setTimeout to call hideResultScreen; the timer is cleared if
+    // hideResultScreen runs first (user-driven, close-button, refresh on
+    // a new poll) so we never double-fire. Also cleared on destroy.
+    var _resultDismissTimer = null;
+    var _RESULT_AUTO_DISMISS_MS = 2000;
+
+    function _drawResultPoll(poll) {
+      resultQuestion.textContent = poll.question || '';
+      if (window.Ti84Plot && resultCanvas.getContext) {
+        var ctx2d = resultCanvas.getContext('2d');
+        if (ctx2d) {
+          window.Ti84Plot.drawBarChart(ctx2d, {
+            labels: poll.options || [],
+            counts: poll.tally  || [],
+            title:  poll.question || ''
+          });
+        }
+      }
+    }
+
+    function _renderStepper() {
+      var total = _resultPolls.length;
+      if (total <= 1) {
+        resultStepper.style.display = 'none';
+        return;
+      }
+      resultStepper.style.display = 'block';
+      // Clear and rebuild stepper controls.
+      resultStepper.innerHTML = '';
+
+      var prevBtn = doc.createElement('button');
+      prevBtn.textContent = '<';
+      prevBtn.setAttribute('data-classroom-result-prev', '1');
+      prevBtn.disabled = (_resultIndex === 0);
+      prevBtn.onclick  = function () {
+        if (_resultIndex > 0) {
+          _resultIndex -= 1;
+          _drawResultPoll(_resultPolls[_resultIndex]);
+          _renderStepper();
+        }
+      };
+      resultStepper.appendChild(prevBtn);
+
+      var label = doc.createElement('span');
+      label.textContent = ' ' + (_resultIndex + 1) + '/' + total + ' ';
+      label.style.color = '#ffffff';
+      label.style.fontSize = '11px';
+      resultStepper.appendChild(label);
+
+      var nextBtn = doc.createElement('button');
+      nextBtn.textContent = '>';
+      nextBtn.setAttribute('data-classroom-result-next', '1');
+      nextBtn.disabled = (_resultIndex === total - 1);
+      nextBtn.onclick  = function () {
+        if (_resultIndex < _resultPolls.length - 1) {
+          _resultIndex += 1;
+          _drawResultPoll(_resultPolls[_resultIndex]);
+          _renderStepper();
+        }
+      };
+      resultStepper.appendChild(nextBtn);
+    }
+
+    function showResultScreen(polls) {
+      if (!polls || polls.length === 0) { return; }
+      _resultPolls = polls;
+      _resultIndex = polls.length - 1;
+      _drawResultPoll(_resultPolls[_resultIndex]);
+      _renderStepper();
+      resultScreen.style.transform = 'translateY(0)';
+      // V7.5: arm the 2 s auto-dismiss timer. Cancels any previously
+      // scheduled tick (back-to-back polls) before scheduling the new one.
+      if (_resultDismissTimer != null) {
+        try { clearTimeout(_resultDismissTimer); } catch (_) {}
+        _resultDismissTimer = null;
+      }
+      try {
+        _resultDismissTimer = setTimeout(function () {
+          _resultDismissTimer = null;
+          hideResultScreen();
+        }, _RESULT_AUTO_DISMISS_MS);
+      } catch (_) {}
+    }
+
+    function hideResultScreen() {
+      resultScreen.style.transform = 'translateY(-100%)';
+      _resultPolls = [];
+      _resultIndex = 0;
+      // V7.5: cancel any pending auto-dismiss tick (user-initiated close,
+      // explicit hide, or new-poll refresh all flow through this path).
+      if (_resultDismissTimer != null) {
+        try { clearTimeout(_resultDismissTimer); } catch (_) {}
+        _resultDismissTimer = null;
+      }
+    }
+
+    resultClose.onclick = function () { hideResultScreen(); };
+
+    // Snapshot of closedPoll from the previous applyMessage call so the
+    // render layer can detect changes and avoid redundant show/hide calls.
+    var _prevClosedPoll = null;
+
+    function refreshResultScreen() {
+      var cp = state.closedPoll;
+      if (cp !== _prevClosedPoll) {
+        _prevClosedPoll = cp;
+        if (cp) {
+          showResultScreen([cp]);
+        } else {
+          hideResultScreen();
+        }
+      }
+    }
+
+    // --- CanvasEngine setup --------------------------------------------
+
+    // CanvasEngine requires window.innerWidth, window.devicePixelRatio, etc.
+    // In a normal browser these are always present.  In tests they are stubbed.
+    var engine = null;
+    var spriteSheet = null;
+    var engineReady = false;
+
+    // The lifted CanvasEngine.resize() sizes the canvas to the FULL viewport
+    // (it was built for cr's full-screen sprite overlay). The classroom board
+    // is an embedded panel, so sizing is re-pointed at the host container:
+    // width tracks container.clientWidth, height is boardH (BOARD_H except
+    // while an APStat Park level taller than the strip is open).
+    var boardH = initialBoardH;
+    function resizeBoardToContainer() {
+      if (!engine || !engine.ctx) { return; }
+      var dpr  = root.devicePixelRatio || 1;
+      var cssW = container.clientWidth || DEFAULT_BOARD_W;
+      var cssH = boardH;
+      canvas.style.width  = cssW + 'px';
+      canvas.style.height = cssH + 'px';
+      canvas.width  = Math.floor(cssW * dpr);
+      canvas.height = Math.floor(cssH * dpr);
+      engine.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      if (engine.entities) {
+        engine.entities.forEach(function (e) { if (e.onResize) { e.onResize(); } });
+      }
+      repositionSprites();
+    }
+    // Park-only: grow the board to a level's height; no argument (or a bad
+    // value) restores BOARD_H. engine.groundY, the door buttons and the
+    // door painting all follow the canvas height.
+    function setBoardHeight(h) {
+      var next = (typeof h === 'number' && isFinite(h) && h > 0) ? Math.round(h) : BOARD_H;
+      if (next === boardH) { return; }
+      boardH = next;
+      resizeBoardToContainer();
+    }
+
+    try {
+      engine = new root.CanvasEngine(canvasId);
+      // CanvasEngine's constructor registered a full-viewport resize listener.
+      // Drop it immediately and install our container-aware one (destroy()
+      // removes this one again).
+      root.removeEventListener('resize', engine.resize);
+      engine.resize = resizeBoardToContainer;
+      root.addEventListener('resize', resizeBoardToContainer);
+      // Calendar cats come from the level-6 atlas (preloaded here, for every role); sprite.png
+      // is no longer requested by the board.
+      preloadParkAtlas();
+      spriteSheet = new AtlasCatSheet(function () { return parkDoorSpriteReady() ? parkDoorImage : null; },
+        function () { return parkAtlasState === 'failed'; }, doc);
+      resizeBoardToContainer();
+      engine.start();
+      engineReady = true;
+    } catch (e) {
+      // Engine not available (e.g., CanvasEngine/SpriteSheet not loaded).
+      // Board still works for WS + state reduction.
+      engineReady = false;
+    }
+
+    // --- V7.9 side-scroll camera wiring --------------------------------
+    // Helpers: viewport (canvas CSS px width) and level pixel width
+    // (chipSize * mapWidth from state.activity; falls back to viewport).
+    // _camera state lives at module scope so the world-sprite render path
+    // can reach it without per-sprite plumbing. _resetCamera() clears any
+    // residue from a prior mount; mount() reconfigures followFn + enabled
+    // role-by-role below.
+    function _viewportW() {
+      if (engine && engine.canvas) {
+        var dpr = root.devicePixelRatio || 1;
+        var w = engine.canvas.width / dpr;
+        if (w > 0) return w;
+      }
+      var ccw = container && container.clientWidth;
+      return (ccw > 0) ? ccw : DEFAULT_BOARD_W;
+    }
+    function _levelWidthPx() {
+      // Prefer the server-emitted derived field (Unit A levelPxWidth on
+      // state.activity.state) when present; fall back to chipSize * mapW
+      // computed from the level def. When no activity is running, the
+      // level "is" the viewport -- camera stays at 0 (single-screen).
+      var act = state && state.activity;
+      if (act && act.state && typeof act.state.levelPxWidth === 'number' && act.state.levelPxWidth > 0) {
+        return act.state.levelPxWidth;
+      }
+      if (act && act.level && act.level.map) {
+        var ch = act.level.map.chipSize || 10;
+        var mw = act.level.map.width    || 32;
+        var lw = mw * ch;
+        if (lw > 0) return lw;
+      }
+      return _viewportW();
+    }
+    function _refreshCameraDims() {
+      _camera.vw     = _viewportW();
+      _camera.levelW = _levelWidthPx();
+    }
+    _resetCamera();
+    if (engineReady) {
+      _refreshCameraDims();
+      // Teacher cockpit fits the level to the viewport so they see all
+      // students at once (no follow). Student / peer rows scroll with
+      // their own avatar.
+      _camera.enabled = (role !== 'teacher');
+      _camera.followFn = function () {
+        // Local player exists only after addSprite runs for the local
+        // student. Until then, follow no-one (camera stays at 0).
+        return (username && spriteEntities && spriteEntities[username]) || null;
+      };
+      _camera.vwFn     = _viewportW;
+      _camera.levelWFn = _levelWidthPx;
+      // V7.15 SHARED CAMERA. Expose state.activity.state.camera to
+      // _updateCamera via a closure. When the engine emits the camera
+      // object (Unit A), the client reads camera.x directly instead of
+      // running the per-client follow lerp. Returns null when there is
+      // no activity (legacy single-screen levels) -> _updateCamera
+      // falls through to the legacy follow branch.
+      _camera.cameraStateFn = function () {
+        var act = state && state.activity;
+        return (act && act.state && act.state.camera) || null;
+      };
+      try { engine.addEntity('camera_controller', new CameraController()); } catch (_) {}
+    }
+
+    // --- sprite entity registry ----------------------------------------
+
+    // spriteEntities: username -> BoardSprite (only "present" students)
+    var spriteEntities = {};
+
+    // draining: set of usernames currently walking toward the door
+    var draining = {};
+
+    // Previous state snapshot -- used to detect present->checkedIn transitions
+    var prevMembers = {};
+
+    // Greenlight overlay timing
+    var greenlightShownAt = 0;
+    var greenlightTimer   = null;
+
+    // --- player controller (Phase 1) -----------------------------------
+    // Shared input state object -- the keyboard listener writes into it
+    // and the local PlayerSprite reads from it on every update tick.
+    var playerInput = { left: false, right: false, jump: false, up: false };
+    // Park only: one counter per key, bumped by every non-repeat keydown. The park's fixed step
+    // compares it with what it has consumed, so a tap that starts and ends between two steps
+    // (or a release + re-press inside one frame) is still one press. The calendar strip keeps
+    // reading playerInput's held flags only.
+    var parkPresses = { left: 0, right: 0, jump: 0, up: 0 };
+    // The main room is the calculator approach; the existing left door still opens Pico Park.
+    if (engineReady && canPlayPark) engine.addEntity('calculator_approach', {
+      zIndex: -20,
+      update: function () {
+        if (nativeActive || classroomBusy() || Date.now() - parkReturnAt < 1200) return;
+        var local = spriteEntities[username];
+        // Mount the whole scrolling room before walking begins. Crossing the
+        // mission marker only joins its team; it never loads another scene.
+        if (local) enterPark(-1);
+      },
+      render: function (ctx) {
+        if (classroomBusy()) return;
+        var w = _viewportW(), floor = engine.groundY;
+        ctx.save(); ctx.fillStyle = '#fff7e7'; ctx.fillRect(0, 0, w, floor);
+        // Park music (2026-10-11): the song palette's accent, when a song is picked.
+        var parkAccent = '';
+        try { parkAccent = getComputedStyle(document.documentElement).getPropertyValue('--park-accent').trim(); } catch (_) {}
+        ctx.fillStyle = parkAccent || '#FF864D'; ctx.fillRect(0, floor, w, 50);
+        ctx.restore();
+      }
+    });
+    function clearPlayerInput() { for (var key in playerInput) { playerInput[key] = false; } }
+
+    // The doorway is part of the existing scene. Walking into it enters locally;
+    // the park uses the same classroom socket, while this scene's physics sleeps.
+    // A whole-class call from the teacher (poll, armed gate, green light, doorways, a live
+    // activity) takes priority over the park: it blocks entry and, in syncScene, brings a
+    // student who is inside back to the classroom scene.
+    function classroomBusy() {
+      return !!(state.poll || (state.gate && state.gate.armed) || state.greenlight || state.doorways
+        || (state.activity && !state.activity.finished));
+    }
+    var parkWalkTicks = 0;
+    // The atlas (small, same build as the park modules, never waited on) was preloaded with the
+    // engine above: the cats need it for every role, the door for students.
+    if (engineReady && canPlayPark) engine.addEntity('park_doorway', {
+      update: function () {
+        setParkButtons(function (b) {
+          var box = parkDoorBox(Number(b.getAttribute('data-classroom-native')) - 1);
+          b.style.left = box.left + 'px'; b.style.top = box.top + 'px';
+          b.style.width = box.width + 'px'; b.style.height = box.height + 'px'; b.style.borderRadius = box.radius;
+        });
+        var player = spriteEntities[username];
+        if (!player || nativeActive || Date.now() - parkReturnAt < 1200 || classroomBusy()) { parkWalkTicks = 0; return; }
+        // Ask the relay who is inside each level (park_lobby). The reply lands in ws.onmessage;
+        // an old relay answers park_error, which is simply ignored (doors stay unlabeled).
+        if (ws && ws.readyState === 1 && Date.now() - parkLobbyAt >= PARK_LOBBY_POLL_MS) {
+          parkLobbyAt = Date.now();
+          try { ws.send(JSON.stringify({ type: 'park_lobby', requestId: 'board_lobby_' + (++parkLobbyN) })); } catch (_) {}
+        }
+        var x = player.x + (player._spriteSize || 20) / 2 - (_camera.x || 0);
+        // Deliberate walk-in applies to the first door (at the left edge, where walking LEFT
+        // naturally stops): hold LEFT for ~a quarter second anywhere from the door's right edge
+        // (x 60) to the wall. The cat stops at the wall (centre x 10), left of the door's own
+        // span, so a span-only check (27..60) let a student pressed against the wall never enter.
+        var inDoor = x <= 60 && Math.abs(player.y - getSpriteY()) < 16;
+        parkWalkTicks = (inDoor && playerInput.left && !playerInput.right) ? parkWalkTicks + 1 : 0;
+        if (parkWalkTicks >= 15) { parkWalkTicks = 0; enterPark(PARK_DOORS[0].level); }
+      },
+      zIndex: 1,   // scenery band (vote doorways are 1, avatars >= 10): sprites paint OVER the door
+      render: function (ctx) {
+        // Screen space, like GateDoor (no camera translate): the doors are fixed at the left edge.
+        var n = PARK_DOOR_SPRITE.size, top = engine.groundY - n;
+        ctx.save();
+        ctx.textAlign = 'center';
+        var summary = [];
+        for (var i = 0; i < PARK_DOORS.length; i++) {
+          var cx = parkDoorCenter(i), catsY = top + 24;
+          if (parkDoorSpriteReady()) {
+            ctx.save();
+            ctx.imageSmoothingEnabled = true;   // 48 px art at 32 px, as the level's doors
+            ctx.drawImage(parkDoorImage, PARK_DOOR_SPRITE.sx, PARK_DOOR_SPRITE.sy, PARK_DOOR_SPRITE.sw, PARK_DOOR_SPRITE.sh, cx - n / 2, top, n, n);
+            ctx.restore();
+          } else if (parkAtlasState === 'failed') {
+            // The atlas can never load: a plain block in the page's text colour (not the old arch).
+            var ink = '#222';
+            try { ink = root.getComputedStyle(container).color || ink; } catch (_) {}
+            ctx.fillStyle = ink;
+            ctx.fillRect(cx - n / 2, top, n, n);
+          }                                     // still decoding: nothing (the hit area stays)
+          ctx.fillStyle = '#8fb3a6';            // occupancy cats, inside the doorway
+          var inside = parkOccupants(PARK_DOORS[i].level);
+          if (inside.length) {
+            // One cat per classmate inside (max three), so a glance shows where friends are.
+            ctx.font = '11px system-ui';
+            ctx.fillText('\u{1F431}'.repeat(Math.min(inside.length, 3)), cx, catsY);
+            summary.push(parkOccupantLabel(inside, 2));
+          }
+        }
+        if (summary.length) {
+          // Names of the classmates inside, one line above the door.
+          ctx.fillStyle = '#b8862b';
+          ctx.font = '10px system-ui';
+          ctx.textAlign = 'left';
+          ctx.fillText(summary.join('   \u00b7   '), PARK_DOOR_X0, top - 10);
+        }
+        ctx.restore();
+      }
+    });
+
+    // Edge-trigger callback the PlayerSprite calls when Up is pressed.
+    // Fires classroom_checkin when the player's foot is inside the gate
+    // door x-range AND state.gate.armed; otherwise no-op (no door, no
+    // check-in). The server's present->checkedIn transition then drives
+    // the drain animation through syncScene as today -- one way out.
+    function handlePlayerUp(player) {
+      // Up enters only when the sprite is ON the door (±16px of its center), never from the first
+      // idle slot beside it; never for teachers; never during a whole-class event.
+      if (canPlayPark && !nativeActive && !classroomBusy() && Date.now() - parkReturnAt >= 1200) {
+        var footX = player.x + player._spriteSize / 2 - (_camera.x || 0);
+        for (var di = 0; di < PARK_DOORS.length; di++) {
+          if (Math.abs(footX - parkDoorCenter(di)) <= 16) { enterPark(PARK_DOORS[di].level); return; }
+        }
+      }
+      // v3 P4: doorways take priority over the gate (a doorways data
+      // mode is mutually exclusive with the gate ritual on the server).
+      if (state.doorways && doorwayEntities.length > 0) {
+        var px = player.x + player._spriteSize / 2;
+        for (var i = 0; i < doorwayEntities.length; i++) {
+          var d = doorwayEntities[i];
+          if (d.containsX(px, player._spriteSize / 2)) {
+            safeSend({ type: 'classroom_doorway_vote', id: state.doorways.id, doorId: d.doorId });
+            // s111 P4 UX rev3: scale-to-50% + fade-to-0 in place.
+            // No y translation -- the sprite stays where they walked
+            // to and visually shrinks + fades, suggesting they have
+            // entered the doorway. Press Up again to reverse.
+            player._absorbProgress = 0;
+            player._absorbDir = 1;
+            player._absorbDurationMs = 350;
+            player.state = 'entering-doorway';
+            player._isDoorwayWalk = true;
+            // s111 P4 HOTFIX: closure that retracts THIS vote if the
+            // student cancels out of the doorway. Captures the current
+            // doorways id so the retract targets the right session
+            // even if the teacher closes + reopens between cast and
+            // cancel (then the server's id-match check rejects the
+            // stale retract). PlayerSprite.update calls this on
+            // cancel-complete and clears it.
+            var capturedDoorwayId = state.doorways.id;
+            player._cancelHandler = function() {
+              safeSend({ type: 'classroom_doorway_retract', id: capturedDoorwayId });
+            };
+            // s111 P4 HOTFIX: force-broadcast state='in-doorway' RIGHT
+            // NOW so the server records it before any rate-limit can
+            // eat the next emit. Once state='entering-doorway' the
+            // update() block returns early before the emit logic --
+            // so without this immediate send, the wire might never
+            // see 'in-doorway' and a refresh would restore the avatar
+            // OUTSIDE the hole (incongruent with the vote tally).
+            if (typeof player.onPos === 'function') {
+              try {
+                player.onPos({
+                  x: player.x, y: player.y, state: 'in-doorway', vx: 0
+                });
+              } catch (_) {}
+              if (typeof player._now === 'function') {
+                player._lastPosMs = player._now();
+              }
+              player._restEmitted = true;
+            }
+            return;
+          }
+        }
+      }
+      // Gate check-in is a STUDENT ritual (the teacher runs the gate, not checks
+      // into it). A teacher pressing Up away from a doorway is a no-op — without
+      // this they'd send classroom_checkin and vanish via the 'checkedIn' filter.
+      if (role !== 'student') { return; }
+      if (!state.gate || !state.gate.armed) { return; }
+      if (!engineReady) { return; }
+      var cw     = engine.canvas.width / (root.devicePixelRatio || 1);
+      var doorXL = cw - DOOR_W - 10;
+      var doorXR = cw - 10;
+      var footX  = player.x + (SPRITE_W * (player.scale || SPRITE_SCALE)) / 2;
+      if (footX >= doorXL && footX <= doorXR) {
+        safeSend({ type: 'classroom_checkin' });
+      }
+    }
+
+    // Keyboard listener -- document-level. Phase 1 captures arrows + Space
+    // globally on the Desk. Acceptable because the calendar is compact
+    // (2 weeks) so the page rarely needs keyboard scrolling. Gates input
+    // when an <input>/<textarea> has focus or any modal overlay is open;
+    // Space + Up also lock out while an open poll awaits this student's
+    // vote (commit a choice before bouncing around).
+    function _isInputFocused() {
+      var ae = doc.activeElement;
+      if (!ae) { return false; }
+      var tag = (ae.tagName || '').toLowerCase();
+      return tag === 'input' || tag === 'textarea' || ae.isContentEditable === true;
+    }
+    function _isModalOpen() {
+      var ids = ['day-grade-overlay', 'donow-bump-overlay', 'signin-overlay', 'pwchange-overlay', 'resource-panel'];
+      for (var i = 0; i < ids.length; i++) {
+        var el = doc.getElementById(ids[i]);
+        if (!el) { continue; }
+        var disp = (el.style && el.style.display) || '';
+        if (disp && disp !== 'none') { return true; }
+      }
+      return false;
+    }
+    function _keyToInputProp(e) {
+      switch (e.key) {
+        case 'ArrowLeft':  return 'left';
+        case 'ArrowRight': return 'right';
+        case 'ArrowUp':    return 'up';
+        case ' ':
+        case 'Spacebar':   return 'jump';
+        default:           return null;
+      }
+    }
+    function _keyHandler(e, pressed) {
+      if (parkExitKeyHeld) {
+        if (!pressed || !e.repeat) parkExitKeyHeld = false;
+        else return;
+      }
+      if (nativeActive && e.key === 'Escape' && pressed) {
+        if (nativePanel.kind === 'calculator') nativePanel.returnToStart();
+        else nativePanel.dispose();
+        return;
+      }
+      if (_isInputFocused() || _isModalOpen()) { return; }
+      var prop = _keyToInputProp(e);
+      if (!prop) { return; }
+      if ((prop === 'jump' || prop === 'up') && state.poll &&
+          state.members[username] && state.members[username].status !== 'voted') {
+        return;
+      }
+      if (pressed && !e.repeat) { parkPresses[prop]++; }
+      playerInput[prop] = pressed;
+      if (e.preventDefault) { e.preventDefault(); }
+    }
+    var _kdHandler = function (e) { _keyHandler(e, true);  };
+    var _kuHandler = function (e) { _keyHandler(e, false); };
+    // Keys released while the page had no focus never send keyup: clear everything on blur
+    // and when the tab is hidden (a stuck Right walked the cat on forever after alt-tab).
+    var _blurHandler = function () { clearPlayerInput(); };
+    var _visibilityHandler = function () { if (doc.hidden) { clearPlayerInput(); } };
+    if (doc.addEventListener) {
+      doc.addEventListener('keydown', _kdHandler);
+      doc.addEventListener('keyup',   _kuHandler);
+      doc.addEventListener('visibilitychange', _visibilityHandler);
+    }
+    if (root.addEventListener) { root.addEventListener('blur', _blurHandler); }
+
+    // --- layout helpers ------------------------------------------------
+
+    function getSpriteWidth() {
+      return SPRITE_W * SPRITE_SCALE;
+    }
+
+    // 2026-05-24 fix: clamp an incoming sprite x to the local bounds.
+    // The server persists member.pos.x from whichever client wrote it
+    // last; a stale entry from a wider canvas/level would push the
+    // sprite past the right edge. Receivers always clamp -- they own
+    // their own viewport. NaN / non-finite x falls back to 0.
+    //
+    // V7.9 side-scroll: sprite.x is now in LEVEL pixels (not canvas
+    // pixels). Clamp to [0, levelW - sw] so a wider level than the
+    // viewport doesn't force the sprite into the camera's idle zone.
+    // For legacy single-screen levels (levelW == viewportW = 320) the
+    // clamp behavior is preserved exactly (maxX = 320 - 20 = 300).
+    function clampSpriteX(x, sp) {
+      if (typeof x !== 'number' || !isFinite(x)) { return 0; }
+      var lw = _levelWidthPx();
+      var sw = (sp && sp._spriteSize) || getSpriteWidth();
+      var maxX = Math.max(0, lw - sw);
+      return Math.max(0, Math.min(maxX, x));
+    }
+
+    function getSpriteY() {
+      if (!engineReady) { return 200; }
+      var gy = engine.groundY;
+      return gy - SPRITE_H * SPRITE_SCALE;
+    }
+
+    function getDoorX() {
+      if (!engineReady) { return 340; }
+      var cw = engine.canvas.width / (root.devicePixelRatio || 1);
+      return cw - DOOR_W - 10;
+    }
+
+    // Reposition all present sprites in a row (or poll columns when active).
+    function repositionSprites() {
+      if (!engineReady) { return; }
+      var usernames = Object.keys(spriteEntities);
+      if (usernames.length === 0) { return; }
+
+      var sw  = getSpriteWidth();
+      var cw  = engine.canvas.width / (root.devicePixelRatio || 1);
+      var sy  = getSpriteY();
+
+      if (state.poll && state.poll.options && state.poll.options.length > 0) {
+        // Poll mode: voted students walk to their column; unvoted stay in idle row.
+        var optCount = state.poll.options.length;
+        var colW     = cw / optCount;
+
+        // Compute the idle row x slots (all sprites regardless of vote status).
+        var idleXs = computeSlots(usernames.length, sw, cw);
+
+        for (var pi = 0; pi < usernames.length; pi++) {
+          var puname = usernames[pi];
+          var psp    = spriteEntities[puname];
+          if (!psp) { continue; }
+
+          var pmember = state.members[puname];
+          if (pmember && pmember.status === 'voted' && pmember.vote != null) {
+            // Walk toward the column center for their chosen option.
+            var colCenter = pmember.vote * colW + colW / 2 - sw / 2;
+            if (psp.state === 'idle' && Math.abs(psp.x - colCenter) > 2) {
+              psp.walkTo(colCenter);
+            }
+          } else {
+            // Unvoted: stay in idle row position. D2 -- skip any sprite
+            // that has moved (PlayerSprite via keyboard, OR a peer who has
+            // received a classroom_pos broadcast in Phase 2). _moved is
+            // sticky once set.
+            if (psp._moved) { continue; }
+            if (psp.state === 'idle') {
+              psp.x = idleXs[pi];
+              psp.y = sy;
+            }
+          }
+        }
+      } else {
+        // No poll: normal idle row.
+        var xs = computeSlots(usernames.length, sw, cw);
+        for (var i = 0; i < usernames.length; i++) {
+          var sp = spriteEntities[usernames[i]];
+          // D2 -- skip any sprite that has moved (PlayerSprite via keyboard
+          // OR a peer who has received a Phase 2 classroom_pos broadcast).
+          if (sp && sp._moved) { continue; }
+          // Only reposition idle sprites; do not interrupt a walk.
+          if (sp && sp.state === 'idle') {
+            sp.x = xs[i];
+            sp.y = sy;
+          }
+        }
+      }
+    }
+
+    // Resolve the display hue for a member.
+    function resolveHue(member) {
+      if (member.hue != null) { return member.hue; }
+      return hashStringToHue(member.username);
+    }
+
+    // Create a sprite for a member and add it to the engine.
+    function addSprite(member) {
+      if (!engineReady || !spriteSheet) { return; }
+      if (spriteEntities[member.username]) { return; }  // already present
+      var label  = (nameMap && nameMap[member.username]) ? nameMap[member.username] : member.username;
+      var sy     = getSpriteY();
+      var hue    = resolveHue(member);
+      // AVATAR_MENU: thread the mount-level name-label suppression onto every
+      // avatar (peers + the local PlayerSprite, which inherits BoardSprite).
+      var hideLabel = hideNameLabels;
+      // Phase 1 (D1): the local signed-in user gets a PlayerSprite (keyboard-
+      // controlled, can walk + doorway-vote). All OTHER members stay an auto-layout
+      // BoardSprite. A teacher counts as local too now, so the teacher's own avatar
+      // is interactive (moves + votes in doorways) — not a stationary observer.
+      var isLocal = (member.username === username && (role === 'student' || role === 'teacher'));
+      var baseOpts = {
+        x:      0,
+        y:      sy,
+        scale:  SPRITE_SCALE,
+        hue:    hue,
+        online: member.online !== false,
+        label:  label,
+        hideLabel: hideLabel,
+        onDrained: (function (uname) {
+          return function () {
+            // Drain animation completed (present -> checkedIn walk to door).
+            // Guard: only an explicit drain (draining[uname] set by
+            // startDrain) removes the sprite. A v2 poll-voted walkTo also
+            // arrives here on arrival -- without this guard it would wipe
+            // the voter's sprite at the column.
+            if (!draining[uname]) { return; }
+            engine.removeEntity('sprite_' + uname);
+            delete spriteEntities[uname];
+            delete draining[uname];
+            repositionSprites();
+          };
+        })(member.username)
+      };
+      var sp;
+      if (isLocal) {
+        baseOpts.input       = playerInput;
+        baseOpts.peers       = function () { return spriteEntities; };
+        baseOpts.onUpPressed = handlePlayerUp;
+        // V7.9 side-scroll: this is the clamp upper bound for the local
+        // player's x. The player now walks in LEVEL coords (not canvas
+        // viewport coords), so canvasW must return levelPxWidth. Falls
+        // back to the viewport for legacy single-screen levels (=320).
+        baseOpts.canvasW     = function () { return _levelWidthPx(); };
+        // LIVE_CLASSROOM_SCALING knob 1 -- live room-size source.
+        // Reads state.members through the mount-scope closure on each
+        // tick; no protocol change, no caching (Object.keys is cheap at
+        // class scale).
+        baseOpts.getMemberCount = function () {
+          return Object.keys(state.members).length;
+        };
+        // Phase 2 -- broadcast position to roommates.
+        baseOpts.onPos = function (msg) {
+          // V7.9 side-scroll: msg.x is now in LEVEL pixels (the player's
+          // own x lives in level coords post-V7.9, since canvasW above
+          // clamps to levelPxWidth). canvasW broadcast = levelPxWidth so
+          // the server's _playerNearActorX rescale `(x / canvasW) * levelW`
+          // becomes identity (`x / levelW * levelW = x`) -- anti-cheat
+          // works unchanged for any plugin that reads canvasW. Fallback
+          // when no activity: levelPxWidth defaults to the viewport
+          // width (legacy single-screen behavior preserved).
+          var senderCw = _levelWidthPx();
+          var payload = {
+            type:    'classroom_pos',
+            x:       msg.x,
+            y:       msg.y,
+            state:   msg.state,
+            vx:      msg.vx,
+            canvasW: senderCw
+          };
+          // v3 P3: prefer DC when open; fall back to WS.
+          if (_peerDcOpen && _peerDataChannel) {
+            try { _peerDataChannel.send(JSON.stringify(payload)); return; } catch (_) {}
+          }
+          safeSend(payload);
+        };
+        sp = new PlayerSprite(spriteSheet, baseOpts);
+      } else {
+        sp = new BoardSprite(spriteSheet, baseOpts);
+      }
+      spriteEntities[member.username] = sp;
+      engine.addEntity('sprite_' + member.username, sp);
+      // Phase 2 -- restore last-known position from the join snapshot
+      // (a reconnecting local user OR a peer who was already broadcasting
+      // when we joined). Without this they'd spawn at the auto-layout slot
+      // and snap back into formation. _moved=true gates repositionSprites
+      // off them; applyPos will overwrite both x/y on the next broadcast.
+      if (member.pos && typeof member.pos.x === 'number' && typeof member.pos.y === 'number') {
+        // 2026-05-24 fix: server-persisted pos may have been written from a
+        // wider/taller canvas (other client, prior session). Clamp to local
+        // bounds so the spawn lands on-screen + clickable. Y must clamp too:
+        // a pos.y from a taller canvas (e.g. the teacher cockpit or a dev
+        // playtest) can land BELOW this board's ground line, where the
+        // floor-snap never catches it (it only lands a sprite crossing
+        // groundY from above) and gravity drives it off-screen forever --
+        // the avatar silently vanishes. getSpriteY() is the resting ground
+        // line, so a sprite can never legitimately be lower than it.
+        sp.x = clampSpriteX(member.pos.x, sp);
+        sp.y = Math.min(member.pos.y, getSpriteY());
+        sp._moved = true;
+        // s111 P4 HOTFIX: restore in-doorway state on refresh. The
+        // server records member.pos.state ('in-doorway' for absorbed
+        // students); without restoring it, on every cockpit refresh
+        // the peer BoardSprite would be created in default state and
+        // students would appear to "come back out of the hole." For
+        // the LOCAL student PlayerSprite (refresh of own browser),
+        // restore the full absorb state so they stay invisible until
+        // they press Up to cancel.
+        if (member.pos.state === 'in-doorway') {
+          if (sp instanceof PlayerSprite) {
+            sp.state                = 'entering-doorway';
+            sp._absorbProgress      = 1;
+            sp._absorbDir           = 1;
+            sp._absorbDurationMs    = 350;
+            sp._isDoorwayWalk       = true;
+            sp._hidden              = true;
+          } else {
+            sp.state                 = 'in-doorway';
+            sp._peerAbsorbProgress   = 1;
+          }
+        }
+      }
+      repositionSprites();
+    }
+
+    // Remove a sprite immediately (e.g. member left).
+    function removeSprite(username) {
+      if (!engineReady) { return; }
+      if (!spriteEntities[username]) { return; }
+      engine.removeEntity('sprite_' + username);
+      delete spriteEntities[username];
+      delete draining[username];
+    }
+
+    // Update an existing sprite's properties.
+    function updateSprite(member) {
+      var sp = spriteEntities[member.username];
+      if (!sp) { return; }
+      sp.online = member.online !== false;
+      sp.hue    = resolveHue(member);
+      var label = (nameMap && nameMap[member.username]) ? nameMap[member.username] : member.username;
+      sp.labelText = label;
+    }
+
+    // Trigger the walk-to-door animation for a member.
+    function startDrain(username) {
+      if (!engineReady) { return; }
+      if (draining[username]) { return; }  // already walking
+      var sp = spriteEntities[username];
+      if (!sp) { return; }
+      draining[username] = true;
+      var doorX = getDoorX();
+      sp.walkTo(doorX);
+    }
+
+    // Gate door entity (shown when gate is armed)
+    var gateDoor = null;
+
+    function showGateDoor() {
+      if (!engineReady) { return; }
+      if (gateDoor) { return; }
+      gateDoor = new GateDoor(function () { return engine.groundY; });
+      engine.addEntity('gate_door', gateDoor);
+    }
+
+    function hideGateDoor() {
+      if (!engineReady) { return; }
+      if (!gateDoor) { return; }
+      engine.removeEntity('gate_door');
+      gateDoor = null;
+    }
+
+    // --- v3 P4 doorway entities (vote-with-your-feet) ----------------
+
+    var doorwayEntities = [];
+
+    function showDoorways(options) {
+      hideDoorways();
+      if (!engineReady || !options || options.length === 0) { return; }
+      var cw = engine.canvas.width / (root.devicePixelRatio || 1);
+      var n  = options.length;
+      // Even spread across the canvas, leaving a margin on each side.
+      var margin = 40;
+      var span   = cw - margin * 2;
+      for (var i = 0; i < n; i++) {
+        var xCenter = margin + (span * (i + 0.5) / n);
+        var d = new Doorway(function () { return engine.groundY; }, {
+          x: xCenter, width: 28, label: options[i].label, doorId: options[i].doorId
+        });
+        doorwayEntities.push(d);
+        engine.addEntity('doorway_' + options[i].doorId, d);
+      }
+    }
+
+    function hideDoorways() {
+      if (!engineReady) { doorwayEntities = []; return; }
+      for (var i = 0; i < doorwayEntities.length; i++) {
+        var d = doorwayEntities[i];
+        engine.removeEntity('doorway_' + d.doorId);
+      }
+      doorwayEntities = [];
+    }
+
+    function updateDoorwayCounts(tally) {
+      if (!tally || !doorwayEntities.length) { return; }
+      // Map by doorId.
+      var byId = {};
+      for (var i = 0; i < tally.length; i++) { byId[tally[i].doorId] = tally[i].count; }
+      for (var j = 0; j < doorwayEntities.length; j++) {
+        var d = doorwayEntities[j];
+        if (typeof byId[d.doorId] === 'number') { d.count = byId[d.doorId]; }
+      }
+    }
+
+    // --- V7.2 sprite-collide coin entities ----------------------------
+    //
+    // Coins are sprites on the avatar canvas (not paintings on the
+    // activity overlay) so collision is native sprite-vs-sprite. The
+    // local player's CoinSprite.update fires onCollect on contact, which
+    // emits classroom_activity_value { kind: 'collect', coinId }; the
+    // server's level-engine.applyInput validates + flips the coin's
+    // collected flag + bumps the tally. Next tick broadcasts the new
+    // state; syncLevelCoins re-applies the collected status here so all
+    // clients see the coin go grey.
+
+    var coinEntities = {};   // coinId -> CoinSprite
+
+    function _coinCanvasX(coin, levelW, levelChipSize, canvasW, coinSize) {
+      // V7.9 side-scroll: coins are world sprites and their this.x is
+      // now stored in LEVEL pixels (not canvas pixels). The camera
+      // translate handles the on-screen offset at render time, so this
+      // helper just returns the LEVEL pixel x of the coin's top-left.
+      // The levelW + canvasW arguments are kept for signature stability
+      // (and read by tests that might still pass them) -- they're no
+      // longer used here.
+      var levelCenterPx = (coin.x * levelChipSize) + (levelChipSize / 2);
+      return levelCenterPx - coinSize / 2;
+    }
+
+    function _coinCanvasY(coinSize) {
+      // V7.3.5: position coins clearly above the avatar's head so a
+      // jump is required to reach them, not just walking past. Math:
+      //   groundY ~= 146, spriteHeight ~= 24, coinSize = 24
+      //   standing player center y = groundY - spriteHeight/2 = 134
+      //   peak jump player center y = standing - 49 px = 85
+      // Coin center is positioned at y ~= 90:
+      //   diff at standing = 44 px (outside COIN_COLLISION_Y_PX = 24)
+      //   diff at peak     =  5 px (well inside tolerance)
+      // The extra COIN_VERTICAL_PADDING (20, was 4) lifts the coin 16 px
+      // further from the avatar's head than the s115 placement.
+      var COIN_VERTICAL_PADDING = 20;
+      var groundY = (engine && typeof engine.groundY === 'number') ? engine.groundY : (BOARD_H - 24);
+      var spriteHeight = SPRITE_H * SPRITE_SCALE;
+      return groundY - spriteHeight - coinSize - COIN_VERTICAL_PADDING;
+    }
+
+    // GoalSprite is a singleton per active level; mirrors the coin lifecycle
+    // pattern. V7.5 key-gate widens the phase set so the door is visible
+    // BEFORE the key is collected (phase === 'KEY_HUNT' while goal.locked
+    // is true) -- otherwise the kids wouldn't know what they're hunting
+    // the key for. Legacy levels (no key actor) never enter KEY_HUNT and
+    // see no visible-window change.
+    var goalEntity = null;
+
+    function syncLevelGoal(state) {
+      if (!engineReady) return;
+      var act = state && state.activity;
+      var isLevel = !!(act && act.type === 'level' && !act.finished);
+      var goal    = (act && act.state && act.state.goal) ? act.state.goal : null;
+      var phase   = (act && act.state && act.state.phase) || null;
+      // V7.5: KEY_HUNT also shows the (locked) door so the locked-state
+      // is a visible affordance, not an empty room. GOAL_AVAILABLE +
+      // LEVEL_CLEARED keep their existing behaviour.
+      var goalVisible = isLevel && goal &&
+        (phase === 'GOAL_AVAILABLE' || phase === 'LEVEL_CLEARED' || phase === 'KEY_HUNT');
+
+      if (!goalVisible) {
+        if (goalEntity) {
+          try { engine.removeEntity('level_goal'); } catch (_) {}
+          goalEntity = null;
+        }
+        return;
+      }
+
+      var chipSize = (act.level && act.level.map && act.level.map.chipSize) || 10;
+      var mapW     = (act.level && act.level.map && act.level.map.width) || 32;
+      var size     = GOAL_DEFAULT_SIZE;
+
+      // V7.9 side-scroll: goal is a world sprite -- store x in LEVEL
+      // pixels. Camera translate handles the on-screen offset at render.
+      var levelCenterPx = (goal.x * chipSize) + (chipSize / 2);
+      var gx = levelCenterPx - size / 2;
+      var groundY = (engine && typeof engine.groundY === 'number') ? engine.groundY : (BOARD_H - 24);
+      var spriteHeight = SPRITE_H * SPRITE_SCALE;
+      var gy = groundY - spriteHeight - size - 4;
+
+      // V7.5: server-side `goal.locked` is true while the key is uncollected,
+      // false otherwise. Always false for legacy no-key levels.
+      var lockedNow = goal.locked === true;
+
+      if (!goalEntity) {
+        goalEntity = new GoalSprite({
+          imageClosed: _ensureDoorClosedImage(),
+          imageOpen:   _ensureDoorOpenImage(),
+          x: gx, y: gy, size: size,
+          reached: goal.reached === true,
+          locked:  lockedNow,
+          getLocalSprite: function () { return (username && spriteEntities[username]) || null; },
+          onReach: function () {
+            safeSend({ type: 'classroom_activity_value', payload: { kind: 'reach-goal' } });
+          }
+        });
+        try { engine.addEntity('level_goal', goalEntity); } catch (_) {}
+      } else {
+        goalEntity.reached = goal.reached === true;
+        goalEntity.locked  = lockedNow;
+        goalEntity.x = gx;
+        goalEntity.y = gy;
+      }
+    }
+
+    // KeySprite is a singleton per active level; mirrors goalEntity /
+    // syncLevelGoal. Spawned only while phase === 'KEY_HUNT' AND
+    // state.key is present AND !state.key.collected. Despawned when
+    // any of those conditions stop holding (server flips collected,
+    // phase advances past KEY_HUNT, or the level ends).
+    var keyEntity = null;
+
+    function syncLevelKey(curr) {
+      if (!engineReady) return;
+      var act = curr && curr.activity;
+      var isLevel = !!(act && act.type === 'level' && !act.finished);
+      var key     = (act && act.state && act.state.key) ? act.state.key : null;
+      var phase   = (act && act.state && act.state.phase) || null;
+      var keyVisible = isLevel && key && phase === 'KEY_HUNT' && key.collected !== true;
+
+      if (!keyVisible) {
+        if (keyEntity) {
+          try { engine.removeEntity('level_key'); } catch (_) {}
+          keyEntity = null;
+        }
+        return;
+      }
+
+      var chipSize = (act.level && act.level.map && act.level.map.chipSize) || 10;
+      var mapW     = (act.level && act.level.map && act.level.map.width) || 32;
+      var size     = KEY_DEFAULT_SIZE;
+
+      // V7.9 side-scroll: key is a world sprite -- store x in LEVEL
+      // pixels. Same shape as coins; camera translate handles the
+      // on-screen offset at render.
+      var levelCenterPx = (key.x * chipSize) + (chipSize / 2);
+      var kx = levelCenterPx - size / 2;
+      // Y placement: lift the key into the jump arc, same shape as a coin.
+      var COIN_VERTICAL_PADDING = 20;
+      var groundY = (engine && typeof engine.groundY === 'number') ? engine.groundY : (BOARD_H - 24);
+      var spriteHeight = SPRITE_H * SPRITE_SCALE;
+      var ky = groundY - spriteHeight - size - COIN_VERTICAL_PADDING;
+
+      if (!keyEntity) {
+        keyEntity = new KeySprite({
+          images: [ _ensureKeyImage() ],
+          x: kx, y: ky, size: size,
+          collected: key.collected === true,
+          getLocalSprite: function () { return (username && spriteEntities[username]) || null; },
+          onCollect: function () {
+            safeSend({ type: 'classroom_activity_value', payload: { kind: 'collect-key' } });
+          }
+        });
+        try { engine.addEntity('level_key', keyEntity); } catch (_) {}
+      } else {
+        keyEntity.collected = key.collected === true;
+        keyEntity.x = kx;
+        keyEntity.y = ky;
+        // Clear stale optimistic _sentCollect (mirrors CoinSprite TTL).
+        if (keyEntity._sentCollect && !keyEntity.collected) {
+          var nowMs = (typeof Date !== 'undefined' && Date.now) ? Date.now() : 0;
+          if (nowMs - (keyEntity._sentCollectAt || 0) > KEY_SENT_TTL_MS) {
+            keyEntity._sentCollect   = false;
+            keyEntity._sentCollectAt = 0;
+          }
+        }
+      }
+    }
+
+    // StageIndicator -- singleton per active level. Spawn during VOTING
+    // phase when stagesTotal > 1. Hidden otherwise (legacy single-stage
+    // levels show nothing). Reads currentStage / stagesTotal from the
+    // mount-scope state via closures so the panel updates on every tick
+    // without needing a fresh entity per stage transition.
+    var stageEntity = null;
+
+    function syncStageIndicator(curr) {
+      if (!engineReady) return;
+      var act         = curr && curr.activity;
+      var isLevel     = !!(act && act.type === 'level' && !act.finished);
+      var phase       = (act && act.state && act.state.phase) || null;
+      var stagesTotal = (act && act.state && typeof act.state.stagesTotal === 'number') ? act.state.stagesTotal : 1;
+      // Only show during VOTING for multi-stage levels.
+      var shouldShow = isLevel && phase === 'VOTING' && stagesTotal > 1;
+
+      if (!shouldShow) {
+        if (stageEntity) {
+          try { engine.removeEntity('level_stage'); } catch (_) {}
+          stageEntity = null;
+        }
+        return;
+      }
+
+      if (!stageEntity) {
+        stageEntity = new StageIndicator({
+          getCurrent: function () {
+            var s = state && state.activity && state.activity.state;
+            var i = (s && typeof s.currentStage === 'number') ? s.currentStage : 0;
+            return i + 1;
+          },
+          getTotal: function () {
+            var s = state && state.activity && state.activity.state;
+            return (s && typeof s.stagesTotal === 'number') ? s.stagesTotal : 1;
+          },
+          getViewportW: function () {
+            if (!engine || !engine.canvas) return DEFAULT_BOARD_W;
+            return engine.canvas.width / (root.devicePixelRatio || 1);
+          }
+        });
+        try { engine.addEntity('level_stage', stageEntity); } catch (_) {}
+      }
+    }
+
+    // ResultPanel (V7.6) -- singleton in-canvas vote-result panel. Spawns
+    // when state.closedDoorways flips from null to a fresh snapshot (the
+    // server just closed a doorways round). Auto-dismisses after
+    // RESULT_PANEL_DISMISS_FAST_MS (correct vote, no reflection) or
+    // RESULT_PANEL_DISMISS_SLOW_MS (wrong vote, reflection text below the
+    // dot plot needs reading time). Also clears on activity teardown so a
+    // fast level restart doesn't strand a stale panel.
+    var RESULT_PANEL_DISMISS_FAST_MS = 2000;
+    var RESULT_PANEL_DISMISS_SLOW_MS = 8000;
+    var resultPanelEntity     = null;
+    var _resultPanelTimer     = null;
+    var _resultPanelHasRefl   = false;   // upgrades a fast timer to slow when reflection flips active
+    var _prevClosedDoorwaysId = null;    // detect a new doorways-close to (re)spawn
+
+    function _despawnResultPanel() {
+      if (_resultPanelTimer != null) {
+        try { clearTimeout(_resultPanelTimer); } catch (_) {}
+        _resultPanelTimer = null;
+      }
+      if (resultPanelEntity) {
+        try { engine.removeEntity('result_panel'); } catch (_) {}
+        resultPanelEntity = null;
+      }
+      _resultPanelHasRefl = false;
+    }
+
+    function _armResultPanelTimer(ms) {
+      if (_resultPanelTimer != null) {
+        try { clearTimeout(_resultPanelTimer); } catch (_) {}
+        _resultPanelTimer = null;
+      }
+      try {
+        _resultPanelTimer = setTimeout(function () {
+          _resultPanelTimer = null;
+          _despawnResultPanel();
+        }, ms);
+      } catch (_) {}
+    }
+
+    function syncResultPanel(curr) {
+      if (!engineReady) return;
+
+      var closed = (curr && curr.closedDoorways) ? curr.closedDoorways : null;
+      var act    = curr && curr.activity;
+      var refl   = (act && act.state && act.state.reflection) ? act.state.reflection : null;
+      var reflActive = !!(refl && refl.active);
+
+      // Activity teardown clears the panel (level finished or fast restart).
+      var activityGone = !act || act.finished === true;
+      if (activityGone && !closed) {
+        _despawnResultPanel();
+        _prevClosedDoorwaysId = null;
+        return;
+      }
+
+      // Fresh closedDoorways id -> (re)spawn the panel.
+      var freshClose = closed && closed.id !== _prevClosedDoorwaysId;
+      if (freshClose) {
+        _prevClosedDoorwaysId = closed.id;
+
+        if (resultPanelEntity) {
+          try { engine.removeEntity('result_panel'); } catch (_) {}
+          resultPanelEntity = null;
+        }
+        resultPanelEntity = new ResultPanel({
+          getClosedDoorways: function () { return state && state.closedDoorways; },
+          getReflection:     function () {
+            var a = state && state.activity;
+            return (a && a.state && a.state.reflection) ? a.state.reflection : null;
+          },
+          getViewportW: function () {
+            if (!engine || !engine.canvas) return DEFAULT_BOARD_W;
+            return engine.canvas.width / (root.devicePixelRatio || 1);
+          }
+        });
+        try { engine.addEntity('result_panel', resultPanelEntity); } catch (_) {}
+        // Arm dismiss based on current reflection state; upgrade later if
+        // reflection.active flips true after the spawn.
+        _resultPanelHasRefl = reflActive;
+        _armResultPanelTimer(reflActive ? RESULT_PANEL_DISMISS_SLOW_MS : RESULT_PANEL_DISMISS_FAST_MS);
+        return;
+      }
+
+      // If the panel is up and reflection just flipped active, upgrade the
+      // dismiss timer to the slow window so students can read the prompt.
+      if (resultPanelEntity && reflActive && !_resultPanelHasRefl) {
+        _resultPanelHasRefl = true;
+        _armResultPanelTimer(RESULT_PANEL_DISMISS_SLOW_MS);
+      }
+    }
+
+    // V7.4 blind-test: monotonic id source for RevealTextSprite entries.
+    // Each spawned reveal-text gets its own entity id so multiple pops
+    // (rapid local collect + parallel peer collect on the same coin's
+    // sibling) don't collide. The entity self-removes after durationMs.
+    var _revealIdCounter = 0;
+    function _spawnRevealAt(drink, cx, cy) {
+      if (!engineReady) return;
+      _revealIdCounter += 1;
+      var id   = _revealIdCounter;
+      var text = '+' + (drink || '?');
+      var color = _revealColorForDrink(drink);
+      var sprite = new RevealTextSprite({ x: cx, y: cy, text: text, color: color });
+      sprite._id = id;
+      try { engine.addEntity('reveal_' + id, sprite); } catch (_) {}
+    }
+
+    function syncLevelCoins(state) {
+      if (!engineReady) return;
+      var act = state && state.activity;
+      var isLevel = !!(act && act.type === 'level' && !act.finished);
+      var coins   = (act && act.state && Array.isArray(act.state.coins)) ? act.state.coins : null;
+
+      if (!isLevel || !coins) {
+        // Despawn all coins (no level, or level ended).
+        for (var k in coinEntities) {
+          if (!Object.prototype.hasOwnProperty.call(coinEntities, k)) continue;
+          try { engine.removeEntity('coin_' + k); } catch (_) {}
+          delete coinEntities[k];
+        }
+        return;
+      }
+
+      var chipSize = (act.level && act.level.map && act.level.map.chipSize) || 10;
+      var mapW     = (act.level && act.level.map && act.level.map.width) || 32;
+      var levelW   = mapW * chipSize;   // kept for _coinCanvasX signature compat
+      var canvasW  = levelW;            // V7.9: world sprites store x in LEVEL px
+
+      var seenIds = {};
+      for (var i = 0; i < coins.length; i++) {
+        var c = coins[i];
+        if (!c || !c.id) continue;
+        seenIds[c.id] = true;
+        var size = COIN_DEFAULT_SIZE;
+        var cx   = _coinCanvasX(c, levelW, chipSize, canvasW, size);
+        var cy   = _coinCanvasY(size);
+        // V7.4: wire `revealed` from the server. Default true so legacy
+        // (non-hidden) coins behave as before.
+        var coinRevealed = c.revealed !== false;
+        if (!coinEntities[c.id]) {
+          var sprite = new CoinSprite({
+            images: _ensureCoinFrames(),
+            x: cx, y: cy, size: size, coinId: c.id, drink: c.drink,
+            collected: c.collected === true,
+            revealed:  coinRevealed,
+            getLocalSprite: function () { return (username && spriteEntities[username]) || null; },
+            onCollect: function (coinId) {
+              safeSend({ type: 'classroom_activity_value', payload: { kind: 'collect', coinId: coinId } });
+            },
+            // V7.4 blind-test: local-collect path -- spawn the floating
+            // "+A" / "+B" the moment the player touches the coin (before
+            // the server round-trip), so the kid sees instant feedback.
+            spawnReveal: function (coinId, drink, rcx, rcy) {
+              _spawnRevealAt(drink, rcx, rcy);
+            }
+          });
+          // Track collected status so we can detect peer-collect
+          // transitions on subsequent ticks and spawn matching reveal text.
+          sprite._wasCollected = c.collected === true;
+          coinEntities[c.id] = sprite;
+          try { engine.addEntity('coin_' + c.id, sprite); } catch (_) {}
+        } else {
+          // Server is source of truth; re-apply collected + revealed + position.
+          var existing = coinEntities[c.id];
+          var prevCollected = existing._wasCollected === true;
+          existing.collected = c.collected === true;
+          existing._revealed = coinRevealed;
+          existing.x = cx;
+          existing.y = cy;
+          // V7.4 Codex MAJOR fold: clear stale optimistic _sentCollect.
+          // If the local player set _sentCollect but the server hasn't
+          // confirmed within COIN_SENT_TTL_MS, the collect was rejected
+          // (anti-cheat fail, race, etc). Reset so:
+          //   - coin reappears for the local player (_isCollecting flips)
+          //   - a later legitimate server-side collect can still fire
+          //     the peer-pop block below
+          if (existing._sentCollect && !existing.collected) {
+            var nowMs = (typeof Date !== 'undefined' && Date.now) ? Date.now() : 0;
+            if (nowMs - (existing._sentCollectAt || 0) > COIN_SENT_TTL_MS) {
+              existing._sentCollect   = false;
+              existing._sentCollectAt = 0;
+            }
+          }
+          // V7.4: peer-collect path -- if this coin just flipped to
+          // collected from the server AND the local player didn't fire
+          // the local spawn (i.e. _sentCollect is still false), pop a
+          // floating reveal-text so peers see the same animation. The
+          // _sentCollect guard prevents the local collector seeing two
+          // identical pops (one from the local fire + one from the
+          // server echo).
+          if (!prevCollected && existing.collected && !existing._sentCollect) {
+            var drinkRev = existing.drink || c.drink || '';
+            _spawnRevealAt(drinkRev, existing.x + existing.size / 2, existing.y + existing.size / 2);
+          }
+          existing._wasCollected = existing.collected;
+        }
+      }
+      // Despawn coins that vanished from state (shouldn't usually happen
+      // mid-activity but covers level swap / reset).
+      for (var id in coinEntities) {
+        if (!Object.prototype.hasOwnProperty.call(coinEntities, id)) continue;
+        if (!seenIds[id]) {
+          try { engine.removeEntity('coin_' + id); } catch (_) {}
+          delete coinEntities[id];
+        }
+      }
+    }
+
+    // V7.4 blind-test: TallyDisplay sprite -- single entity per active
+    // level. Spawns when the level def includes a TallyDisplay actor
+    // bound to tally.sips AND tally state exists; despawns on level end.
+    // Mirrors goalEntity / syncLevelGoal pattern.
+    var tallyEntity = null;
+
+    // V7.4 Codex MAJOR fold: parameter renamed from `state` to `curr` so
+    // the getTally closure created below reaches the MOUNT-SCOPE `state`
+    // (reassigned every tick by applyMessage) instead of capturing the
+    // function-parameter binding (frozen at construction time, never
+    // updates as sips come in).
+    function syncLevelTally(curr) {
+      if (!engineReady) return;
+      var act = curr && curr.activity;
+      var isLevel = !!(act && act.type === 'level' && !act.finished);
+      var sips    = (act && act.state && act.state.tally && act.state.tally.sips) ? act.state.tally.sips : null;
+      var actors  = (act && act.level && Array.isArray(act.level.actors)) ? act.level.actors : null;
+
+      // Find the level's TallyDisplay actor bound to tally.sips (if any).
+      var tallyActor = null;
+      if (actors) {
+        for (var i = 0; i < actors.length; i++) {
+          var a = actors[i];
+          if (a && a.type === 'TallyDisplay' && a.binds === 'tally.sips') {
+            tallyActor = a;
+            break;
+          }
+        }
+      }
+
+      var shouldShow = isLevel && tallyActor && sips;
+      if (!shouldShow) {
+        if (tallyEntity) {
+          try { engine.removeEntity('level_tally'); } catch (_) {}
+          tallyEntity = null;
+        }
+        return;
+      }
+
+      var chipSize = (act.level && act.level.map && act.level.map.chipSize) || 10;
+      var mapW     = (act.level && act.level.map && act.level.map.width) || 32;
+      var levelW   = mapW * chipSize;
+      var canvasW  = (engine && engine.canvas) ? (engine.canvas.width / (root.devicePixelRatio || 1)) : (container.clientWidth || DEFAULT_BOARD_W);
+
+      // X: rescale the actor's chip-X center into canvas pixels (same
+      // mapping the coins use). Y: sit ABOVE the coin row by ~2.5 sprite
+      // heights -- visually clear of the avatars + jump arc.
+      var levelCenterPx = (tallyActor.x * chipSize) + (chipSize / 2);
+      var tx = (levelCenterPx / levelW) * canvasW;
+      var size = COIN_DEFAULT_SIZE;
+      var groundY = (engine && typeof engine.groundY === 'number') ? engine.groundY : (BOARD_H - 24);
+      var spriteHeight = SPRITE_H * SPRITE_SCALE;
+      var ty = groundY - spriteHeight * 2.5 - size;
+
+      if (!tallyEntity) {
+        tallyEntity = new TallyDisplay({
+          x: tx, y: ty,
+          getTally: function () {
+            var s = state && state.activity && state.activity.state && state.activity.state.tally;
+            return (s && s.sips) ? s.sips : null;
+          },
+          // V7.7 -- read the engine's per-level threshold gate from the
+          // wire field added by serialize(): state.activity.state.tallyConfig.
+          // Null-safe walk; returns null for legacy levels so TallyDisplay
+          // renders the no-slash form.
+          getThreshold: function () {
+            var cfg = state && state.activity && state.activity.state && state.activity.state.tallyConfig;
+            return (cfg && cfg.threshold) ? cfg.threshold : null;
+          }
+        });
+        try { engine.addEntity('level_tally', tallyEntity); } catch (_) {}
+      } else {
+        tallyEntity.x = tx;
+        tallyEntity.y = ty;
+      }
+    }
+
+    // V7.8 mechanic-first: ChoicePadSprite map. One ChoicePadSprite per
+    // state.activity.state.choicePads[] entry; spawned only during
+    // SIPPING phase, despawned when the level ends or phase advances.
+    // Mirrors coinEntities + syncLevelCoins lifecycle.
+    var choicePadEntities = {};   // padId -> ChoicePadSprite
+
+    function syncLevelChoicePads(curr) {
+      if (!engineReady) return;
+      var act     = curr && curr.activity;
+      var isLevel = !!(act && act.type === 'level' && !act.finished);
+      var pads    = (act && act.state && Array.isArray(act.state.choicePads)) ? act.state.choicePads : null;
+      var phase   = (act && act.state && act.state.phase) || null;
+
+      // shouldShow: must be in an active level WITH at least one
+      // ChoicePad AND phase === 'SIPPING'. Outside SIPPING, the pads
+      // despawn (the level moves on to VOTING / KEY_HUNT / GOAL_AVAILABLE
+      // and the pads are no longer part of the active mechanic).
+      var shouldShow = isLevel && pads && pads.length > 0 && phase === 'SIPPING';
+
+      if (!shouldShow) {
+        for (var k in choicePadEntities) {
+          if (!Object.prototype.hasOwnProperty.call(choicePadEntities, k)) continue;
+          try { engine.removeEntity('choicepad_' + k); } catch (_) {}
+          delete choicePadEntities[k];
+        }
+        return;
+      }
+
+      var chipSize = (act.level && act.level.map && act.level.map.chipSize) || 10;
+      var mapW     = (act.level && act.level.map && act.level.map.width) || 32;
+      var levelW   = mapW * chipSize;   // kept for downstream readers
+      var size     = CHOICEPAD_DEFAULT_SIZE;
+
+      // Y placement: pad sits at floor level (no jump required, just
+      // walk onto it). Mirror the goal sprite's ground placement.
+      var groundY = (engine && typeof engine.groundY === 'number') ? engine.groundY : (BOARD_H - 24);
+      var spriteHeight = SPRITE_H * SPRITE_SCALE;
+      var py = groundY - spriteHeight;
+
+      var seenIds = {};
+      for (var i = 0; i < pads.length; i++) {
+        var p = pads[i];
+        if (!p || !p.id) continue;
+        seenIds[p.id] = true;
+
+        // V7.9 side-scroll: pad is a world sprite -- store x in LEVEL
+        // pixels. Camera translate handles the on-screen offset at render.
+        var levelCenterPx = (p.x * chipSize) + (chipSize / 2);
+        var px = levelCenterPx - size / 2;
+
+        if (!choicePadEntities[p.id]) {
+          // Closure-capture the pad id so onChoose ships the right id.
+          var padId = p.id;
+          var sprite = new ChoicePadSprite({
+            id: padId, x: px, y: py, size: size, value: p.value,
+            // V7.8.1: hand the Pico Park button.png to render(). Falls
+            // back to the colored-rect path when the image hasn't loaded
+            // yet OR the test stubs out Image (jsdom env).
+            images: [ _ensureButtonImage() ],
+            getLocalSprite: function () { return (username && spriteEntities[username]) || null; },
+            getLocalMarks: (function (capturedUsername) {
+              return function () {
+                var s = state && state.activity && state.activity.state;
+                var players = (s && s.players) ? s.players : null;
+                if (!players || !capturedUsername) return null;
+                var me = players[capturedUsername];
+                return (me && me.marks) ? me.marks : null;
+              };
+            }(username)),
+            onChoose: (function (capturedPadId) {
+              return function () {
+                safeSend({ type: 'classroom_activity_value', payload: { kind: 'record-choice', choicePadId: capturedPadId } });
+              };
+            }(padId))
+          });
+          choicePadEntities[p.id] = sprite;
+          try { engine.addEntity('choicepad_' + p.id, sprite); } catch (_) {}
+        } else {
+          // Server is source of truth for position + value; re-apply.
+          var existing = choicePadEntities[p.id];
+          existing.x = px;
+          existing.y = py;
+          existing.value = (typeof p.value === 'string') ? p.value : existing.value;
+          // Clear stale optimistic _sentChoice when the server has NOT
+          // confirmed the choice within CHOICEPAD_SENT_TTL_MS (mirrors
+          // CoinSprite / KeySprite TTL clear). Also clear immediately
+          // when the server-confirmed marks.choice flips truthy (the
+          // local guard's job is done; the visual state can transition
+          // via _visualState reading the marks).
+          if (existing._sentChoice) {
+            var localMarks = existing.getLocalMarks();
+            var serverConfirmed = !!(localMarks && localMarks.choice);
+            if (serverConfirmed) {
+              existing._sentChoice   = false;
+              existing._sentChoiceAt = 0;
+            } else {
+              var nowMs = (typeof Date !== 'undefined' && Date.now) ? Date.now() : 0;
+              if (nowMs - (existing._sentChoiceAt || 0) > CHOICEPAD_SENT_TTL_MS) {
+                existing._sentChoice   = false;
+                existing._sentChoiceAt = 0;
+              }
+            }
+          }
+        }
+      }
+
+      // Despawn pads that vanished from state (shouldn't usually happen
+      // mid-activity but covers level swap / reset).
+      for (var id in choicePadEntities) {
+        if (!Object.prototype.hasOwnProperty.call(choicePadEntities, id)) continue;
+        if (!seenIds[id]) {
+          try { engine.removeEntity('choicepad_' + id); } catch (_) {}
+          delete choicePadEntities[id];
+        }
+      }
+    }
+
+    // V7.10 mechanic-first: GateSprite map. One GateSprite per
+    // state.activity.state.gates[] entry; spawned in any phase EXCEPT
+    // LEVEL_CLEARED, despawned when the activity ends. Each sprite's
+    // opened flag is pushed via the getOpened closure (no diff
+    // detection -- the sprite reads opened on every tick).
+    // Mirrors choicePadEntities + syncLevelChoicePads lifecycle.
+    var gateEntities = {};   // gateId -> GateSprite
+
+    function syncLevelGates(curr) {
+      if (!engineReady) return;
+      var act     = curr && curr.activity;
+      var isLevel = !!(act && act.type === 'level' && !act.finished);
+      var gates   = (act && act.state && Array.isArray(act.state.gates)) ? act.state.gates : null;
+      var phase   = (act && act.state && act.state.phase) || null;
+
+      // shouldShow: active level WITH gates AND phase is not LEVEL_CLEARED.
+      // Per BUILD doc section 10 -- despawn when phase advances to
+      // LEVEL_CLEARED OR state.gates empties. Gates persist across
+      // SIPPING/VOTING/KEY_HUNT/GOAL_AVAILABLE so the player can keep
+      // bumping closed wrong-doors after the right one opens.
+      var shouldShow = isLevel && gates && gates.length > 0 && phase !== 'LEVEL_CLEARED';
+
+      if (!shouldShow) {
+        for (var k in gateEntities) {
+          if (!Object.prototype.hasOwnProperty.call(gateEntities, k)) continue;
+          try { engine.removeEntity('gate_' + k); } catch (_) {}
+          delete gateEntities[k];
+        }
+        return;
+      }
+
+      var chipSize = (act.level && act.level.map && act.level.map.chipSize) || 10;
+      var mapW     = (act.level && act.level.map && act.level.map.width) || 32;
+      var levelW   = mapW * chipSize;   // kept for downstream readers
+      var size     = GATE_DEFAULT_SIZE;
+
+      // Y placement: gate sits at floor level (it's a wall the player
+      // walks into / through). Mirror the choice-pad ground placement.
+      var groundY = (engine && typeof engine.groundY === 'number') ? engine.groundY : (BOARD_H - 24);
+      var spriteHeight = SPRITE_H * SPRITE_SCALE;
+      var gy = groundY - spriteHeight;
+
+      var seenGateIds = {};
+      for (var gi = 0; gi < gates.length; gi++) {
+        var g = gates[gi];
+        if (!g || !g.id) continue;
+        seenGateIds[g.id] = true;
+
+        // V7.9 side-scroll: gate is a world sprite -- store x in LEVEL
+        // pixels. Camera translate handles the on-screen offset.
+        var levelCenterPxG = (g.x * chipSize) + (chipSize / 2);
+        var gx = levelCenterPxG - size / 2;
+
+        if (!gateEntities[g.id]) {
+          var gateId    = g.id;
+          var predicate = g.predicate;
+          var label     = (typeof g.label === 'string') ? g.label : '';
+          var sprite = new GateSprite({
+            id: gateId, x: gx, y: gy, size: size,
+            value: label, predicate: predicate,
+            // V7.10.1: pass Pico Park door art for door-style variants.
+            // CLOSED-SCAN uses procedural shapes (no good Pico asset
+            // for a scanner with checklist icons -- the rendering
+            // gracefully ignores these images for that branch).
+            imageClosed: _ensureDoorClosedImage(),
+            imageOpen:   _ensureDoorOpenImage(),
+            // Closure: read the LATEST opened flag from mount-scope state
+            // every tick (no diff detection; the wire is source of truth).
+            getOpened: (function (capturedGateId) {
+              return function () {
+                var s = state && state.activity && state.activity.state;
+                var arr = (s && Array.isArray(s.gates)) ? s.gates : null;
+                if (!arr) return false;
+                for (var j = 0; j < arr.length; j++) {
+                  if (arr[j] && arr[j].id === capturedGateId) return arr[j].opened === true;
+                }
+                return false;
+              };
+            }(gateId)),
+            getLocalSprite: function () { return (username && spriteEntities[username]) || null; },
+            getLocalMarks: (function (capturedUsername) {
+              return function () {
+                var s = state && state.activity && state.activity.state;
+                var players = (s && s.players) ? s.players : null;
+                if (!players || !capturedUsername) return null;
+                var me = players[capturedUsername];
+                return (me && me.marks) ? me.marks : null;
+              };
+            }(username)),
+            onAttempt: (function (capturedGateId) {
+              return function () {
+                safeSend({ type: 'classroom_activity_value', payload: { kind: 'attempt-gate', gateId: capturedGateId } });
+              };
+            }(gateId)),
+            onWalkThrough: (function (capturedGateId) {
+              return function () {
+                safeSend({ type: 'classroom_activity_value', payload: { kind: 'walk-through-gate', gateId: capturedGateId } });
+              };
+            }(gateId))
+          });
+          gateEntities[g.id] = sprite;
+          try { engine.addEntity('gate_' + g.id, sprite); } catch (_) {}
+        } else {
+          // Server is source of truth for position + label + predicate.
+          // Re-apply each tick (cheap; predicate doesn't change in
+          // practice but guarding for level hot-swap).
+          var existingG = gateEntities[g.id];
+          existingG.x         = gx;
+          existingG.y         = gy;
+          existingG.value     = (typeof g.label === 'string') ? g.label : existingG.value;
+          existingG.predicate = (typeof g.predicate === 'string') ? g.predicate : existingG.predicate;
+
+          // Clear the stale optimistic _sentAttempt / _sentWalkThrough
+          // guards. Two paths: (a) the player has stepped OFF the gate
+          // (no overlap) -- clear immediately so a re-approach re-fires;
+          // (b) the TTL has elapsed (player still standing on the gate
+          // but the wire is being honest about gate.opened). Mirrors
+          // CoinSprite / KeySprite / ChoicePadSprite TTL clear shape.
+          var stillOverlapping = existingG._isOverlapping();
+          var nowMsG = (typeof Date !== 'undefined' && Date.now) ? Date.now() : 0;
+          if (existingG._sentAttempt) {
+            if (!stillOverlapping) {
+              existingG._sentAttempt   = false;
+              existingG._sentAttemptAt = 0;
+            } else if (nowMsG - (existingG._sentAttemptAt || 0) > GATE_SENT_TTL_MS) {
+              existingG._sentAttempt   = false;
+              existingG._sentAttemptAt = 0;
+            }
+          }
+          if (existingG._sentWalkThrough) {
+            if (!stillOverlapping) {
+              existingG._sentWalkThrough   = false;
+              existingG._sentWalkThroughAt = 0;
+            } else if (nowMsG - (existingG._sentWalkThroughAt || 0) > GATE_SENT_TTL_MS) {
+              existingG._sentWalkThrough   = false;
+              existingG._sentWalkThroughAt = 0;
+            }
+          }
+        }
+      }
+
+      // Despawn gates that vanished from state (level swap / reset).
+      for (var gid in gateEntities) {
+        if (!Object.prototype.hasOwnProperty.call(gateEntities, gid)) continue;
+        if (!seenGateIds[gid]) {
+          try { engine.removeEntity('gate_' + gid); } catch (_) {}
+          delete gateEntities[gid];
+        }
+      }
+    }
+
+    // V7.11 Zone 3: TallyChuteSprite map. One TallyChuteSprite per
+    // state.activity.state.tallyChutes[] entry; despawned when the
+    // activity ends OR phase advances past SIPPING (the chute's job is
+    // to visualize the row data BEFORE the question doors). Each sprite
+    // reads its count via a closure that walks state.tally.sips[label]
+    // every tick -- no diff detection, the wire is source of truth.
+    // Mirrors gateEntities + syncLevelGates lifecycle.
+    var tallyChuteEntities = {};   // chuteId -> TallyChuteSprite
+
+    function syncLevelTallyChutes(curr) {
+      if (!engineReady) return;
+      var act     = curr && curr.activity;
+      var isLevel = !!(act && act.type === 'level' && !act.finished);
+      var chutes  = (act && act.state && Array.isArray(act.state.tallyChutes)) ? act.state.tallyChutes : null;
+      var phase   = (act && act.state && act.state.phase) || null;
+
+      // shouldShow: active level WITH at least one TallyChute AND phase
+      // is not LEVEL_CLEARED. Per BUILD doc section 7 -- the chutes are
+      // the Zone 3 visual; they persist across SIPPING / VOTING /
+      // KEY_HUNT / GOAL_AVAILABLE so the player keeps seeing the data
+      // shape as they walk past Zone 4. Despawn on LEVEL_CLEARED OR
+      // state.tallyChutes empties.
+      var shouldShow = isLevel && chutes && chutes.length > 0 && phase !== 'LEVEL_CLEARED';
+
+      if (!shouldShow) {
+        for (var k in tallyChuteEntities) {
+          if (!Object.prototype.hasOwnProperty.call(tallyChuteEntities, k)) continue;
+          try { engine.removeEntity('tallychute_' + k); } catch (_) {}
+          delete tallyChuteEntities[k];
+        }
+        return;
+      }
+
+      var chipSize = (act.level && act.level.map && act.level.map.chipSize) || 10;
+      var size     = TALLYCHUTE_DEFAULT_SIZE;
+
+      // Y placement: chute footprint sits at floor level (the player
+      // walks under / through the visualization). Mirror choice-pad /
+      // gate ground placement. The block stack extends UPWARD from the
+      // footprint inside render().
+      var groundY      = (engine && typeof engine.groundY === 'number') ? engine.groundY : (BOARD_H - 24);
+      var spriteHeight = SPRITE_H * SPRITE_SCALE;
+      var cy           = groundY - spriteHeight;
+
+      var seenChuteIds = {};
+      for (var ci = 0; ci < chutes.length; ci++) {
+        var c = chutes[ci];
+        if (!c || !c.id) continue;
+        seenChuteIds[c.id] = true;
+
+        // V7.9 side-scroll: chute is a world sprite -- store x in LEVEL
+        // pixels. Camera translate handles the on-screen offset.
+        var levelCenterPxC = (c.x * chipSize) + (chipSize / 2);
+        var cx = levelCenterPxC - size / 2;
+
+        if (!tallyChuteEntities[c.id]) {
+          var chuteId = c.id;
+          var chuteLabel = (typeof c.label === 'string') ? c.label : 'A';
+          var sprite = new TallyChuteSprite({
+            id: chuteId, x: cx, y: cy, size: size, label: chuteLabel,
+            // Closure: read state.tally.sips[label] every tick (the wire's
+            // V7.4 TallyDisplay field is the source of truth -- no new
+            // wire data for V7.11). Triple-guarded for null state /
+            // missing tally / non-numeric value.
+            getCount: (function (capturedLabel) {
+              return function () {
+                var s = state && state.activity && state.activity.state;
+                var sips = (s && s.tally && s.tally.sips) || {};
+                return (typeof sips[capturedLabel] === 'number') ? sips[capturedLabel] : 0;
+              };
+            }(chuteLabel))
+          });
+          tallyChuteEntities[c.id] = sprite;
+          try { engine.addEntity('tallychute_' + c.id, sprite); } catch (_) {}
+        } else {
+          // Server is source of truth for position + label. Re-apply each
+          // tick (cheap; level hot-swap insurance).
+          var existingC = tallyChuteEntities[c.id];
+          existingC.x     = cx;
+          existingC.y     = cy;
+          existingC.label = (typeof c.label === 'string') ? c.label : existingC.label;
+        }
+      }
+
+      // Despawn chutes that vanished from state (level swap / reset).
+      for (var cid in tallyChuteEntities) {
+        if (!Object.prototype.hasOwnProperty.call(tallyChuteEntities, cid)) continue;
+        if (!seenChuteIds[cid]) {
+          try { engine.removeEntity('tallychute_' + cid); } catch (_) {}
+          delete tallyChuteEntities[cid];
+        }
+      }
+    }
+
+    // V7.14 Zone 5: ContextSlotSprite map. One ContextSlotSprite per
+    // state.activity.state.contextSlots[] entry; despawned when the
+    // activity ends OR state.contextSlots empties OR phase advances to
+    // LEVEL_CLEARED. Each sprite reads its lit flag via a closure that
+    // walks state.contextSlots[].lit every render -- no diff detection,
+    // the wire is source of truth. Mirrors syncLevelTallyChutes pattern.
+    var contextSlotEntities = {};   // slotId -> ContextSlotSprite
+
+    function syncLevelContextSlots(curr) {
+      if (!engineReady) return;
+      var act     = curr && curr.activity;
+      var isLevel = !!(act && act.type === 'level' && !act.finished);
+      var slots   = (act && act.state && Array.isArray(act.state.contextSlots)) ? act.state.contextSlots : null;
+      var phase   = (act && act.state && act.state.phase) || null;
+
+      // shouldShow: active level WITH at least one ContextSlot AND phase
+      // is not LEVEL_CLEARED. Per BUILD doc section 9 -- slots persist
+      // across KEY_HUNT / GOAL_AVAILABLE so the player can still walk
+      // through them on the way to the GoalPad. Despawn on LEVEL_CLEARED
+      // OR state.contextSlots empties.
+      var shouldShow = isLevel && slots && slots.length > 0 && phase !== 'LEVEL_CLEARED';
+
+      if (!shouldShow) {
+        for (var k in contextSlotEntities) {
+          if (!Object.prototype.hasOwnProperty.call(contextSlotEntities, k)) continue;
+          try { engine.removeEntity('contextslot_' + k); } catch (_) {}
+          delete contextSlotEntities[k];
+        }
+        return;
+      }
+
+      var chipSize = (act.level && act.level.map && act.level.map.chipSize) || 10;
+      var size     = CONTEXTSLOT_DEFAULT_SIZE;
+
+      // Y placement: slot footprint sits at floor level (the player
+      // walks through it). Mirror gate / chute / pad ground placement.
+      var groundY      = (engine && typeof engine.groundY === 'number') ? engine.groundY : (BOARD_H - 24);
+      var spriteHeight = SPRITE_H * SPRITE_SCALE;
+      var sy           = groundY - spriteHeight;
+
+      var seenSlotIds = {};
+      for (var si = 0; si < slots.length; si++) {
+        var s = slots[si];
+        if (!s || !s.id) continue;
+        seenSlotIds[s.id] = true;
+
+        // V7.9 side-scroll: slot is a world sprite -- store x in LEVEL
+        // pixels. Camera translate handles the on-screen offset.
+        var levelCenterPxS = (s.x * chipSize) + (chipSize / 2);
+        var sx = levelCenterPxS - size / 2;
+
+        if (!contextSlotEntities[s.id]) {
+          var slotId    = s.id;
+          var slotLabel = (typeof s.label === 'string') ? s.label : '';
+          var sprite = new ContextSlotSprite({
+            id: slotId, x: sx, y: sy, size: size, label: slotLabel,
+            // Closure: read state.contextSlots[].lit by id every tick
+            // (the wire is source of truth; server flips lit on overlap).
+            getLit: (function (capturedSlotId) {
+              return function () {
+                var st  = state && state.activity && state.activity.state;
+                var arr = (st && Array.isArray(st.contextSlots)) ? st.contextSlots : null;
+                if (!arr) return false;
+                for (var j = 0; j < arr.length; j++) {
+                  if (arr[j] && arr[j].id === capturedSlotId) return arr[j].lit === true;
+                }
+                return false;
+              };
+            }(slotId)),
+            getLocalSprite: function () { return (username && spriteEntities[username]) || null; }
+          });
+          contextSlotEntities[s.id] = sprite;
+          try { engine.addEntity('contextslot_' + s.id, sprite); } catch (_) {}
+        } else {
+          // Server is source of truth for position + label. Re-apply
+          // each tick (cheap; level hot-swap insurance).
+          var existingS = contextSlotEntities[s.id];
+          existingS.x     = sx;
+          existingS.y     = sy;
+          existingS.label = (typeof s.label === 'string') ? s.label : existingS.label;
+        }
+      }
+
+      // Despawn slots that vanished from state (level swap / reset).
+      for (var sid in contextSlotEntities) {
+        if (!Object.prototype.hasOwnProperty.call(contextSlotEntities, sid)) continue;
+        if (!seenSlotIds[sid]) {
+          try { engine.removeEntity('contextslot_' + sid); } catch (_) {}
+          delete contextSlotEntities[sid];
+        }
+      }
+    }
+
+    // V7.14 Zone 5: GoalPadSprite singleton. Spawned when
+    // state.activity.state.goalPad is non-null; despawned when null or
+    // the activity ends or phase advances to LEVEL_CLEARED. The pad
+    // reads its active / presenceMs / triggerMs fields via closures
+    // over the mount-scope state (no diff detection). Mirrors
+    // syncLevelKey / syncLevelGoal singleton lifecycle.
+    var goalPadEntity = null;
+
+    function syncLevelGoalPad(curr) {
+      if (!engineReady) return;
+      var act     = curr && curr.activity;
+      var isLevel = !!(act && act.type === 'level' && !act.finished);
+      var pad     = (act && act.state && act.state.goalPad) ? act.state.goalPad : null;
+      var phase   = (act && act.state && act.state.phase) || null;
+      var padVisible = isLevel && pad && phase !== 'LEVEL_CLEARED';
+
+      if (!padVisible) {
+        if (goalPadEntity) {
+          try { engine.removeEntity('level_goalpad'); } catch (_) {}
+          goalPadEntity = null;
+        }
+        return;
+      }
+
+      var chipSize = (act.level && act.level.map && act.level.map.chipSize) || 10;
+      var size     = GOALPAD_DEFAULT_SIZE;
+
+      // Y placement: pad sits at floor level (the player stands on it).
+      // Mirror the gate / chute / slot ground placement.
+      var groundY      = (engine && typeof engine.groundY === 'number') ? engine.groundY : (BOARD_H - 24);
+      var spriteHeight = SPRITE_H * SPRITE_SCALE;
+      var py           = groundY - spriteHeight;
+
+      // V7.9 side-scroll: pad is a world sprite -- store x in LEVEL
+      // pixels. Camera translate handles the on-screen offset.
+      var levelCenterPxP = (pad.x * chipSize) + (chipSize / 2);
+      var px = levelCenterPxP - size / 2;
+
+      if (!goalPadEntity) {
+        goalPadEntity = new GoalPadSprite({
+          id: pad.id || 'goal-pad', x: px, y: py, size: size,
+          // getActive: closure over state.contextSlots; all slots lit
+          // = pad is accepting presence (BUILD doc section 10).
+          getActive: function () {
+            var st = state && state.activity && state.activity.state;
+            var arr = (st && Array.isArray(st.contextSlots)) ? st.contextSlots : null;
+            if (!arr || arr.length === 0) return false;
+            for (var j = 0; j < arr.length; j++) {
+              if (!arr[j] || arr[j].lit !== true) return false;
+            }
+            return true;
+          },
+          getPresenceMs: function () {
+            var st  = state && state.activity && state.activity.state;
+            var gp  = (st && st.goalPad) ? st.goalPad : null;
+            return (gp && typeof gp.presenceMs === 'number') ? gp.presenceMs : 0;
+          },
+          getTriggerMs: function () {
+            var st  = state && state.activity && state.activity.state;
+            var gp  = (st && st.goalPad) ? st.goalPad : null;
+            return (gp && typeof gp.triggerMs === 'number') ? gp.triggerMs : 1500;
+          },
+          getLocalSprite: function () { return (username && spriteEntities[username]) || null; }
+        });
+        try { engine.addEntity('level_goalpad', goalPadEntity); } catch (_) {}
+      } else {
+        // Server is source of truth for position. Re-apply each tick
+        // (cheap; level hot-swap insurance).
+        goalPadEntity.x = px;
+        goalPadEntity.y = py;
+      }
+    }
+
+    // Greenlight overlay entity
+    var greenlightOverlay = null;
+    var greenlightStartMs = 0;
+
+    function showGreenlight() {
+      if (!engineReady) { return; }
+      greenlightStartMs = Date.now();
+      if (greenlightOverlay) { return; }
+      greenlightOverlay = new GreenLightOverlay(function () {
+        return Date.now() - greenlightStartMs;
+      });
+      engine.addEntity('greenlight_overlay', greenlightOverlay);
+
+      // Remove after GREENLIGHT_MS + a small buffer.
+      if (greenlightTimer) { clearTimeout(greenlightTimer); }
+      greenlightTimer = setTimeout(function () {
+        if (engineReady && greenlightOverlay) {
+          engine.removeEntity('greenlight_overlay');
+          greenlightOverlay = null;
+        }
+        greenlightTimer = null;
+      }, GREENLIGHT_MS + 200);
+    }
+
+    // --- poll columns overlay (v2) -------------------------------------
+
+    var pollColumnsOverlay = null;
+
+    function showPollColumns() {
+      if (!engineReady) { return; }
+      if (pollColumnsOverlay) { return; }
+      pollColumnsOverlay = new PollColumnsOverlay(
+        function () { return state.poll; },
+        function () {
+          if (!engine || !engine.canvas) { return 400; }
+          return engine.canvas.width / (root.devicePixelRatio || 1);
+        }
+      );
+      engine.addEntity('poll_columns', pollColumnsOverlay);
+    }
+
+    function hidePollColumns() {
+      if (!engineReady) { return; }
+      if (!pollColumnsOverlay) { return; }
+      engine.removeEntity('poll_columns');
+      pollColumnsOverlay = null;
+    }
+
+    // --- poll vote button refresh (v2) ----------------------------------
+
+    function refreshVoteButtons() {
+      if (!pollVoteContainer) { return; }
+
+      var shouldShow = (
+        role === 'student' &&
+        state.poll !== null &&
+        state.members[username] &&
+        state.members[username].status !== 'voted'
+      );
+
+      if (!shouldShow) {
+        pollVoteContainer.style.display = 'none';
+        // Clear existing buttons so they don't accumulate across polls.
+        pollVoteContainer.innerHTML = '';
+        return;
+      }
+
+      var options = state.poll.options || [];
+
+      // Only rebuild the buttons when the option count changes (simple guard
+      // against rebuilding on every heartbeat while a poll is open).
+      var existingBtns = pollVoteContainer.querySelectorAll('[data-vote-index]');
+      if (existingBtns.length !== options.length) {
+        pollVoteContainer.innerHTML = '';
+        for (var bi = 0; bi < options.length; bi++) {
+          (function (choiceIndex) {
+            var btn = doc.createElement('button');
+            btn.textContent = options[choiceIndex];
+            btn.setAttribute('data-vote-index', choiceIndex);
+            btn.onclick = function () {
+              // Optimistic local update (Finding 1): in a blind poll the
+              // server echos the voter a classroom_member_update with vote:null
+              // (blind secrecy).  Without a local update the voter's own
+              // avatar never moves to its column until a reconnect.
+              // Route a synthetic update through applyMessage/_reduce BEFORE
+              // sending so the board renders immediately.  The vote field in
+              // _reduce is durable -- a later vote:null echo preserves it.
+              applyMessage({
+                type:   'classroom_member_update',
+                member: {
+                  username: username,
+                  status:   'voted',
+                  vote:     choiceIndex
+                }
+              });
+              safeSend({ type: 'classroom_vote', choice: choiceIndex });
+            };
+            pollVoteContainer.appendChild(btn);
+          })(bi);
+        }
+      }
+
+      pollVoteContainer.style.display = 'block';
+    }
+
+    // --- full scene sync from state ------------------------------------
+
+    function syncScene(newState) {
+      if (!engineReady) { return; }
+      // A student inside the park cannot see the classroom substrate: a whole-class call brings
+      // them back so the poll / gate / green light / activity is answerable.
+      if (nativeActive && nativePanel && (newState.poll || (newState.gate && newState.gate.armed) || newState.greenlight
+          || newState.doorways || (newState.activity && !newState.activity.finished))) {
+        try { nativePanel.dispose(); } catch (_) {}
+      }
+
+      var members = newState.members;
+
+      // Show/hide the gate door.
+      if (newState.gate && newState.gate.armed) {
+        showGateDoor();
+      } else {
+        hideGateDoor();
+      }
+
+      // Show/hide poll columns overlay.
+      if (newState.poll) {
+        showPollColumns();
+      } else {
+        hidePollColumns();
+      }
+
+      // Determine which members should be present (drawn). Teachers render as a
+      // peer avatar too (blend in — username label, hashed/roster hue), so they're
+      // visible in the scene alongside students. (They never reach 'checkedIn' —
+      // teachers don't run the gate check-in — so the status guard is a no-op for them.)
+      var presentStudents = {};
+      for (var u in members) {
+        var mb = members[u];
+        if ((mb.role === 'student' || mb.role === 'teacher') && mb.status !== 'checkedIn') {
+          presentStudents[u] = mb;
+        }
+      }
+
+      // Detect present->checkedIn transitions FIRST so we can mark them as
+      // draining before the removal pass skips them.
+      for (var tname in members) {
+        var cur  = members[tname];
+        var prev = prevMembers[tname];
+        if (cur.role === 'student' &&
+            cur.status === 'checkedIn' &&
+            prev && prev.status === 'present' &&
+            !draining[tname] &&
+            spriteEntities[tname]) {
+          startDrain(tname);
+        }
+      }
+
+      // Cancel an in-flight drain for any student who is "present" again --
+      // e.g. the gate was re-armed (classroom_gate resets every status to
+      // present) while the avatar was still walking to the door. Without
+      // this the sprite stays in its walk and onDrained() removes a present
+      // student from the board (Codex r3 review, MAJOR).
+      for (var cdname in draining) {
+        if (presentStudents[cdname] && spriteEntities[cdname]) {
+          delete draining[cdname];
+          spriteEntities[cdname].resetToIdle();
+        }
+      }
+
+      // Remove sprites for members no longer in presentStudents and not draining.
+      for (var existing in spriteEntities) {
+        if (!presentStudents[existing] && !draining[existing]) {
+          removeSprite(existing);
+        }
+      }
+
+      // Add or update sprites for present students.
+      for (var pname in presentStudents) {
+        if (spriteEntities[pname]) {
+          updateSprite(presentStudents[pname]);
+        } else {
+          addSprite(presentStudents[pname]);
+        }
+      }
+
+      // Reflow the row after any add / remove / drain-cancel this sync.
+      repositionSprites();
+
+      prevMembers = members;
+    }
+
+    // --- state --------------------------------------------------------
+
+    var state          = emptyState();
+    var classSound     = false;   // the teacher's class-sound switch (relay classroom_sound_state)
+    var destroyed      = false;
+    var ws             = null;
+    var heartbeatTimer = null;
+    var reconnectTimer = null;
+    var reconnectDelay = RECONNECT_BASE;
+
+    // v3 P3: WebRTC peer connection (student-as-guest). Receives an
+    // rtc_offer from the cockpit when its section enters Live mode;
+    // creates a PC, sets remote, sends rtc_answer. The DC is opened
+    // by the cockpit; ondatachannel hooks it. Once open, classroom_pos
+    // sends prefer DC; otherwise WS.
+    var _peerConnection = null;
+    var _peerDataChannel = null;
+    var _peerDcOpen = false;
+    var _peerTeacherUsername = null;
+    // v3 P3 Codex MAJOR fold: trickle-ICE ordering. ICE candidates can
+    // arrive BEFORE setRemoteDescription completes -- addIceCandidate
+    // would then reject. Queue any pre-remote-set ICE here; drain after
+    // setRemoteDescription's promise resolves.
+    var _peerRemoteDescSet = false;
+    var _peerPendingIce = [];
+
+    function _handleP3Offer(fromUsername, sdp) {
+      if (typeof RTCPeerConnection === 'undefined') { return; }
+      if (_peerConnection) { _teardownPeer(); }
+      _peerTeacherUsername = fromUsername;
+      try {
+        _peerConnection = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+      } catch (_) { _peerConnection = null; return; }
+      _peerConnection.onicecandidate = function(ev) {
+        if (ev.candidate && ws && ws.readyState === 1) {
+          try { ws.send(JSON.stringify({ type: 'rtc_ice', to: fromUsername, candidate: ev.candidate })); } catch (_) {}
+        }
+      };
+      _peerConnection.ondatachannel = function(ev) {
+        _peerDataChannel = ev.channel;
+        _peerDataChannel.onopen = function() { _peerDcOpen = true; };
+        _peerDataChannel.onclose = function() { _peerDcOpen = false; };
+        _peerDataChannel.onmessage = function(mev) {
+          var pos = null;
+          try { pos = JSON.parse(mev.data); } catch (_) { return; }
+          if (!pos || pos.type !== 'classroom_pos') return;
+          // Route through the same applyPos path as the WS classroom_pos
+          // handler. The `from` field identifies which peer this is.
+          if (typeof applyPos === 'function') {
+            applyPos({ username: pos.from, x: pos.x, y: pos.y, state: pos.state, vx: pos.vx });
+          }
+        };
+      };
+      _peerConnection.setRemoteDescription(sdp).then(function() {
+        _peerRemoteDescSet = true;
+        // Drain any ICE that arrived before the remote description settled.
+        while (_peerPendingIce.length > 0) {
+          var cand = _peerPendingIce.shift();
+          try { _peerConnection.addIceCandidate(cand).catch(function() {}); } catch (_) {}
+        }
+        return _peerConnection.createAnswer();
+      }).then(function(answer) {
+        return _peerConnection.setLocalDescription(answer);
+      }).then(function() {
+        if (ws && ws.readyState === 1) {
+          try { ws.send(JSON.stringify({ type: 'rtc_answer', to: fromUsername, sdp: _peerConnection.localDescription })); } catch (_) {}
+        }
+      }).catch(function() { _teardownPeer(); });
+    }
+
+    function _handleP3Ice(candidate) {
+      if (!_peerConnection || !candidate) { return; }
+      if (!_peerRemoteDescSet) {
+        // Buffer until setRemoteDescription completes; otherwise
+        // addIceCandidate rejects with an unhandled promise rejection.
+        _peerPendingIce.push(candidate);
+        return;
+      }
+      try { _peerConnection.addIceCandidate(candidate).catch(function() {}); } catch (_) {}
+    }
+
+    function _teardownPeer() {
+      if (_peerDataChannel) { try { _peerDataChannel.close(); } catch (_) {} _peerDataChannel = null; }
+      if (_peerConnection)  { try { _peerConnection.close(); }  catch (_) {} _peerConnection  = null; }
+      _peerDcOpen = false;
+      _peerTeacherUsername = null;
+      _peerRemoteDescSet = false;
+      _peerPendingIce = [];
+    }
+
+    function refreshButton() {
+      if (!checkinBtn) { return; }
+      checkinBtn.style.display = shouldShowCheckinButton(state, username, role)
+        ? 'inline-block'
+        : 'none';
+    }
+
+    function notifyStateChange() {
+      if (typeof onStateChange === 'function') {
+        onStateChange(buildSummary(state));
+      }
+    }
+
+    function applyMessage(msg) {
+      // Phase 2 -- position broadcasts are transient: applied to the peer
+      // sprite directly, NOT reduced into state (they fire at 10 Hz and
+      // reducing would rebuild state.members 10x/s per peer for no win).
+      if (msg && msg.type === 'classroom_pos') {
+        applyPos(msg);
+        return;
+      }
+      // Teacher 2026-10-10 (park music): the room's "class sound" switch rides on the snapshot
+      // (`sound`) and on classroom_sound_state; kept beside the reducer, which rebuilds state per
+      // message type. Default off: a live room silences park music and park sounds.
+      if (msg && (msg.type === 'classroom_state' || msg.type === 'classroom_sound_state')) {
+        classSound = msg.sound === true;
+      }
+      var prevState = state;
+      var newState  = _reduce(state, msg);
+      state = newState;
+      if (msg.type === 'classroom_greenlight') {
+        showGreenlight();
+      }
+      if (msg.type === 'classroom_greenlight' && msg.startVideo === true && onStartVideo) {
+        try { onStartVideo(msg.videoRef || null); } catch (_) {}
+      }
+      // v3 P4: doorways visibility + count refresh.
+      if (newState.doorways && (!prevState.doorways || newState.doorways.id !== (prevState.doorways && prevState.doorways.id))) {
+        showDoorways(newState.doorways.options);
+        updateDoorwayCounts(newState.doorways.tally);
+      } else if (newState.doorways) {
+        updateDoorwayCounts(newState.doorways.tally);
+      } else if (!newState.doorways && prevState.doorways) {
+        hideDoorways();
+        // s111 P4 UX: on close, respawn the local sprite. Reset all
+        // doorway-walk + absorption state and put the sprite back on
+        // the ground at its standing-y. Covers: a stale off-canvas X
+        // from the legacy horizontal walk, the new vertical-absorb
+        // _hidden flag, and any in-flight 'entering-doorway' state.
+        if (engineReady && username && spriteEntities[username]) {
+          var meSprite = spriteEntities[username];
+          var cw = engine.canvas.width / (root.devicePixelRatio || 1);
+          var maxX = cw - (meSprite._spriteSize || (SPRITE_W * (meSprite.scale || 1)));
+          if (meSprite.x < 0 || meSprite.x > maxX) {
+            meSprite.x = Math.max(0, Math.min(maxX, (cw - (meSprite._spriteSize || 0)) / 2));
+          }
+          if (meSprite.state === 'walking' || meSprite.state === 'arrived' || meSprite.state === 'entering-doorway') {
+            meSprite.state = 'idle';
+          }
+          meSprite._hidden          = false;
+          meSprite._absorbProgress  = 0;
+          meSprite._absorbDir       = 1;
+          meSprite._isDoorwayWalk   = false;
+          // Restore y to the standing ground position.
+          if (typeof meSprite.groundY === 'number') {
+            meSprite.y = meSprite.groundY;
+          }
+        }
+      }
+      syncScene(state);
+      refreshButton();
+      refreshVoteButtons();
+      refreshResultScreen();
+      // V7.2: spawn/despawn/sync coin + goal sprites on the avatar canvas
+      // based on the current activity state. Cheap when no activity is
+      // running (early return on the !isLevel branch).
+      // V7.4 blind-test: also spawn/despawn the TallyDisplay chip when
+      // the level def includes a TallyDisplay actor.
+      // V7.5 key-gate + sequential-stages: also spawn/despawn the shared
+      // key (KEY_HUNT phase) and the stage indicator (multi-stage VOTING).
+      syncLevelCoins(state);
+      syncLevelGoal(state);
+      syncLevelTally(state);
+      syncLevelKey(state);
+      // V7.8 mechanic-first: spawn/despawn ChoicePadSprite entities for
+      // the SIPPING-phase preference recorder. Despawns on phase
+      // advance past SIPPING (and on activity end).
+      syncLevelChoicePads(state);
+      // V7.10 mechanic-first: spawn/despawn GateSprite entities for
+      // Zones 2 + 4 physical-gate blockers. Despawns on activity end
+      // or phase advance to LEVEL_CLEARED.
+      syncLevelGates(state);
+      // V7.11 mechanic-first: spawn/despawn TallyChuteSprite entities
+      // for Zone 3 visual pattern columns (pure display; no collision).
+      // Despawns on activity end or phase advance to LEVEL_CLEARED.
+      syncLevelTallyChutes(state);
+      // V7.14 mechanic-first / Zone 5: spawn/despawn ContextSlotSprite
+      // entities for the walk-past-to-light claim-component cells.
+      // Despawns on activity end or phase advance to LEVEL_CLEARED.
+      syncLevelContextSlots(state);
+      // V7.14 mechanic-first / Zone 5: spawn/despawn the singleton
+      // GoalPadSprite -- whole-class presence pad that replaces the
+      // legacy GoalSprite for V7.14+ levels. Despawns on activity end
+      // or phase advance to LEVEL_CLEARED.
+      syncLevelGoalPad(state);
+      syncStageIndicator(state);
+      // V7.6: spawn/despawn the in-canvas ResultPanel (doorways close +
+      // optional reflection text). Runs after the level-overlay sync so
+      // the panel reads the freshest closedDoorways + reflection state.
+      syncResultPanel(state);
+      notifyStateChange();
+    }
+
+    // Phase 2 -- handle inbound peer positions. The peer's BoardSprite
+    // chases the broadcast x via the existing walkTo target machinery
+    // (at 10 Hz the per-broadcast delta is small and the WALK_SPEED chase
+    // looks fluid); y is set directly so jumps register visually. Marks
+    // the sprite _moved=true so repositionSprites stops yanking it back
+    // to the auto-layout slot.
+    function applyPos(msg) {
+      // P4 Select Students: freeze peer movement so the teacher can click
+      // sprites reliably while selecting. The local player isn't affected
+      // (this handler explicitly ignores self below). Frozen positions
+      // catch up when select mode exits (next applyPos call applies).
+      if (selectModeActive) return;
+      if (!msg || !msg.username) { return; }
+      if (msg.username === username) { return; }    // ignore self echoes
+      var peer = spriteEntities[msg.username];
+      if (!peer) { return; }
+      if (peer instanceof PlayerSprite) { return; } // never overwrite the local player
+      peer._moved = true;
+      // s111 P4 UX rev4: 'in-doorway' is a non-physical state. Snap
+      // the peer's state field so render fades + the local player's
+      // collision/floor checks skip them; DON'T trigger walkTo (the
+      // peer is stationary while absorbed).
+      if (msg.state === 'in-doorway') {
+        peer.state = 'in-doorway';
+        return;
+      }
+      // Peer just exited the doorway -- restore state from the wire.
+      if (peer.state === 'in-doorway' && typeof msg.state === 'string') {
+        peer.state = msg.state;
+      }
+      if (typeof msg.x === 'number') {
+        // 2026-05-24 fix: clamp to local canvas bounds. A sender on a wider
+        // canvas can broadcast an x past our right edge; we own our own
+        // viewport so we clamp before walking.
+        var clampedX = clampSpriteX(msg.x, peer);
+        if (Math.abs(peer.x - clampedX) > 1) {
+          peer.walkTo(clampedX);
+        }
+      }
+      // Phase 2.2 -- y is chased smoothly (not snapped) so peer jumps look
+      // like an arc, not a 10 Hz teleport. _chaseY runs on every tick.
+      if (typeof msg.y === 'number') {
+        peer._yTarget = msg.y;
+      }
+    }
+
+    function safeSend(obj) {
+      if (ws && ws.readyState === 1) {
+        ws.send(JSON.stringify(obj));
+      }
+    }
+
+    // v3 P3 Codex BLOCKER fold: queue signaling sent before the WS is
+    // ready. enterLiveMode kicks off _initPeerFor immediately after
+    // mountBoard, but the board's WS connection is still negotiating
+    // (and classroom_join hasn't completed). Without queuing, the
+    // rtc_offer is dropped silently + the cockpit's 3 s timeout fires +
+    // the studentPeers entry is left as a dead stub. Queue + flush in
+    // ws.onopen (after sendJoin) so signaling lands on the server with
+    // the wsIndex entry already populated.
+    var _pendingSignaling = [];
+    function _flushPendingSignaling() {
+      if (!ws || ws.readyState !== 1) { return; }
+      while (_pendingSignaling.length > 0) {
+        var payload = _pendingSignaling.shift();
+        try { ws.send(JSON.stringify(payload)); } catch (_) {}
+      }
+    }
+
+    function sendJoin() {
+      safeSend({
+        type:     'classroom_join',
+        section:  section,
+        username: username,
+        role:     role,
+        hue:      mountHue
+      });
+    }
+
+    function sendHeartbeat() {
+      safeSend({ type: 'classroom_heartbeat' });
+    }
+
+    checkinBtn.onclick = function () {
+      safeSend({ type: 'classroom_checkin' });
+    };
+
+    function connect() {
+      if (destroyed) { return; }
+      var WS = (root.WebSocket || (typeof WebSocket !== 'undefined' ? WebSocket : null));
+      if (!WS) { return; }
+
+      ws = new WS(wsUrl);
+
+      ws.onopen = function () {
+        reconnectDelay = RECONNECT_BASE;
+        sendJoin();
+        heartbeatTimer = setInterval(sendHeartbeat, HEARTBEAT_MS);
+        // v3 P3: flush any signaling queued before the WS was ready.
+        _flushPendingSignaling();
+      };
+
+      ws.onmessage = function (event) {
+        var msg;
+        try {
+          msg = JSON.parse(event.data);
+        } catch (e) {
+          return;
+        }
+        if (msg && msg.type === 'park_result' && typeof msg.requestId === 'string'
+            && msg.requestId.indexOf('board_lobby_') === 0) {
+          // park_lobby reply (the doors' occupancy). park_* traffic otherwise belongs to the panel.
+          if (Array.isArray(msg.levels)) parkOccupancy = msg.levels.concat(msg.campaign ? [msg.campaign] : []);
+          return;
+        }
+        if (msg && msg.type && msg.type.indexOf('classroom_') === 0) {
+          // P3: fire raw-message hook BEFORE _reduce. Caller may inspect
+          // the message and trigger side effects (toast, reply panel)
+          // without polluting the reducer state shape.
+          if (onClassroomMessage) {
+            try { onClassroomMessage(msg); } catch (_) {}
+          }
+          applyMessage(msg);
+          if (msg.type === 'classroom_live_state' && msg.live === false) {
+            if (role !== 'teacher') { _teardownPeer(); }
+            // Note: the existing _reduce dispatch above handles
+            // classroom_live_state for state.live (preserved through
+            // every case). This teardown is purely the WebRTC side.
+          }
+        } else if (msg && (msg.type === 'rtc_offer' || msg.type === 'rtc_answer' || msg.type === 'rtc_ice')) {
+          if (role === 'teacher') {
+            // Cockpit: delegate to the user's onSignaling callback.
+            if (typeof opts.onSignaling === 'function') {
+              try { opts.onSignaling(msg); } catch (_) {}
+            }
+          } else {
+            // Student: handle locally as a guest peer.
+            if (msg.type === 'rtc_offer' && msg.from && msg.sdp) {
+              _handleP3Offer(msg.from, msg.sdp);
+            } else if (msg.type === 'rtc_ice' && msg.candidate) {
+              _handleP3Ice(msg.candidate);
+            }
+            // rtc_answer is teacher-bound; students drop it silently.
+          }
+        }
+      };
+
+      ws.onerror = function () {};
+
+      ws.onclose = function () {
+        clearInterval(heartbeatTimer);
+        heartbeatTimer = null;
+        if (destroyed) { return; }
+        reconnectTimer = setTimeout(function () {
+          reconnectTimer = null;
+          reconnectDelay = Math.min(reconnectDelay * 2, RECONNECT_CAP);
+          connect();
+        }, reconnectDelay);
+      };
+    }
+
+    // Initial scene sync (empty state) + connect.
+    syncScene(state);
+    connect();
+
+    // --- public handle ------------------------------------------------
+
+    var handle = {
+
+      openNativeGameplay: function (doorIndex) { enterPark((PARK_DOORS[doorIndex | 0] || PARK_DOORS[0]).level); },
+      openCalculatorMission: function () {
+        if (nativePanel && nativePanel.kind === 'calculator') nativePanel.startMission();
+        else enterPark(-1);
+      },
+      // Test-only: open a park level by index, including levels with no door
+      // on the calendar (the local browser smoke uses it).
+      openParkLevel: function (levelIndex) { enterPark(levelIndex | 0); },
+      // Park-only board height (see setBoardHeight in mount); () restores 220.
+      setBoardHeight: setBoardHeight,
+      getBoardHeight: function () { return boardH; },
+      getParkScene: function () { return nativePanel; },
+      // Test-only: the shared held-key flags and the park press counters.
+      _getPlayerInput: function () { return playerInput; },
+      _getParkPresses: function () { return parkPresses; },
+      _getParkAtlasState: function () { return parkAtlasState; },
+
+      destroy: function () {
+        destroyed = true;
+        if (nativePanel) { nativePanel.dispose(); nativePanel = null; }
+        setParkButtons(function (b) { if (b.parentNode) b.parentNode.removeChild(b); });
+        clearInterval(heartbeatTimer);
+        clearTimeout(reconnectTimer);
+        clearTimeout(greenlightTimer);
+        // V7.5: cancel histogram auto-dismiss if it's pending so the
+        // destroy path doesn't strand a callback that would later try
+        // to mutate a removed DOM element.
+        if (_resultDismissTimer != null) {
+          try { clearTimeout(_resultDismissTimer); } catch (_) {}
+          _resultDismissTimer = null;
+        }
+        // V7.6: cancel the ResultPanel auto-dismiss timer so its callback
+        // doesn't fire on a torn-down engine.
+        if (_resultPanelTimer != null) {
+          try { clearTimeout(_resultPanelTimer); } catch (_) {}
+          _resultPanelTimer = null;
+        }
+        heartbeatTimer  = null;
+        reconnectTimer  = null;
+        greenlightTimer = null;
+        // v3 P3: close any RTCPeerConnection + DataChannel before the WS.
+        _teardownPeer();
+        if (ws) {
+          ws.onclose = null;
+          ws.close();
+          ws = null;
+        }
+        if (engineReady) {
+          engine.stop();
+        }
+        // Drop the resize listener installed in mount() -- harmless no-op if
+        // engine setup failed before it was added (Codex r3 review, MAJOR).
+        root.removeEventListener('resize', resizeBoardToContainer);
+        // Phase 1 -- detach the player keyboard listeners installed above.
+        if (doc.removeEventListener) {
+          doc.removeEventListener('keydown', _kdHandler);
+          doc.removeEventListener('keyup',   _kuHandler);
+          doc.removeEventListener('visibilitychange', _visibilityHandler);
+        }
+        if (root.removeEventListener) { root.removeEventListener('blur', _blurHandler); }
+        if (canvas.parentNode) {
+          canvas.parentNode.removeChild(canvas);
+        }
+        if (checkinBtn.parentNode) {
+          checkinBtn.parentNode.removeChild(checkinBtn);
+        }
+        if (pollVoteContainer && pollVoteContainer.parentNode) {
+          pollVoteContainer.parentNode.removeChild(pollVoteContainer);
+        }
+        if (resultScreen && resultScreen.parentNode) {
+          resultScreen.parentNode.removeChild(resultScreen);
+        }
+      },
+
+      setNameMap: function (map) {
+        nameMap = map || null;
+        // Update all existing sprite labels.
+        for (var u in spriteEntities) {
+          var sp = spriteEntities[u];
+          sp.labelText = (nameMap && nameMap[u]) ? nameMap[u] : u;
+        }
+      },
+
+      sendSignaling: function (payload) {
+        // Pass-through send over the board's WS. Used by the cockpit
+        // to route rtc_offer / rtc_ice to specific students. The board
+        // has the right wsIndex entry (classroom_join'd as 'teacher'
+        // for the active section) so the server's rtc_* relay can
+        // find it. If the ws is NOT yet ready (cockpit just called
+        // mountBoard + enterLiveMode kicked off peer init before the
+        // connection settled), queue the payload and flush in ws.onopen.
+        if (ws && ws.readyState === 1) {
+          try { ws.send(JSON.stringify(payload)); } catch (_) {}
+        } else {
+          _pendingSignaling.push(payload);
+        }
+      },
+
+      // --- v1b teacher methods (B4) ---
+
+      armGate: function (theme) {
+        safeSend({ type: 'classroom_arm_gate', theme: theme || '' });
+      },
+
+      // Park music (2026-10-10): class sound on / off for this room; the relay accepts it from a
+      // joined teacher socket only.
+      setClassSound: function (on) {
+        safeSend({ type: 'classroom_sound_set', on: on === true });
+      },
+
+      greenLight: function (opts) {
+        var o = opts || {};
+        safeSend({
+          type:       'classroom_go',
+          startVideo: o.startVideo === true,
+          videoRef:   (typeof o.videoRef === 'string') ? o.videoRef : null
+        });
+      },
+
+      reset: function () {
+        safeSend({ type: 'classroom_reset' });
+      },
+
+      // --- v2 poll teacher methods ---
+
+      openPoll: function (question, options, blind) {
+        safeSend({
+          type:     'classroom_open_poll',
+          question: question  || '',
+          options:  options   || [],
+          blind:    blind === true
+        });
+      },
+
+      closePoll: function () {
+        safeSend({ type: 'classroom_close_poll' });
+      },
+
+      reveal: function () {
+        safeSend({ type: 'classroom_reveal' });
+      },
+
+      // --- v3 P4 doorways teacher methods (vote-with-your-feet) ---
+
+      openDoorways: function (id, question, options) {
+        safeSend({ type: 'classroom_open_doorways', id: id, question: question, options: options });
+      },
+      closeDoorways: function (id) {
+        safeSend({ type: 'classroom_close_doorways', id: id });
+      },
+
+      // --- v2.1 result screen methods ---
+
+      showResultScreen: showResultScreen,
+      hideResultScreen: hideResultScreen,
+
+      // --- P3 nudges (TEACHER_STUDENT_CONSOLE_SPEC.md section 6) ---
+      // Pass-through send over the board's WS. Used by both the cockpit
+      // (classroom_teacher_nudge) and the student Desk (classroom_student_nudge_reply)
+      // to ride the existing classroom connection without re-implementing
+      // socket management. Codex BLOCKER fold: returns true if the send
+      // actually went out, false if the WS wasn't ready (caller can decide
+      // whether to mark delivery in the audit log).
+      sendMessage: function (payload) {
+        if (ws && ws.readyState === 1) {
+          try { ws.send(JSON.stringify(payload)); return true; } catch (_) { return false; }
+        }
+        return false;
+      },
+
+      // Section is exposed so the cockpit's POST /teacher/nudge body can
+      // include the active section without re-computing it.
+      section: section,
+
+      // --- P4 Select Students (TEACHER_STUDENT_CONSOLE_SPEC.md section 11) ---
+      // Cockpit toggles select mode via this. ON freezes applyPos (peers
+      // stop moving so the teacher can click reliably) + adds a CSS class
+      // on the canvas for the desaturation effect. The visual selection
+      // markers are rendered by the cockpit (DOM overlay), not the board.
+      setSelectMode: function (on) {
+        selectModeActive = !!on;
+        if (canvas && canvas.classList) {
+          if (selectModeActive) canvas.classList.add('classroom-select-mode');
+          else canvas.classList.remove('classroom-select-mode');
+        }
+      },
+
+      // --- v4 activity student-input channel ---
+      // Student-side handle for the activity plugin. The Desk's arrow-key
+      // binding (LIVE_CLASSROOM_V4_BUILD.md C5.2) calls this with
+      // { delta: +1 | -1 } for bridge-mean; other plugins may use other
+      // payload shapes. Returns false when the WS is not ready (caller
+      // can decide whether to retry).
+      sendActivityValue: function (payload) {
+        if (!ws || ws.readyState !== 1) { return false; }
+        try { ws.send(JSON.stringify({ type: 'classroom_activity_value', payload: payload })); }
+        catch (_) { return false; }
+        return true;
+      },
+
+      // P4: expose the canvas + per-sprite positions so the cockpit can
+      // place absolutely-positioned selection markers over the canvas.
+      getCanvas: function () { return canvas; },
+      getSpritePosition: function (uname) {
+        var sp = spriteEntities[uname];
+        if (!sp) return null;
+        return { x: sp.x, y: sp.y, canvasW: canvas.width, canvasH: canvas.height };
+      },
+
+      // AVATAR_SELF_EMOTE: play the happy bounce on the LOCAL user's own avatar
+      // (the Desk calls this when you click yourself). No-op if the sprite or the
+      // method is missing (e.g. before the scene mounts). Returns whether it ran.
+      selfEmote: function () {
+        var sp = spriteEntities[username];
+        if (sp && typeof sp.playEmote === 'function') { try { sp.playEmote(); return true; } catch (_) {} }
+        return false;
+      }
+    };
+
+    return handle;
+  }
+
+  // --- public API -------------------------------------------------------
+
+  root.ClassroomBoard = {
+    mount:             mount,
+    _reduce:           _reduce,
+    _assignCells:      assignCells,
+    _hashStringToHue:  hashStringToHue,  // exposed for tests
+    _PlayerSprite:     PlayerSprite,     // Phase 1 -- exposed for unit tests
+    _AtlasCatSheet:    AtlasCatSheet,    // calendar cats from the level-6 atlas (unit tests)
+    _catBodyForHue:    catBodyForHue,
+    _catFrameCell:     catFrameCell,
+    _CoinSprite:       CoinSprite,       // V7.4 -- exposed for unit tests
+    _RevealTextSprite: RevealTextSprite, // V7.4 -- exposed for unit tests
+    _TallyDisplay:     TallyDisplay,     // V7.4 -- exposed for unit tests
+    _GoalSprite:       GoalSprite,       // V7.5 -- exposed for unit tests
+    _KeySprite:        KeySprite,        // V7.5 -- exposed for unit tests
+    _StageIndicator:   StageIndicator,   // V7.5 -- exposed for unit tests
+    _ResultPanel:      ResultPanel,      // V7.6 -- exposed for unit tests
+    _ChoicePadSprite:  ChoicePadSprite,  // V7.8 -- exposed for unit tests
+    _GateSprite:       GateSprite,       // V7.10 -- exposed for unit tests
+    _TallyChuteSprite: TallyChuteSprite, // V7.11 -- exposed for unit tests
+    _ContextSlotSprite: ContextSlotSprite, // V7.14 -- exposed for unit tests
+    _GoalPadSprite:    GoalPadSprite,    // V7.14 -- exposed for unit tests
+    // V7.9 side-scroll camera -- exposed for the scroll test pinning.
+    // The camera state lives at module scope so tests can poke vw/levelW/
+    // followFn fields before invoking _updateCamera + assert against
+    // _camera.x. _translateForCamera + _projectWorldX let tests pin the
+    // world-sprite ctx.save/translate/restore shape without driving a
+    // full mount() each time.
+    _camera:             _camera,
+    _updateCamera:       _updateCamera,
+    _translateForCamera: _translateForCamera,
+    _restoreFromCamera:  _restoreFromCamera,
+    _projectWorldX:      _projectWorldX,
+    _resetCamera:        _resetCamera,
+    _CameraController:   CameraController,
+    _BoardSprite:        BoardSprite,    // V7.9 -- exposed for world-sprite scroll pins
+    _Doorway:            Doorway         // V7.9 -- exposed for doorway-scroll pins
+  };
+
+}(typeof window !== 'undefined' ? window : this));

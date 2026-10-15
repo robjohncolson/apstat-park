@@ -1,0 +1,54 @@
+topic: "1.5"
+ced2026:
+  unit: 1
+  topic: '1.5'
+  label: Representing a Quantitative Variable with Graphs
+title: Same Data, Different Bins
+essential_question: How can the same quantitative data tell a different visual story when the histogram
+  bins change?
+worksheet: u1_lesson5_live.html
+rules_callout:
+  title: READING HISTOGRAMS (keep on the page)
+  body: A histogram groups observations into intervals; each bar gives the count in its interval. Values
+    at a boundary go in the interval that starts there. Changing interval widths changes the appearance,
+    not the observations. Narrow intervals can reveal separated groups and empty intervals; wide intervals
+    summarize broad counts. A histogram does not show each exact value or attach a group label to each
+    observation.
+focus: aps-1.5-d3-1
+reinforcement: []
+space:
+  first_take: 0.9in
+  a: 0.7in
+  b: 1.4in
+  c: 2.0in
+teacher:
+  questions_to_ask:
+  - Which observations changed when the bin width changed?
+  - Point to the feature Leo can see in F that Priya cannot see in C.
+  - Where in either histogram is the school-day label stored?
+  - Name a question for which adding five narrow-bin counts is less useful than reading one broad bar.
+  watch_for:
+  - Treating the two histograms as different samples rather than two bin choices for the same 30 days.
+  - Assigning the lower cluster to school days and the upper cluster to weekends without checking date
+    labels.
+  - Claiming that narrow bins are automatically more honest for every question.
+  first_take_note: Not graded. Expect a split between visual simplicity and retained detail.
+visuals:
+  step_histograms:
+    kind: raw_tikz
+    body: "\\def\\auditplotheight{1.4in}\\ifdim\\linewidth<5in\\def\\auditplotheight{1.15in}\\fi\n\\def\\\
+      auditplotwidth{0.46\\linewidth}\\ifdim\\linewidth<5in\\def\\auditplotwidth{0.98\\linewidth}\\fi\n\
+      \\noindent\n\\begin{minipage}[t]{\\auditplotwidth}\n\\centering\n\\textbf{F: 1-thousand-step bins}\\\
+      par\\smallskip\n\\begin{tikzpicture}\n\\begin{axis}[\n  width=\\linewidth, height=\\auditplotheight,\n\
+      \  ybar interval, bar shift=0pt,\n  xmin=4, xmax=20, ymin=0, ymax=8,\n  xtick={4,6,8,10,12,14,16,18,20},\
+      \ ytick={0,4,8},\n  xlabel={Daily steps (thousands)}, ylabel={Days},\n  tick label style={font=\\\
+      scriptsize}, label style={font=\\scriptsize},\n  ymajorgrids, x tick label as interval=false\n]\n\
+      \\addplot[fill=calloutblue, draw=dayblue] coordinates {\n  (4,0) (5,5) (6,6) (7,7) (8,3) (9,0) (10,0)\
+      \ (11,3)\n  (12,3) (13,2) (14,0) (15,0) (16,0) (17,0) (18,0) (19,1) (20,0)\n};\n\\end{axis}\n\\\
+      end{tikzpicture}\n\\end{minipage}\\ifdim\\linewidth<5in\\par\\smallskip\\else\\hfill\\fi\n\\begin{minipage}[t]{\\\
+      auditplotwidth}\n\\centering\n\\textbf{C: 5-thousand-step bins}\\par\\smallskip\n\\begin{tikzpicture}\n\
+      \\begin{axis}[\n  width=\\linewidth, height=\\auditplotheight,\n  ybar interval, bar shift=0pt,\n\
+      \  xmin=0, xmax=20, ymin=0, ymax=23,\n  xtick={0,5,10,15,20}, ytick={0,10,20},\n  xlabel={Daily\
+      \ steps (thousands)}, ylabel={Days},\n  tick label style={font=\\scriptsize}, label style={font=\\\
+      scriptsize},\n  ymajorgrids, x tick label as interval=false\n]\n\\addplot[fill=calloutblue, draw=dayblue]\
+      \ coordinates {\n  (0,0) (5,21) (10,8) (15,1) (20,0)\n};\n\\end{axis}\n\\end{tikzpicture}\n\\end{minipage}\n"

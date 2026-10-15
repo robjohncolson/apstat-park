@@ -1,0 +1,393 @@
+{
+  "note": "Written by re-running every campaign-solve solver (party 2 unless a row says otherwise). campaign-solvability.test.mjs asserts the SOLVED rows.",
+  "recorded": "2026-10-08",
+  "counts": {
+    "SOLVED": 48
+  },
+  "stages": [
+    {
+      "tag": "1-1",
+      "source": "stage_jump01",
+      "title": "HELLO PICO PARK",
+      "status": "SOLVED",
+      "party": 2,
+      "frames": 2081
+    },
+    {
+      "tag": "1-2",
+      "source": "stage_push02",
+      "title": "HELLO PICO PARK",
+      "status": "SOLVED",
+      "party": 2,
+      "frames": 1683
+    },
+    {
+      "tag": "1-3",
+      "source": "stage_jump02",
+      "title": "HELLO PICO PARK",
+      "status": "SOLVED",
+      "party": 2,
+      "frames": 2095
+    },
+    {
+      "tag": "1-4",
+      "source": "stage_weight01",
+      "title": "HELLO PICO PARK",
+      "status": "SOLVED",
+      "party": 2,
+      "frames": 2980
+    },
+    {
+      "tag": "2-1",
+      "source": "stage_constraint01",
+      "title": "GO TOGETHER",
+      "status": "SOLVED",
+      "party": 2,
+      "frames": 1487
+    },
+    {
+      "tag": "2-2",
+      "source": "stage_fall01",
+      "title": "GO TOGETHER",
+      "status": "SOLVED",
+      "party": 2,
+      "frames": 1089
+    },
+    {
+      "tag": "2-3",
+      "source": "stage_constraint02",
+      "title": "GO TOGETHER",
+      "status": "SOLVED",
+      "party": 2,
+      "frames": 1262
+    },
+    {
+      "tag": "2-4",
+      "source": "stage_fall02",
+      "title": "GO TOGETHER",
+      "status": "SOLVED",
+      "party": 2,
+      "frames": 1950
+    },
+    {
+      "tag": "3-1",
+      "source": "stage_coin01",
+      "title": "TIME LIMIT",
+      "status": "SOLVED",
+      "party": 2,
+      "frames": 3703
+    },
+    {
+      "tag": "3-2",
+      "source": "stage_time_limit02",
+      "title": "TIME LIMIT",
+      "status": "SOLVED",
+      "party": 2,
+      "frames": 1188
+    },
+    {
+      "tag": "3-3",
+      "source": "stage_coin02",
+      "title": "TIME LIMIT",
+      "status": "SOLVED",
+      "party": 2,
+      "frames": 1804
+    },
+    {
+      "tag": "3-4",
+      "source": "stage_time_limit01",
+      "title": "TIME LIMIT",
+      "status": "SOLVED",
+      "party": 2,
+      "frames": 1458
+    },
+    {
+      "tag": "4-1",
+      "source": "stage_thunder01",
+      "title": "GIMMICK GIMMICK",
+      "status": "SOLVED",
+      "party": 2,
+      "frames": 1235
+    },
+    {
+      "tag": "4-2",
+      "source": "stage_plane01",
+      "title": "GIMMICK GIMMICK",
+      "status": "SOLVED",
+      "party": 2,
+      "frames": 1539
+    },
+    {
+      "tag": "4-3",
+      "source": "stage_stopwatch01",
+      "title": "GIMMICK GIMMICK",
+      "status": "SOLVED",
+      "party": 2,
+      "frames": 859
+    },
+    {
+      "tag": "4-4",
+      "source": "stage_big_and_small",
+      "title": "GIMMICK GIMMICK",
+      "status": "SOLVED",
+      "party": 2,
+      "frames": 1578
+    },
+    {
+      "tag": "5-1",
+      "source": "stage_majo01",
+      "title": "ALL FOR ONE",
+      "status": "SOLVED",
+      "party": 2,
+      "frames": 1868
+    },
+    {
+      "tag": "5-2",
+      "source": "stage_multijump01",
+      "title": "ALL FOR ONE",
+      "status": "SOLVED",
+      "party": 2,
+      "frames": 903
+    },
+    {
+      "tag": "5-3",
+      "source": "stage_majo02",
+      "title": "ALL FOR ONE",
+      "status": "SOLVED",
+      "party": 2,
+      "frames": 1830
+    },
+    {
+      "tag": "5-4",
+      "source": "stage_multijump02",
+      "title": "ALL FOR ONE",
+      "status": "SOLVED",
+      "party": 2,
+      "frames": 768
+    },
+    {
+      "tag": "6-1",
+      "source": "stage_push01",
+      "title": "PUSH OR JUMP",
+      "status": "SOLVED",
+      "party": 2,
+      "frames": 3795
+    },
+    {
+      "tag": "6-2",
+      "source": "stage_auto_scroll01",
+      "title": "PUSH OR JUMP",
+      "status": "SOLVED",
+      "party": 2,
+      "frames": 2097
+    },
+    {
+      "tag": "6-3",
+      "source": "stage_weight02",
+      "title": "PUSH OR JUMP",
+      "status": "SOLVED",
+      "party": 2,
+      "frames": 1590
+    },
+    {
+      "tag": "6-4",
+      "source": "stage_jump06",
+      "title": "PUSH OR JUMP",
+      "status": "SOLVED",
+      "party": 2,
+      "frames": 1386
+    },
+    {
+      "tag": "7-1",
+      "source": "stage_bowwow01",
+      "title": "MOVE AND STOP",
+      "status": "SOLVED",
+      "party": 2,
+      "frames": 706
+    },
+    {
+      "tag": "7-2",
+      "source": "stage_traffic_light01",
+      "title": "MOVE AND STOP",
+      "status": "SOLVED",
+      "party": 2,
+      "frames": 4678
+    },
+    {
+      "tag": "7-3",
+      "source": "stage_ghost01",
+      "title": "MOVE AND STOP",
+      "status": "SOLVED",
+      "party": 2,
+      "frames": 4021
+    },
+    {
+      "tag": "7-4",
+      "source": "stage_move01",
+      "title": "MOVE AND STOP",
+      "status": "SOLVED",
+      "party": 2,
+      "frames": 2719
+    },
+    {
+      "tag": "8-1",
+      "source": "stage_switch_puzzle01",
+      "title": "RETRO GAME",
+      "status": "SOLVED",
+      "party": 2,
+      "frames": 1317
+    },
+    {
+      "tag": "8-2",
+      "source": "stage_breakout01",
+      "title": "RETRO GAME",
+      "status": "SOLVED",
+      "party": 2,
+      "frames": 5196
+    },
+    {
+      "tag": "8-3",
+      "source": "stage_switch_puzzle02",
+      "title": "RETRO GAME",
+      "status": "SOLVED",
+      "party": 2,
+      "frames": 1395
+    },
+    {
+      "tag": "8-4",
+      "source": "stage_breakout02",
+      "title": "RETRO GAME",
+      "status": "SOLVED",
+      "party": 2,
+      "frames": 2316
+    },
+    {
+      "tag": "9-1",
+      "source": "stage_laser_ball01",
+      "title": "BALL PARK",
+      "status": "SOLVED",
+      "party": 2,
+      "frames": 755
+    },
+    {
+      "tag": "9-2",
+      "source": "stage_seesaw01",
+      "title": "BALL PARK",
+      "status": "SOLVED",
+      "party": 2,
+      "frames": 1258
+    },
+    {
+      "tag": "9-3",
+      "source": "stage_breakout03",
+      "title": "BALL PARK",
+      "status": "SOLVED",
+      "party": 2,
+      "frames": 14221
+    },
+    {
+      "tag": "9-4",
+      "source": "stage_bound01",
+      "title": "BALL PARK",
+      "status": "SOLVED",
+      "party": 2,
+      "frames": 1110
+    },
+    {
+      "tag": "10-1",
+      "source": "stage_jump07",
+      "title": "TWO PLAYERS",
+      "status": "SOLVED",
+      "party": 2,
+      "frames": 2284
+    },
+    {
+      "tag": "10-2",
+      "source": "stage_jump04",
+      "title": "TWO PLAYERS",
+      "status": "SOLVED",
+      "party": 2,
+      "frames": 2304
+    },
+    {
+      "tag": "10-3",
+      "source": "stage_darkness01",
+      "title": "TWO PLAYERS",
+      "status": "SOLVED",
+      "party": 2,
+      "frames": 1359
+    },
+    {
+      "tag": "10-4",
+      "source": "stage_darkness02",
+      "title": "TWO PLAYERS",
+      "status": "SOLVED",
+      "party": 2,
+      "frames": 1978
+    },
+    {
+      "tag": "11-1",
+      "source": "stage_gun01",
+      "title": "HAND GIMMICK",
+      "status": "SOLVED",
+      "party": 2,
+      "frames": 1618
+    },
+    {
+      "tag": "11-2",
+      "source": "stage_magnet01",
+      "title": "HAND GIMMICK",
+      "status": "SOLVED",
+      "party": 2,
+      "frames": 1051
+    },
+    {
+      "tag": "11-3",
+      "source": "stage_gun02",
+      "title": "HAND GIMMICK",
+      "status": "SOLVED",
+      "party": 2,
+      "frames": 1651
+    },
+    {
+      "tag": "11-4",
+      "source": "stage_magnet02",
+      "title": "HAND GIMMICK",
+      "status": "SOLVED",
+      "party": 2,
+      "frames": 3024
+    },
+    {
+      "tag": "12-1",
+      "source": "stage_thunder02",
+      "title": "LAST PARK",
+      "status": "SOLVED",
+      "party": 2,
+      "frames": 1078
+    },
+    {
+      "tag": "12-2",
+      "source": "stage_jump05",
+      "title": "LAST PARK",
+      "status": "SOLVED",
+      "party": 2,
+      "frames": 1690
+    },
+    {
+      "tag": "12-3",
+      "source": "stage_plane02",
+      "title": "LAST PARK",
+      "status": "SOLVED",
+      "party": 2,
+      "frames": 1333
+    },
+    {
+      "tag": "12-4",
+      "source": "stage_auto_scroll02",
+      "title": "LAST PARK",
+      "status": "SOLVED",
+      "party": 2,
+      "frames": 2005
+    }
+  ]
+}

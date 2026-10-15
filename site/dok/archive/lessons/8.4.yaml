@@ -1,0 +1,40 @@
+# Topic 8.4 — Expected Counts in Two-Way Tables
+topic: "8.4"
+ced2026: { unit: 3, topic: "3.14", label: "Setting Up a Chi-Square Test (homogeneity/independence)" }
+title: "A Two-Way Table Before Inference"
+essential_question: "Why is a chi-square condition judged from expected counts rather than the observed cells?"
+worksheet: "u8_lesson4_live.html"
+
+rules_callout:
+  title: "EXPECTED COUNTS UNDER NO ASSOCIATION (keep on the page)"
+  body: |
+    Expected counts describe the table under no relationship between the variables.
+    For an interior cell, $E=(\text{row total})(\text{column total})/(\text{table total})$.
+    Expected counts keep the same row and column totals; they need not be whole numbers.
+    For this problem, use the course's conservative chi-square check: every expected count must be
+    greater than 5. This check concerns expected counts, not observed counts. If it fails, gather more
+    random data and recheck; a larger sample does not guarantee that every new expected count will pass.
+
+focus: aps-8.4-d3-1
+reinforcement: []
+space: { first_take: 0.9in, a: 0.7in, b: 1.4in, c: 2.0in }
+
+teacher:
+  questions_to_ask:
+  - Which specific number or study detail supports your choice?
+  - What claim would go beyond the evidence, and why?
+  watch_for:
+  - Choosing a speaker without a reason.
+  - Copying numbers without explaining what they support.
+  first_take_note: Ungraded commitment; accept any evidence-based first impression.
+visuals:
+  support_table:
+    kind: two_way_table
+    col_label: "Support channel"
+    row_label: "Status"
+    cols: ["Chat", "Email", "Phone", "Total"]
+    rows: ["Done", "Not done", "Total"]
+    cells:
+      - ["42", "34", "24", "100"]
+      - ["8", "6", "6", "20"]
+      - ["50", "40", "30", "120"]

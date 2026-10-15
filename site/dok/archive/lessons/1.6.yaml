@@ -1,0 +1,59 @@
+topic: "1.6"
+ced2026:
+  unit: 1
+  topic: '1.6'
+  label: Describing the Distribution of a Quantitative Variable
+title: Describing a Distribution
+essential_question: What does a reader need from a description of a distribution before they can trust
+  a summary statistic?
+worksheet: u1_lesson6_live.html
+rules_callout:
+  title: DESCRIBING A DISTRIBUTION (keep on the page)
+  body: Describe \textbf{shape, center, variability, and unusual features} in context, with units. Center
+    describes a typical response; variability describes how spread out values are. A longer right tail
+    means skewed right; a longer left tail means skewed left. An outlier is unusually far from the rest.
+    A gap has no observations. A histogram identifies intervals, not exact individual values.
+focus: aps-1.6-d3-1
+reinforcement:
+- aps-1.6-d2-1
+space:
+  first_take: 1.0in
+  a: 0.8in
+  b: 1.5in
+  c: 2.4in
+  reinforcement: 1.0in
+teacher:
+  questions_to_ask:
+  - Which side extends farther beyond the peak?
+  - What does the empty interval tell you?
+  - Can the graph tell you the exact longest time?
+  - What would a reader miss if you gave only a typical time?
+  watch_for:
+  - Treating the isolated long commute as typical
+  - Naming right skew without locating the tail
+  - Reading exact endpoints or a mean from grouped data
+  first_take_note: Ungraded commitment; accept any evidence-based first impression.
+visuals:
+  commute_hist:
+    kind: pgfplot_hist
+    bins:
+    - 0
+    - 10
+    - 20
+    - 30
+    - 40
+    - 50
+    - 60
+    - 70
+    - 80
+    counts:
+    - 3
+    - 13
+    - 10
+    - 7
+    - 4
+    - 2
+    - 0
+    - 1
+    xlabel: Commute time (minutes)
+    ylabel: Number of students

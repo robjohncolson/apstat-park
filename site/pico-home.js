@@ -1,0 +1,4311 @@
+/* pico-home.js — Pico Desk Phase 1, "the live home" (PICO_DESK_SPEC.md).
+ *
+ * The Desk's home since 2026-10-11 (Phase 4): the Desk's <head> adds the class `pico-home` to
+ * <html> unless the URL has ?home=classic or localStorage 'apstats-pico-home' is '0' (OPTION ->
+ * Use Original Desk; ?home=park / '1' force it on), and the same <head> block hides the System 7
+ * chrome (menu bar, desktop icons, main window) with CSS. With the class absent this file does
+ * nothing at all.
+ *
+ * Presentation only. Every value shown here is read from the Desk's own state and functions
+ * (S, cP, tdy, htm, cellAria, localLessonState, window.DeskState from rCal, the Do Now card, the
+ * official grade pill, _zeroCurrentWarnings, _deskIsTeacher, getStudentEmail). Every click calls
+ * the Desk's existing handler. No rule is re-derived and no network request is made here.
+ *
+ * From the game (the recovered PICO PARK sheets, via apstat-park/assets/pico-desk.png): the
+ * sprites and the menu window's proportions. Ours, not the game's: the five-day strip, the
+ * sign's layout, the top navigation labels, the stage-select grid (never captured from the
+ * game), and the plain-text lettering. The look is the Phase 0 sketch (pico-desk-preview.html,
+ * stage-select layout, plain text) without its preview controls.
+ */
+(function () {
+  'use strict';
+
+  var FLAG_KEY = 'apstats-pico-home';
+
+  // Nothing happens unless the Desk's <head> flag check switched the Pico home on.
+  if (!document.documentElement.classList.contains('pico-home')) return;
+
+  // ── Art ────────────────────────────────────────────────────────────────────
+  // Copy of DESK_ATLAS in apstat-park/assets/pico-desk-atlas.mjs (x, y, w, h only);
+  // tests/pico-home.test.js checks they agree. Only the sprites the live home draws.
+  var ATLAS_SIZE = { w: 256, h: 128 };
+  var ATLAS = {
+    pushBox:      { x: 48,  y: 0,  w: 48, h: 48 },
+    signPost:     { x: 184, y: 0,  w: 24, h: 19 },
+    lyingCat:     { x: 208, y: 0,  w: 31, h: 25 },
+    tick:         { x: 40,  y: 48, w: 16, h: 16 },
+    bang:         { x: 56,  y: 48, w: 14, h: 14 },
+    flag:         { x: 70,  y: 48, w: 16, h: 32 },
+    triangleBlue: { x: 86,  y: 48, w: 17, h: 18 },
+    zzz:          { x: 103, y: 48, w: 20, h: 20 },
+    tileRaised:   { x: 123, y: 48, w: 48, h: 16 },
+    close:        { x: 171, y: 48, w: 12, h: 12 },
+    crown:        { x: 183, y: 48, w: 32, h: 24 },
+    signboard:    { x: 215, y: 48, w: 34, h: 40 },
+    platform:     { x: 0,   y: 88, w: 64, h: 8 },
+    triOutRight:  { x: 84,  y: 88, w: 17, h: 18 },
+    triOutLeft:   { x: 101, y: 88, w: 17, h: 18 },
+  };
+  // Every main-sheet sprite is drawn at this one integer scale. The ✕ comes from the menu
+  // sheet, which is already at display size, so it is drawn 1x.
+  var SCALE = 2;
+
+  var DOW = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+  var MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+  var MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+  // Every element that can carry the selection outline (see the Outlines CSS and setActive).
+  var PICO_FRAME_SELECTORS = ['#pico-home .tile', '#pico-home .action', '#pico-home .navbtn', '#pico-home #doge-presence',
+    'html.pico-home #resource-body .pico-row'];
+
+  // ── Styles (Phase 0 sketch CSS, scoped under #pico-home) ──────────────────
+  var CSS = [
+    '#pico-home {',
+    // Park music (apstat-park/park-music.mjs) sets --park-* on <html> for the picked song's palette;
+    // the Pico Desk follows it (the classic Desk never does). Without a song: Pico Park's own colours.
+    '  --orange: var(--park-accent, #FF864D); --cream: var(--park-hud, #FFFBF0); --paper: var(--park-bg, #FEFEFE); --ink: var(--park-fg, #000040); --warn: #d9b400;',
+    '  --plain-font: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;',
+    '  position: fixed; inset: 0; z-index: 4; overflow-x: hidden; overflow-y: auto;',
+    '  background: var(--paper); color: var(--ink); font: 16px/1.35 var(--plain-font);',
+    '}',
+    '#pico-home *, #pico-home *::before { box-sizing: border-box; }',
+    '#pico-home button { font: inherit; color: inherit; }',
+    '#pico-home .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;',
+    '  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }',
+    '#pico-home .sp { display: inline-block; background-image: url("apstat-park/assets/pico-desk.png");',
+    '  background-repeat: no-repeat; image-rendering: pixelated; flex: none; }',
+    '#pico-home .scene { max-width: 1240px; min-height: 100%; margin: 0 auto; padding: 0 16px;',
+    '  display: flex; flex-direction: column; gap: 6px; }',
+    '#pico-home .scene > * { flex-shrink: 0; }',
+    '#pico-home .topnav { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 28px; min-height: 48px; }',
+    '#pico-home .title { margin: 0; font-size: 22px; font-weight: 800; letter-spacing: .04em; white-space: nowrap; }',
+    '#pico-home .navlist { display: flex; flex-wrap: wrap; gap: 4px 8px; list-style: none; margin: 0; padding: 0; }',
+    '#pico-home .navbtn { position: relative; min-height: 44px; min-width: 44px; padding: 0 10px;',
+    '  background: none; border: 4px solid transparent; cursor: pointer;',
+    '  font-size: 18px; font-weight: 800; letter-spacing: .04em; white-space: nowrap; }',
+    '#pico-home .navbtn:focus-visible { outline: none; }',
+    '#pico-home .nav-badge { display: inline-block; min-width: 20px; margin-left: 6px; padding: 0 5px;',
+    '  border-radius: 10px; background: #cc0000; color: #fff; font-size: 13px; line-height: 20px; text-align: center; }',
+    '#pico-home .nav-badge[hidden] { display: none; }',
+    /* The Review icon's bob while cards are due (same motion as the Desk icon), motion-safe only. */
+    '@media (prefers-reduced-motion: no-preference) {',
+    '  #pico-home .nav-badge.is-bobbing { animation: pico-badge-bob 2.6s ease-in-out infinite; }',
+    '  @keyframes pico-badge-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(4px); } }',
+    '}',
+    '#pico-home .player { margin-left: auto; font-weight: 700; }',
+    /* The Doge play button (the Desk's #doge-presence, moved here): the sprite at 2x, PLAY under it,
+       a 44x44 target; its dropdown hangs below it, above the week picker. */
+    '#pico-home .doge-slot { display: inline-flex; }',
+    '#pico-home #doge-presence { position: relative; z-index: 6; display: inline-flex; flex-direction: column;',
+    '  align-items: center; justify-content: center; min-width: 44px; min-height: 44px; padding: 2px 6px;',
+    '  line-height: 1; border: 4px solid transparent; cursor: pointer; }',
+    '#pico-home #doge-presence:focus-visible { outline: none; }',
+    '#pico-home #doge-presence.doge-active { background: none; }',
+    '#pico-home #doge-presence img { width: 28px; height: 28px; }',
+    '#pico-home #doge-presence .pico-doge-label { font-size: 12px; font-weight: 800; letter-spacing: .06em; margin-top: 2px; }',
+    '#pico-home #doge-presence .doge-badge { top: -2px; right: -2px; width: 18px; height: 18px; line-height: 18px; font-size: 11px; }',
+    /* Teacher 2026-10-08: "the menu system for the dogecoin icon should be in the pico park style".
+       The Desk's System 7 dropdown (#doge-dropdown) still opens and closes with the Desk's own
+       state, but it is never shown here: the Pico PLAY window (renderDogeMenu) presents the same
+       DogePresence state instead. The Desk's short status flash ("Challenging …") gets plain text
+       on a Pico board. */
+    'html.pico-home #doge-dropdown, html.pico-home #doge-dropdown.show { display: none !important; }',
+    '#pico-home #doge-presence .doge-flash { top: 100%; right: 0; margin-top: 6px; padding: 6px 12px; background: var(--cream);',
+    '  border: 3px solid var(--orange); border-radius: 4px; box-shadow: none; color: var(--ink);',
+    '  font-family: var(--plain-font); font-size: 15px; font-weight: 700; line-height: 1.3; }',
+    /* PLAY window: the recovered menu window (same frame as OPTION), one list. */
+    '#pico-home .doge-win { width: min(500px, 100%); max-height: calc(100vh - 32px); }',
+    '#pico-home .doge-win .win-body { padding: 10px 16px 14px; }',
+    '#pico-home .pico-doge-self { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 16px; }',
+    '#pico-home .pico-doge-peer { justify-content: flex-start; gap: 10px; padding: 0 10px; text-align: left; letter-spacing: 0; }',
+    '#pico-home .pico-doge-who { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;',
+    '  font-size: 18px; font-weight: 800; }',
+    '#pico-home .pico-doge-user { font-size: 14px; font-weight: 400; opacity: .7; }',
+    '#pico-home .pico-doge-you { font-size: 14px; font-weight: 400; font-style: italic; opacity: .7; }',
+    '#pico-home .pico-doge-guest { font-size: 14px; font-weight: 800; color: #cc0000; }',
+    '#pico-home .pico-doge-chip { flex: none; padding: 2px 10px; font-size: 14px; font-weight: 400; letter-spacing: 0;',
+    '  background: var(--cream); border: 2px solid #c8c8c8; border-radius: 4px; }',
+    '#pico-home .pico-doge-chip.is-desk { font-weight: 800; border-color: var(--ink); }',
+    '#pico-home .pico-doge-chip.is-unknown { background: none; border-color: transparent; }',
+    '#pico-home .pico-doge-caret { flex: none; width: 1em; text-align: center; font-size: 16px; }',
+    '#pico-home .pico-doge-acts { list-style: none; margin: 0 0 8px 32px; padding: 0; }',
+    '#pico-home .pico-doge-where { margin: 4px 0 2px; font-size: 16px; }',
+    '#pico-home .pico-doge-acts .action { font-size: 16px; min-height: 44px; justify-content: flex-start; padding: 0 10px; }',
+    '#pico-home .pico-doge-acts .action:disabled { opacity: .45; cursor: default; }',
+    '#pico-home .pico-doge-note { margin: 10px 0; text-align: center; font-size: 16px; }',
+    /* An incoming challenge: the Desk breathes doge-gold behind everything (body.challenge-waiting);
+       the Pico home covers the body, so it breathes too. Same timing; still for reduced motion. */
+    '@keyframes pico-challenge-breathe { 0%, 100% { background-color: var(--paper); } 50% { background-color: #C9A227; } }',
+    /* The challenge alert's own top layer (see hoistChallengePanel): clicks pass through except on the panel. */
+    '#pico-doge-layer { position: fixed; inset: 0; z-index: ' + 100005 + '; pointer-events: none; }',
+    '#pico-doge-layer > .doge-challenge-panel { pointer-events: auto; }',
+    /* The challenge alert in the recovered window (teacher 2026-10-08): the Desk's own panel, its
+       content, ids and buttons untouched; only its look changes. Orange stepped frame, the title
+       ("Challenge!") on the orange top bar, paper interior, plain text, orange YES and an
+       orange-outlined NO. Scoped to the Pico top layer, so the original Desk's alert is unchanged. */
+    '#pico-doge-layer { --orange: var(--park-accent, #FF864D); --paper: var(--park-bg, #FEFEFE); --ink: var(--park-fg, #000040);',
+    '  --plain-font: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }',
+    '#pico-doge-layer > #doge-challenge-panel { isolation: isolate; width: min(400px, calc(100vw - 32px)); padding: 43px 24px 24px;',
+    '  background: none; border: 0; box-shadow: none; color: var(--ink); font-family: var(--plain-font); font-size: 16px; }',
+    '#pico-doge-layer > #doge-challenge-panel::before { content: ""; position: absolute; inset: 0; z-index: -2; background: var(--orange);',
+    '  clip-path: polygon(8px 0, calc(100% - 8px) 0, calc(100% - 8px) 3px, calc(100% - 4px) 3px, calc(100% - 4px) 7px, 100% 7px,',
+    '    100% calc(100% - 8px), calc(100% - 4px) calc(100% - 8px), calc(100% - 4px) calc(100% - 4px),',
+    '    calc(100% - 8px) calc(100% - 4px), calc(100% - 8px) 100%, 8px 100%, 8px calc(100% - 4px),',
+    '    4px calc(100% - 4px), 4px calc(100% - 8px), 0 calc(100% - 8px), 0 7px, 4px 7px, 4px 3px, 8px 3px); }',
+    '#pico-doge-layer > #doge-challenge-panel::after { content: ""; position: absolute; inset: 31px 12px 12px; z-index: -1; background: var(--paper); }',
+    '#pico-doge-layer > #doge-challenge-panel .challenge-title { position: absolute; top: 0; left: 12px; right: 12px; height: 31px;',
+    '  display: flex; align-items: center; margin: 0; padding: 0; background: none; border: 0; color: #fff;',
+    '  font-family: var(--plain-font); font-size: 16px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }',
+    '#pico-doge-layer > #doge-challenge-panel .challenge-who { padding: 0; font-family: var(--plain-font); font-size: 20px; font-weight: 800; line-height: 1.3; }',
+    '#pico-doge-layer > #doge-challenge-panel .challenge-stake { margin-top: 6px; color: var(--ink); font-family: var(--plain-font); font-size: 15px; }',
+    '#pico-doge-layer > #doge-challenge-panel .challenge-timer { margin: 10px 0 4px; font-family: var(--plain-font); font-size: 32px; font-weight: 800; }',
+    '#pico-doge-layer > #doge-challenge-panel .challenge-btns { gap: 12px; padding: 0; margin-top: 10px; }',
+    '#pico-doge-layer > #doge-challenge-panel .challenge-btns button { min-height: 48px; background: var(--paper); color: var(--ink);',
+    '  border: 4px solid var(--orange); border-radius: 4px; box-shadow: none;',
+    '  font-family: var(--plain-font); font-size: 18px; font-weight: 800; letter-spacing: .04em; }',
+    '#pico-doge-layer > #doge-challenge-panel .challenge-btns .btn-accept { background: var(--orange); color: #fff; }',
+    '#pico-doge-layer > #doge-challenge-panel .challenge-btns button:active { transform: none; }',
+    '#pico-doge-layer > #doge-challenge-panel .challenge-btns button:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }',
+    /* With SCHEDULE open its dimmed backdrop covers the home, so the backdrop breathes gold too. */
+    '@keyframes pico-challenge-breathe-dim { 0%, 100% { background-color: rgba(0, 0, 64, .45); } 50% { background-color: rgba(201, 162, 39, .75); } }',
+    'html.pico-home.pico-lessons-open body.challenge-waiting #window-wrap { animation: pico-challenge-breathe-dim 1.4s ease-in-out infinite; }',
+    '@media (prefers-reduced-motion: reduce) { html.pico-home.pico-lessons-open body.challenge-waiting #window-wrap { animation: none; background-color: rgba(201, 162, 39, .6); } }',
+    'body.challenge-waiting #pico-home { animation: pico-challenge-breathe 1.4s ease-in-out infinite; }',
+    '@media (prefers-reduced-motion: reduce) { body.challenge-waiting #pico-home { animation: none; background-color: #E7CF75; } }',
+    /* Teacher 2026-10-07: "flash the background gold … as in the OS 7 skin" — the WHOLE visible page,
+       on the same 1.4 s rhythm: the floor's orange band, the lesson panel's white backdrop (the
+       white-out state used to hide the gold completely), and the menu / My Grade backdrops. */
+    '@keyframes pico-challenge-breathe-band { 0%, 100% { background-color: var(--orange); } 50% { background-color: #C9A227; } }',
+    'body.challenge-waiting #pico-home .floor-band { animation: pico-challenge-breathe-band 1.4s ease-in-out infinite; }',
+    '@keyframes pico-challenge-breathe-veil { 0%, 100% { background-color: rgba(255, 255, 255, .92); } 50% { background-color: rgba(201, 162, 39, .92); } }',
+    'html.pico-home body.challenge-waiting #resource-overlay.pico-lesson { animation: pico-challenge-breathe-veil 1.4s ease-in-out infinite; }',
+    'body.challenge-waiting #pico-home .backdrop, html.pico-home body.challenge-waiting #app-wallet-overlay.pico-mygrade { animation: pico-challenge-breathe-dim 1.4s ease-in-out infinite; }',
+    '@media (prefers-reduced-motion: reduce) {',
+    '  body.challenge-waiting #pico-home .floor-band { animation: none; background-color: #E7CF75; }',
+    '  html.pico-home body.challenge-waiting #resource-overlay.pico-lesson { animation: none; background-color: rgba(231, 207, 117, .92); }',
+    '  body.challenge-waiting #pico-home .backdrop, html.pico-home body.challenge-waiting #app-wallet-overlay.pico-mygrade { animation: none; background-color: rgba(201, 162, 39, .6); }',
+    '}',
+    /* Week picker: the main menu carousel inside the recovered window (top bar = unit). */
+    '#pico-home .week-b { display: flex; justify-content: center; }',
+    '#pico-home .win { position: relative; isolation: isolate; display: flex; flex-direction: column;',
+    '  padding: 31px 12px 12px; max-height: 100%; }',
+    '#pico-home .win::before { content: ""; position: absolute; inset: 0; z-index: -1; background: var(--orange);',
+    '  clip-path: polygon(8px 0, calc(100% - 8px) 0, calc(100% - 8px) 3px, calc(100% - 4px) 3px, calc(100% - 4px) 7px, 100% 7px,',
+    '    100% calc(100% - 8px), calc(100% - 4px) calc(100% - 8px), calc(100% - 4px) calc(100% - 4px),',
+    '    calc(100% - 8px) calc(100% - 4px), calc(100% - 8px) 100%, 8px 100%, 8px calc(100% - 4px),',
+    '    4px calc(100% - 4px), 4px calc(100% - 8px), 0 calc(100% - 8px), 0 7px, 4px 7px, 4px 3px, 8px 3px); }',
+    '#pico-home .win-bar { position: absolute; top: 0; left: 12px; right: 44px; height: 31px;',
+    '  display: flex; align-items: center; color: #fff; font-weight: 800; letter-spacing: .04em; white-space: nowrap; }',
+    '#pico-home .week-win .win-bar { right: 12px; }',
+    '#pico-home .win-body { background: var(--paper); padding: 16px 24px 18px; overflow: auto; }',
+    '#pico-home .week-win-body { display: flex; align-items: center; flex-wrap: wrap; justify-content: center;',
+    '  gap: 4px 16px; padding: 0 16px; }',
+    '#pico-home .carousel { display: inline-flex; align-items: center; gap: 8px; }',
+    '#pico-home .week-title { margin: 0; font-size: 24px; font-weight: 800; letter-spacing: .04em; white-space: nowrap; }',
+    '#pico-home .week-page { font-size: 20px; font-weight: 700; min-height: 44px; display: inline-flex; align-items: center; }',
+    '#pico-home .week-exam { font-size: 16px; }',
+    '#pico-home .crown[hidden] { display: none; }',
+    '#pico-home .arrow { background: none; border: 0; padding: 0; cursor: pointer; min-width: 44px; min-height: 44px;',
+    '  display: inline-flex; align-items: center; justify-content: center; }',
+    '#pico-home .arrow:disabled { opacity: .3; cursor: default; }',
+    '#pico-home .arrow:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }',
+    /* The Do Now sign: a board drawn like the recovered signboard, standing on the post sprite. */
+    '#pico-home .sign { display: flex; flex-direction: column; align-items: center; }',
+    '#pico-home .sign-board { display: flex; align-items: center; gap: 24px; width: min(960px, 100%);',
+    '  background: var(--cream); border: 4px solid var(--orange); border-radius: 4px; padding: 6px 16px 6px 24px; }',
+    '#pico-home .sign-board.is-warn { border-color: var(--warn); border-width: 8px; padding: 6px 12px 6px 20px; }',
+    '#pico-home .sign-main { flex: 1; min-width: 0; }',
+    '#pico-home .sign-main p { margin: 0; }',
+    '#pico-home .sign-action { font-size: 22px; font-weight: 800; display: flex; align-items: center; gap: 12px; }',
+    '#pico-home .sign-context, #pico-home .sign-when { font-size: 18px; }',
+    '#pico-home .sign-when { display: flex; flex-wrap: wrap; align-items: center; column-gap: 12px; }',
+    '#pico-home .sign-link { background: none; border: 0; padding: 0 2px; min-height: 44px; cursor: pointer;',
+    '  color: #0645ad; text-decoration: underline; font-size: 18px; margin: -10px 0; }',
+    '#pico-home .sign-go { flex: none; min-height: 48px; min-width: 44px; padding: 0 18px; background: var(--orange);',
+    '  color: #fff; font-weight: 800; font-size: 18px; border: 0; border-radius: 4px; cursor: pointer; }',
+    '#pico-home .sign-go:hover, #pico-home .sign-go:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }',
+    '#pico-home .sign-grade { flex: none; min-width: 96px; max-width: 220px; min-height: 72px; padding: 2px 8px;',
+    '  display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;',
+    '  background: var(--paper); border: 4px solid var(--orange); border-radius: 4px; cursor: pointer; }',
+    '#pico-home .sign-grade:hover, #pico-home .sign-grade:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }',
+    '#pico-home .grade-num { font-size: 40px; font-weight: 800; line-height: 1; }',
+    '#pico-home .grade-cap { font-size: 16px; }',
+    '#pico-home .grade-status { font-size: 16px; }',
+    /* Stage-select tiles. The tile art is recovered; the one-row grid is our reconstruction
+       (the runtime captures never reached the game's stage-select screen). */
+    '#pico-home .tiles { list-style: none; margin: 0 auto; padding: 0; display: flex; flex-wrap: wrap;',
+    '  justify-content: center; gap: 8px 20px; }',
+    '#pico-home .tiles li { position: relative; }',
+    '#pico-home .tile { width: 168px; display: flex; flex-direction: column; align-items: center; background: none;',
+    '  border: 6px solid transparent; padding: 4px 4px 6px; cursor: pointer; }',
+    '#pico-home .tile[aria-disabled="true"] { cursor: default; }',
+    '#pico-home .tile:focus-visible { outline: none; }',
+    '#pico-home .tile:focus-visible .tile-name { text-decoration: underline; }',
+    '#pico-home .tile-date { font-weight: 800; font-size: 18px; }',
+    '#pico-home .tile-stage { position: relative; width: 128px; height: 88px; display: flex; flex-direction: column;',
+    '  align-items: center; justify-content: flex-end; gap: 2px; }',
+    '#pico-home .tile-stage .zzz { position: absolute; top: 8px; right: 4px; }',
+    '#pico-home .tile-word { font-size: 14px; font-weight: 800; letter-spacing: .04em; }',
+    '#pico-home .tile-floor { height: 32px; display: flex; align-items: flex-end; }',
+    /* Same text as the calendar cell; long names are cut by CSS only, never by other data. */
+    '#pico-home .tile-name { font-size: 17px; line-height: 1.3; min-height: 2.6em; margin-top: 4px; max-width: 100%;',
+    '  overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }',
+    '#pico-home .tiles .continue { position: absolute; left: -30px; top: 72px; }',
+    /* Outlines (teacher 2026-10-06: "too many orange boxes"). Exactly ONE active outline: the element
+       with focus (or the hovered one, after the hover dwell): orange, and it breathes like the game's
+       stage-select box (the frame only, transform only). Every other "current" marker — the selected
+       tile or row when focus is elsewhere, TODAY's page marker, the Doge while its menu is open — is
+       static green #3DA35D (hue ~140, across the wheel from the orange #FF864D, hue ~20, at a similar
+       weight, so the two read as a pair). The frame is a ::after with the sheet's stepped corners. */
+    '#pico-home .tile, #pico-home .action { position: relative; }',
+    '#pico-home .tile, #pico-home .action, html.pico-home #resource-body .pico-row { --frame-w: 6px; }',
+    '#pico-home .navbtn, #pico-home #doge-presence { --frame-w: 4px; }',
+    PICO_FRAME_SELECTORS.map(function (sel) { return sel + '.is-active::after'; }).join(', ') + ', ' +
+    PICO_FRAME_SELECTORS.map(function (sel) { return sel + '.pico-green::after'; }).join(', ') + ' {',
+    '  content: ""; position: absolute; inset: calc(-1 * var(--frame-w)); border: var(--frame-w) solid var(--frame-colour);',
+    '  pointer-events: none; transform-origin: 50% 50%; box-sizing: border-box;',
+    '  clip-path: polygon(4px 0, calc(100% - 4px) 0, calc(100% - 4px) 2px, calc(100% - 2px) 2px, calc(100% - 2px) 4px, 100% 4px,',
+    '    100% calc(100% - 4px), calc(100% - 2px) calc(100% - 4px), calc(100% - 2px) calc(100% - 2px),',
+    '    calc(100% - 4px) calc(100% - 2px), calc(100% - 4px) 100%, 4px 100%, 4px calc(100% - 2px),',
+    '    2px calc(100% - 2px), 2px calc(100% - 4px), 0 calc(100% - 4px), 0 4px, 2px 4px, 2px 2px, 4px 2px); }',
+    PICO_FRAME_SELECTORS.map(function (sel) { return sel + '.pico-green'; }).join(', ') + ' { --frame-colour: #3DA35D; }',
+    PICO_FRAME_SELECTORS.map(function (sel) { return sel + '.is-active'; }).join(', ') + ' { --frame-colour: var(--orange, #FF864D); }',
+    '@keyframes pico-select-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.04); } }',
+    '@media (prefers-reduced-motion: no-preference) {',
+    '  ' + PICO_FRAME_SELECTORS.map(function (sel) { return sel + '.is-active::after'; }).join(', ') +
+    ' { animation: pico-select-pulse 1.2s ease-in-out infinite; will-change: transform; }',
+    '  #pico-home.pico-whiteout .is-active::after { animation: none; }',
+    '}',
+    /* Stage select → level: the rest of the home fades to white around the chosen tile (or the sign),
+       then the lesson panel opens over the white page. pointer-events are untouched. */
+    '#pico-home .scene > *, #pico-home .tiles > li { transition: opacity 180ms ease-out; }',
+    '#pico-home.pico-whiteout .scene > :not(.tiles):not(.pico-chosen), #pico-home.pico-whiteout .tiles > li:not(.pico-chosen) {',
+    '  opacity: .08; transition-duration: 220ms; }',
+    '@media (prefers-reduced-motion: reduce) { #pico-home .scene > *, #pico-home .tiles > li { transition: none; } }',
+    /* The floor: the REAL classroom board (#classroom-board-mount, reparented here) IS the page's
+       bottom edge. It spans the whole page width with no box of its own (the board paints no
+       background in its room; the page's white shows through), its ground line is the page's
+       orange floor, and only the band from the floor up to the tallest idle thing standing on it
+       is shown (the rest of the room is cropped above). While a game is running the band grows to
+       the whole room (see layoutFloor). Signed out (no board yet) the Pico band is the floor. */
+    '#pico-home .scene > .floor { flex: none; margin-top: auto; position: relative; overflow: hidden;',
+    '  width: 100vw; margin-left: calc(50% - 50vw); margin-right: calc(50% - 50vw); }',
+    '#pico-home .floor #classroom-board-mount { position: absolute !important; left: 0; right: 0; bottom: 0;',
+    '  width: 100% !important; max-width: none !important; margin: 0 !important; z-index: 1; }',
+    /* Loading veil: until the room (or a whole-class scene) is up, the board's contents stay hidden,
+       so its cream presence strip never flashes in first; only the orange floor line shows. */
+    '#pico-home .floor.is-veiled #classroom-board-mount { visibility: hidden; }',
+    '#pico-home .floor:not(.has-board) { height: 16px; }',
+    '#pico-home .floor-band { position: absolute; left: 0; right: 0; bottom: 0; height: 16px; background: var(--orange); }',
+    /* Under the board, the floor band continues the room's floor block (which is only as wide as
+       the room) to both page edges: same orange, same top edge (--pico-floor-block, layoutFloor). */
+    '#pico-home .floor.has-board .floor-band { z-index: 0; height: var(--pico-floor-block, 50px); }',
+    /* A park/campaign level is its own scene (pits, platforms): no band behind it. */
+    '#pico-home .floor.is-level .floor-band { display: none; }',
+    /* The board's pull-down result screen holds a width:100% chart canvas (320x160 intrinsic); at
+       page width that chart alone would be ~700 px tall and push the question, stepper and close
+       button out of the board. Cap the chart (2:1, centred) at 320 px or the board height minus the
+       controls (--pico-result-chart-max, set by layoutFloor), whichever is smaller. */
+    '#pico-home #classroom-board-mount [data-classroom-result-canvas] { width: auto !important; max-width: 100%;',
+    '  height: min(320px, var(--pico-result-chart-max, 320px)) !important; margin: 0 auto; }',
+    /* OPTION: the recovered menu window over a dimmed home. */
+    '#pico-home .backdrop { position: fixed; inset: 0; z-index: 10; background: rgba(0, 0, 64, .45);',
+    '  display: flex; align-items: center; justify-content: center; padding: 16px; overflow: auto; }',
+    '#pico-home .backdrop[hidden] { display: none; }',
+    '#pico-home .option-win { width: min(420px, 100%); }',
+    '#pico-home .win-close { position: absolute; top: 0; right: 0; width: 44px; height: 44px;',
+    '  background: none; border: 0; padding: 0; cursor: pointer; }',
+    '#pico-home .win-close .sp { position: absolute; left: 20px; top: 11px; }',
+    '#pico-home .win-close:focus-visible { outline: 3px solid var(--ink); outline-offset: -3px; }',
+    '#pico-home .actions { list-style: none; margin: 0 auto; padding: 0; width: 100%; }',
+    '#pico-home .option-head { margin: 10px 0 2px; font-size: 14px; font-weight: 800; text-align: center; letter-spacing: .06em; }',
+    '#pico-home .action { width: 100%; min-height: 48px; margin: 2px 0; display: flex; align-items: center;',
+    '  justify-content: center; gap: 6px; background: none; border: 6px solid transparent; cursor: pointer;',
+    '  font-size: 18px; font-weight: 800; letter-spacing: .04em; }',
+    '#pico-home .action:focus-visible { outline: none; }',
+    '#pico-home .action:focus-visible .action-text { text-decoration: underline; }',
+    /* LESSONS shows the existing calendar window over the home; its own close box returns. */
+    'html.pico-home.pico-lessons-open #window-wrap { position: fixed; inset: 0; z-index: 6; overflow: auto;',
+    '  background: rgba(0, 0, 64, .45); }',
+    '@media (prefers-reduced-motion: no-preference) {',
+    '  #pico-home .backdrop:not([hidden]) .win { animation: pico-win-in .12s ease-out; }',
+    '  @keyframes pico-win-in { from { transform: scale(.96); opacity: 0; } to { transform: none; opacity: 1; } }',
+    '}',
+    /* Phase 2: the Desk's own lesson panel and ledger windows in the recovered frame. Scoped to
+       html.pico-home (flag on); the Desk DOM keeps its place, ids and handlers. */
+    'html.pico-home .pico-frame {',
+    '  --orange: #FF864D; --paper: #FEFEFE; --ink: #000040;',
+    '  --plain-font: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;',
+    '}',
+    'html.pico-home .pico-frame:not(.game-window) { isolation: isolate; text-align: left;',
+    '  background: none !important; border: 0 !important; outline: 0 !important; box-shadow: none !important;',
+    '  border-radius: 0 !important; padding: 31px 12px 12px !important;',
+    '}',
+    /* Study Break: zero change to the window's box (padding, border, size) so the game area is
+       exactly the Desk's. The frame is a ring drawn with box-shadow (no layout), the title bar sits
+       over the System 7 title bar's own strip, and the ✕ is the window's own close box. */
+    'html.pico-home .pico-frame.game-window { box-shadow: 0 0 0 10px var(--orange) !important; }',
+    'html.pico-home .pico-frame.game-window > .win-bar { top: 1px; left: 48px; right: 48px; height: 19px; pointer-events: none;',
+    '  font-size: 13px; background: var(--orange); }',
+    /* Study Break's ✕ is its own System 7 close box (onclick="closeGame()"), restyled in place:
+       44px wide, exactly as tall as the title strip, so it never reaches the canvas below. */
+    'html.pico-home .pico-frame.game-window > .game-title-bar .close-box { left: 0; top: 0; width: 44px; height: 100%;',
+    '  margin: 0; border: 0; background: transparent; box-shadow: none; }',
+    'html.pico-home .pico-frame.game-window > .game-title-bar .close-box::after { content: ""; position: absolute; left: 16px;',
+    '  top: 50%; margin-top: -6px; width: 12px; height: 12px; background: url("apstat-park/assets/pico-desk.png") -171px -48px / 256px 128px no-repeat;',
+    '  image-rendering: pixelated; }',
+    'html.pico-home .pico-frame.game-window > .game-title-bar { background: var(--orange); }',
+    /* The Study Break window keeps its own fonts and box model (its canvas and messages are untouched). */
+    'html.pico-home .pico-frame:not(.game-window) { color: var(--ink); font: 16px/1.35 var(--plain-font); }',
+    'html.pico-home .pico-frame:not(.game-window)::before { content: ""; position: absolute; inset: 0; z-index: -1; background: var(--orange);',
+    '  clip-path: polygon(8px 0, calc(100% - 8px) 0, calc(100% - 8px) 3px, calc(100% - 4px) 3px, calc(100% - 4px) 7px, 100% 7px,',
+    '    100% calc(100% - 8px), calc(100% - 4px) calc(100% - 8px), calc(100% - 4px) calc(100% - 4px),',
+    '    calc(100% - 8px) calc(100% - 4px), calc(100% - 8px) 100%, 8px 100%, 8px calc(100% - 4px),',
+    '    4px calc(100% - 4px), 4px calc(100% - 8px), 0 calc(100% - 8px), 0 7px, 4px 7px, 4px 3px, 8px 3px); }',
+    'html.pico-home .pico-frame:not(.game-window) *, html.pico-home .pico-frame:not(.game-window) *::before { box-sizing: border-box; }',
+    'html.pico-home .pico-frame > .win-bar { position: absolute; top: 0; left: 12px; right: 44px; height: 31px;',
+    '  display: flex; align-items: center; color: #fff; font: 800 16px/1 var(--plain-font); letter-spacing: .04em;',
+    '  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }',
+    'html.pico-home .pico-frame > .win-close { position: absolute; top: 0; right: 0; width: 44px; height: 44px;',
+    '  background: none; border: 0; padding: 0; cursor: pointer; }',
+    'html.pico-home .pico-frame > .win-close .sp { position: absolute; left: 20px; top: 11px; }',
+    'html.pico-home .pico-frame > .win-close:focus-visible { outline: 3px solid var(--ink); outline-offset: -3px; }',
+    'html.pico-home .pico-frame .sp { display: inline-block; background-image: url("apstat-park/assets/pico-desk.png");',
+    '  background-repeat: no-repeat; image-rendering: pixelated; flex: none; }',
+    'html.pico-home .pico-frame .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;',
+    '  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }',
+    /* Lesson panel. */
+    /* The lesson panel sits over the whitened home (stage select → level), not a grey dim. */
+    'html.pico-home #resource-overlay.pico-lesson { background: rgba(255, 255, 255, .92); }',
+    'html.pico-home #resource-overlay.pico-lesson .pico-frame { display: flex; flex-direction: column;',
+    '  width: min(640px, calc(100vw - 32px)) !important;',
+    '  max-width: none !important; max-height: calc(100vh - 32px); }',
+    'html.pico-home .pico-frame-body { background: var(--paper); padding: 14px 20px 16px; overflow: auto; min-height: 0; }',
+    'html.pico-home #resource-overlay.pico-lesson #resource-header { font: 800 22px/1.25 var(--plain-font) !important;',
+    '  text-align: center; border: 0 !important; margin: 0 0 8px !important; padding: 0 !important; }',
+    'html.pico-home #resource-overlay.pico-lesson #resource-body { font: 16px/1.35 var(--plain-font) !important;',
+    '  max-height: none !important; overflow: visible !important; }',
+    'html.pico-home #resource-body .pico-lesson-list { list-style: none; margin: 0; padding: 0 0 0 44px; }',
+    'html.pico-home #resource-body .pico-lesson-item { position: relative; }',
+    'html.pico-home #resource-body .pico-lesson-item > .continue { position: absolute; left: -44px; top: 50%; margin-top: -18px; }',
+    'html.pico-home #resource-body .pico-list-head { margin: 10px 0 2px; font-size: 14px; font-weight: 800; letter-spacing: .06em; }',
+    'html.pico-home #resource-body .pico-list-head .chicago { font: inherit !important; text-transform: uppercase; }',
+    'html.pico-home #resource-body .pico-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px;',
+    '  min-height: 52px; margin: 2px 0 !important; padding: 4px 10px; border: 6px solid transparent; }',
+    'html.pico-home #resource-body .pico-row { position: relative; }',
+    'html.pico-home #resource-body .pico-row > a { font-size: 18px; font-weight: 800; color: var(--ink) !important;',
+    '  min-height: 44px; display: inline-flex; align-items: center; }',
+    'html.pico-home #resource-body .pico-row a:focus-visible, html.pico-home #resource-body .pico-row button:focus-visible {',
+    '  outline: 3px solid var(--ink); outline-offset: 2px; }',
+    'html.pico-home #resource-overlay.pico-lesson .s7btn { font: 700 15px/1.2 var(--plain-font) !important;',
+    '  min-height: 44px; min-width: 44px; padding: 4px 12px !important; }',
+    'html.pico-home #resource-body .pico-row span { font-size: 15px !important; }',
+    'html.pico-home #resource-body .pico-more { margin-top: 10px; border-top: 2px solid #e4e4e4; padding-top: 6px; }',
+    'html.pico-home #resource-body .pico-more summary { min-height: 44px; display: flex; align-items: center;',
+    '  cursor: pointer; font-weight: 800; letter-spacing: .04em; }',
+    'html.pico-home #resource-body .pico-more-body > * { margin: 4px 0; }',
+    'html.pico-home .pico-lesson-day { margin: 12px 0 0; padding-top: 10px; border-top: 2px solid #e4e4e4;',
+    '  display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; }',
+    'html.pico-home .pico-lesson-day[hidden] { display: none; }',
+    'html.pico-home .pico-lesson-day dt { font-weight: 700; }',
+    'html.pico-home .pico-lesson-day dd { margin: 0; }',
+    'html.pico-home .pico-day-btn { min-height: 44px; padding: 4px 12px; font: 700 15px/1.2 var(--plain-font);',
+    '  background: var(--paper); color: var(--ink); border: 3px solid var(--orange); border-radius: 4px; cursor: pointer; }',
+    /* My Grade: the ledger window. */
+    'html.pico-home #app-wallet-overlay.pico-mygrade { background: rgba(0, 0, 64, .45); pointer-events: auto; }',
+    'html.pico-home #app-wallet-overlay.pico-mygrade .pico-frame { display: flex; flex-direction: column;',
+    '  width: min(760px, calc(100vw - 32px)) !important;',
+    '  height: calc(100vh - 32px); max-height: none; max-width: none; }',
+    'html.pico-home #app-wallet-overlay.pico-mygrade .game-title-bar { display: none; }',
+    'html.pico-home .pico-grade-head { background: var(--paper); text-align: center; padding: 12px 16px 4px; }',
+    'html.pico-home .pico-grade-head .grade-num { display: block; font-size: 56px; font-weight: 800; line-height: 1; }',
+    'html.pico-home .pico-grade-head .grade-cap { display: block; font-size: 18px; }',
+    'html.pico-home .pico-grade-head .grade-status { margin: 0; font-size: 18px; }',
+    'html.pico-home #app-wallet-overlay.pico-mygrade #wallet-content { background: var(--paper); border: 0; margin: 0;',
+    '  font-size: 16px; font-family: var(--plain-font); flex: none !important; overflow: visible !important; padding: 4px 16px 16px !important; }',
+    'html.pico-home #app-wallet-overlay.pico-mygrade #wallet-content * { font-family: var(--plain-font) !important; }',
+    /* My Grade in the Pico style (renderLedgerZero / renderLedgerBalance / renderLedgerBonus): the
+       status strip under the orange bar, then one scroll area. The Desk's own Missing-work card,
+       the top of its balance card and its bonus block are drawn by the Pico ledger, so they are
+       hidden in the Desk's content; the rest of that card becomes a plain sub-panel. */
+    'html.pico-home .pico-ledger-status { flex: none; margin: 0; padding: 8px 16px; background: #FFFBF0;',
+    '  border-bottom: 2px solid #e4e4e4; font-size: 16px; font-weight: 800; line-height: 1.35; }',
+    'html.pico-home .pico-ledger-status[hidden] { display: none; }',
+    'html.pico-home .pico-mygrade-body { flex: 1 1 auto; min-height: 0; overflow: auto; background: var(--paper); }',
+    'html.pico-home #app-wallet-overlay.pico-mygrade #wallet-content .wallet-zero-card,',
+    'html.pico-home #app-wallet-overlay.pico-mygrade #wallet-content .pico-ledger-drawn { display: none !important; }',
+    /* v2: the rest of the Desk's balance card moved into the folds; what is left is hidden. */
+    'html.pico-home #app-wallet-overlay.pico-mygrade #wallet-content .pico-ledger-rest { display: none !important; }',
+    'html.pico-home #app-wallet-overlay.pico-mygrade #wallet-content { padding: 0 !important; }',
+    'html.pico-home #app-wallet-overlay.pico-mygrade #wallet-content .s7btn, html.pico-home .pico-ledger .s7btn {',
+    '  font: 700 15px/1.2 var(--plain-font) !important; min-height: 40px; padding: 4px 14px !important; background: var(--paper);',
+    '  color: var(--ink); border: 3px solid #3DA35D; border-radius: 4px; box-shadow: none; cursor: pointer; }',
+    'html.pico-home .pico-ledger { background: var(--paper); padding: 8px 16px 0; }',
+    'html.pico-home .pico-ledger [hidden] { display: none !important; }',
+    'html.pico-home .pico-ledger .pl-zero { display: flex; flex-direction: column; gap: 6px; margin: 0 0 12px; }',
+    'html.pico-home .pico-ledger .pl-tile { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; min-height: 56px;',
+    '  padding: 6px 12px; border: 3px solid; border-left-width: 10px; border-radius: 4px; }',
+    'html.pico-home .pico-ledger .pl-tile .wz-label { font-size: 18px; font-weight: 800; min-width: 0; }',
+    'html.pico-home .pico-ledger .pl-tile .wz-when { margin-left: auto; font-size: 15px; white-space: nowrap; }',
+    'html.pico-home .pico-ledger .pl-later-head { margin: 8px 0 0; font-size: 14px; font-weight: 800; letter-spacing: .06em; color: #555; }',
+    'html.pico-home .pico-ledger .pl-badge { display: inline-block; padding: 1px 8px; border: 2px solid currentColor; border-radius: 4px;',
+    '  font-size: 13px; font-weight: 700; line-height: 1.4; white-space: nowrap; }',
+    'html.pico-home .pico-ledger .pl-badge.wz-sgy { color: #555; font-weight: 400; }',
+    'html.pico-home .pico-ledger .pl-verb { flex: none; min-height: 44px; min-width: 44px; padding: 4px 16px; background: var(--orange);',
+    '  color: #fff; border: 0; border-radius: 4px; font: 800 16px/1.2 var(--plain-font); letter-spacing: .04em; cursor: pointer; }',
+    'html.pico-home .pico-ledger .pl-btn { min-height: 44px; padding: 4px 14px; background: var(--paper); color: var(--ink);',
+    '  border: 3px solid #3DA35D; border-radius: 4px; font: 700 15px/1.2 var(--plain-font); cursor: pointer; }',
+    'html.pico-home .pico-ledger .pl-link { min-height: 44px; min-width: 44px; padding: 0 4px; background: none; border: 0;',
+    '  color: #0645ad; text-decoration: underline; font: 15px var(--plain-font); cursor: pointer; }',
+    'html.pico-home .pico-ledger .pl-link:disabled { opacity: .45; cursor: default; }',
+    'html.pico-home .pico-ledger button:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }',
+    'html.pico-home .pico-ledger .snap-alist { margin: 0 0 6px 12px; font-family: var(--plain-font) !important; }',
+    'html.pico-home .pico-ledger .snap-alist * { font-family: var(--plain-font) !important; }',
+    'html.pico-home .pico-ledger .pl-panel { margin: 0 0 12px; padding: 12px 16px; background: #FFFBF0; border: 3px solid var(--orange); border-radius: 4px; }',
+    'html.pico-home .pico-ledger .pl-who { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; font-size: 15px; }',
+    'html.pico-home .pico-ledger .pl-name { font-weight: 700; }',
+    'html.pico-home .pico-ledger .pl-who .wallet-see-class { margin-left: auto; }',
+    'html.pico-home .pico-ledger .pl-grade-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; margin-top: 8px; }',
+    'html.pico-home .pico-ledger .pl-grade-num { font-size: 36px; font-weight: 800; line-height: 1; }',
+    'html.pico-home .pico-ledger .pl-line { margin: 6px 0 0; font-size: 15px; line-height: 1.4; }',
+    'html.pico-home .pico-ledger .wallet-grade-drop { font-weight: 800; }',
+    'html.pico-home .pico-ledger .wallet-effort-pc { padding-left: 8px; border-left: 4px solid #888; }',
+    'html.pico-home .pico-ledger .wallet-effort-ahead { padding-left: 8px; border-left: 4px solid #3DA35D; }',
+    'html.pico-home .pico-ledger .pl-note { margin: 8px 0 0; font-size: 14px; line-height: 1.4; color: #555; }',
+    'html.pico-home .pico-ledger .pl-head { margin: 0 0 4px; font-size: 16px; font-weight: 800; letter-spacing: .04em; }',
+    /* v2: HERO (grade | candy · keys) and the bucket NAV stay above the scroll area. */
+    'html.pico-home .pico-ledger-top { flex: none; padding: 8px 16px 6px; border-bottom: 2px solid #e4e4e4; }',
+    'html.pico-home .pico-ledger-top .pl-hero { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: stretch; }',
+    'html.pico-home .pico-ledger-top .pl-panel { margin: 0; padding: 8px 14px; }',
+    'html.pico-home .pico-ledger-top .pl-balance { flex: 1 1 300px; }',
+    'html.pico-home .pico-ledger-top .pl-balance .wallet-grade-drop, html.pico-home .pico-ledger-top .pl-balance .pl-line { font-size: 14px; margin-top: 4px; }',
+    'html.pico-home .pico-ledger-top .pl-wallet { flex: 0 1 auto; display: flex; gap: 20px; align-items: center; border-color: #C9A227; }',
+    'html.pico-home .pico-ledger-top .pl-stat { display: flex; flex-direction: column; align-items: center; min-width: 88px; text-align: center; }',
+    'html.pico-home .pico-ledger-top .pl-stat-label { font-size: 14px; font-weight: 800; letter-spacing: .08em; }',
+    'html.pico-home .pico-ledger-top .pl-stat-num { font-size: 40px; font-weight: 800; line-height: 1.05; }',
+    'html.pico-home .pico-ledger-top .pl-stat-note { font-size: 13px; color: #555; }',
+    'html.pico-home .pico-ledger-top .pl-nav { display: flex; flex-wrap: wrap; gap: 6px 10px; margin-top: 8px; }',
+    'html.pico-home .pico-ledger-top .pl-nav-btn { position: relative; min-height: 44px; padding: 4px 14px; background: var(--paper);',
+    '  color: var(--ink); border: 4px solid #e4e4e4; border-radius: 4px; font: 800 16px/1.2 var(--plain-font); letter-spacing: .04em; cursor: pointer; }',
+    'html.pico-home .pico-ledger-top .pl-nav-btn.is-current { border-color: #3DA35D; }',
+    'html.pico-home .pico-ledger-top .pl-nav-btn:focus-visible { outline: none; border-color: var(--orange); }',
+    'html.pico-home .pico-ledger .pl-tile.wz-done .wz-when { color: #1f6b3a; font-weight: 700; }',
+    'html.pico-home .pico-ledger .pl-tile[hidden] + .snap-alist { display: none !important; }',
+    'html.pico-home .pico-ledger .pl-empty { margin: 8px 0; font-size: 16px; color: #555; }',
+    /* v2 folds: closed by default (state per device), the Desk's own nodes inside. */
+    'html.pico-home .pl-folds { padding: 0 16px 16px; }',
+    'html.pico-home .pl-folds * { font-family: var(--plain-font) !important; }',
+    'html.pico-home .pl-folds .pl-fold { border-top: 2px solid #e4e4e4; }',
+    'html.pico-home .pl-folds .pl-fold-head { width: 100%; min-height: 44px; padding: 0 4px; text-align: left; background: none; border: 0;',
+    '  font: 800 15px/1.2 var(--plain-font); letter-spacing: .04em; color: var(--ink); cursor: pointer; }',
+    'html.pico-home .pl-folds .pl-fold-head:focus-visible { outline: 3px solid var(--ink); outline-offset: -3px; }',
+    'html.pico-home .pl-folds .pl-fold-body { padding: 4px 4px 12px; }',
+    'html.pico-home #app-wallet-overlay.pico-mygrade .pico-grade-head { display: none; }',
+    /* Phase 3: every other Desk window in the plain frame. Position, size and stacking stay the
+       Desk's; the frame adds the orange border, a paper interior and the Pico type and buttons. */
+    'html.pico-home .pico-p3:not(.game-window)::after { content: ""; position: absolute; inset: 31px 12px 12px; z-index: -1; background: var(--paper); }',
+    'html.pico-home .pico-p3:not(.app-window):not(.game-window) {',
+    '  padding: 47px 28px 28px !important; }',
+    'html.pico-home .pico-p3 > .win-close[hidden] { display: none; }',
+    /* The QR cards are not positioned by the Desk; the frame's bar and ✕ anchor to the card. */
+    'html.pico-home #verify-qr-card.pico-p3, html.pico-home #reconcile-qr-card.pico-p3, html.pico-home #guest-pass-card.pico-p3 { position: relative; }',
+    'html.pico-home .pico-p3 > .game-title-bar .title-text, html.pico-home .pico-p3 > .game-title-bar .title-stripes,',
+    'html.pico-home .pico-p3:not(.game-window) > .game-title-bar .close-box, html.pico-home .pico-p3 > .game-title-bar .collapse-box { display: none !important; }',
+    'html.pico-home .pico-p3 > .game-title-bar.pico-orig-bar-empty { display: none !important; }',
+    'html.pico-home .pico-p3.app-window > .game-title-bar { box-shadow: none; background: var(--paper); }',
+    'html.pico-home .pico-p3 .app-content { border: 0; margin: 0; }',
+    'html.pico-home .pico-p3:not(.game-window) .geneva, html.pico-home .pico-p3:not(.game-window) .chicago,',
+    'html.pico-home .pico-p3:not(.game-window) .dialog-msg { font-family: var(--plain-font) !important; }',
+    'html.pico-home .pico-p3 .dialog-msg { font-size: 15px; line-height: 1.4; }',
+    'html.pico-home .pico-p3:not(.game-window) .s7btn { font: 700 15px/1.2 var(--plain-font) !important; min-height: 40px;',
+    '  padding: 4px 14px !important; background: var(--paper); color: var(--ink); border: 3px solid var(--orange);',
+    '  border-radius: 4px; box-shadow: none; outline: 0; cursor: pointer; }',
+    'html.pico-home .pico-p3:not(.game-window) .s7btn.s7btn-default { background: var(--orange); color: #fff; }',
+    'html.pico-home .pico-p3:not(.game-window) .s7btn:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }',
+    'html.pico-home .pico-p3:not(.game-window) .s7btn[disabled] { opacity: .5; cursor: default; }',
+    /* Flashcards (teacher 2026-10-10: "also refactor the flashcards!!!"). The Desk's own deck window
+       (#bf-overlay: the timed deck, its finish screen, and the Review deck) in the Pico style. Its
+       ids, text, buttons, handlers, keys and timer are the Desk's; this is CSS plus two read-only
+       additions (setupFlashcards): the "n / N" counter and the timer bar. The frame bar carries the
+       deck's own title (two lines allowed), so the System 7 header row and its ✕ are hidden; the
+       frame's ✕ calls the same closeBlooketFlashcards(). One grid row holds counter · bar · seconds. */
+    'html.pico-home #bf-overlay.pico-framed { background: rgba(0, 0, 64, .45); }',
+    'html.pico-home #bf-overlay .dialog-box.pico-p3 { width: min(600px, calc(100vw - 32px)) !important; max-width: none !important;',
+    '  padding: 60px 28px 28px !important; display: grid; grid-template-columns: auto minmax(0, 1fr) auto;',
+    '  column-gap: 12px; align-items: center; }',
+    'html.pico-home #bf-overlay .dialog-box.pico-p3 > * { grid-column: 1 / -1; min-width: 0; }',
+    'html.pico-home #bf-overlay .dialog-box.pico-p3::after { inset: 44px 12px 12px; }',
+    'html.pico-home #bf-overlay .dialog-box.pico-p3 > .win-bar { height: 44px; font-size: 15px; line-height: 1.25;',
+    '  white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; padding-top: 4px; }',
+    'html.pico-home #bf-overlay .bf-modal-header { display: none !important; }',
+    'html.pico-home #bf-overlay #bf-note { margin: 0 0 12px !important; padding: 8px 12px; background: #FFFBF0;',
+    '  border-left: 6px solid #3DA35D; color: var(--ink) !important; font-size: 15px !important; line-height: 1.4; }',
+    'html.pico-home #bf-overlay .pico-fc-count { grid-column: 1; min-width: 72px; padding: 2px 10px; text-align: center;',
+    '  border: 3px solid var(--orange); border-radius: 4px; font: 800 20px/1.3 var(--plain-font); letter-spacing: .04em; white-space: nowrap; }',
+    'html.pico-home #bf-overlay .pico-fc-time { grid-column: 2; height: 20px; padding: 3px; border: 3px solid var(--orange);',
+    '  border-radius: 4px; background: var(--paper); }',
+    'html.pico-home #bf-overlay .pico-fc-fill { display: block; height: 100%; background: var(--orange); }',
+    'html.pico-home #bf-overlay .pico-fc-time.is-low .pico-fc-fill { background: #B03A2E; }',
+    'html.pico-home #bf-overlay .pico-fc-count[hidden], html.pico-home #bf-overlay .pico-fc-time[hidden] { display: none; }',
+    'html.pico-home #bf-overlay #bf-timer { grid-column: 3; margin: 0 !important; min-width: 56px; text-align: right;',
+    '  font: 800 20px/1.3 var(--plain-font) !important; white-space: nowrap; }',
+    'html.pico-home #bf-overlay #bf-progress { margin: 6px 0 10px !important; font-size: 14px !important; color: #555; }',
+    /* The card face: plain text on a cream card in an orange frame. */
+    'html.pico-home #bf-overlay #bf-question:not(:empty) { margin: 0 0 12px !important; min-height: 96px; padding: 16px 20px;',
+    '  display: flex; flex-direction: column; justify-content: center; background: #FFFBF0; border: 4px solid var(--orange);',
+    '  border-radius: 4px; font: 700 20px/1.35 var(--plain-font) !important; text-align: center; }',
+    'html.pico-home #bf-overlay #bf-question .geneva { font-size: 14px !important; font-weight: 800; color: #555 !important; letter-spacing: .04em; }',
+    /* Choices: stage-select items. Pointer hover or keyboard focus = the orange stepped outline;
+       the Desk's own marks after answering: right = green #3DA35D, wrong = the Desk's red. */
+    'html.pico-home #bf-overlay .bf-choice { position: relative; min-height: 52px; margin: 4px 0; padding: 6px 14px;',
+    '  background: var(--paper); border: 6px solid transparent; border-radius: 0; color: var(--ink);',
+    '  font: 700 18px/1.3 var(--plain-font); text-align: left; --frame-w: 6px; }',
+    'html.pico-home #bf-overlay .bf-choice:focus-visible { outline: none; }',
+    'html.pico-home #bf-overlay .bf-choice:not(:disabled):hover, html.pico-home #bf-overlay .bf-choice.bf-correct,',
+    'html.pico-home #bf-overlay .bf-choice.bf-wrong { background: var(--paper); }',
+    'html.pico-home #bf-overlay .bf-choice::after { content: none; }',
+    'html.pico-home #bf-overlay .bf-choice:not(:disabled):hover::after, html.pico-home #bf-overlay .bf-choice:not(:disabled):focus-visible::after,',
+    'html.pico-home #bf-overlay .bf-choice.bf-correct::after, html.pico-home #bf-overlay .bf-choice.bf-wrong::after {',
+    '  content: ""; position: absolute; inset: calc(-1 * var(--frame-w)); border: var(--frame-w) solid var(--frame-colour, var(--orange));',
+    '  pointer-events: none; box-sizing: border-box;',
+    '  clip-path: polygon(4px 0, calc(100% - 4px) 0, calc(100% - 4px) 2px, calc(100% - 2px) 2px, calc(100% - 2px) 4px, 100% 4px,',
+    '    100% calc(100% - 4px), calc(100% - 2px) calc(100% - 4px), calc(100% - 2px) calc(100% - 2px),',
+    '    calc(100% - 4px) calc(100% - 2px), calc(100% - 4px) 100%, 4px 100%, 4px calc(100% - 2px),',
+    '    2px calc(100% - 2px), 2px calc(100% - 4px), 0 calc(100% - 4px), 0 4px, 2px 4px, 2px 2px, 4px 2px); }',
+    'html.pico-home #bf-overlay .bf-choice.bf-correct { --frame-colour: #3DA35D; }',
+    'html.pico-home #bf-overlay .bf-choice.bf-wrong { --frame-colour: #B03A2E; }',
+    'html.pico-home #bf-overlay #bf-feedback { min-height: 1.4em; margin: 8px 0 0; text-align: center; font: 800 18px/1.35 var(--plain-font) !important; font-style: normal !important; }',
+    /* Finish screen: the Desk's recap and outcome line, unchanged text, on a cream board. */
+    'html.pico-home #bf-overlay #bf-result { margin-top: 12px !important; padding: 12px 16px !important; max-height: 45vh; overflow: auto;',
+    '  background: #FFFBF0 !important; border: 4px solid var(--orange) !important; border-radius: 4px; font-size: 16px; line-height: 1.4; }',
+    'html.pico-home #bf-overlay #bf-result > div:first-child { font-size: 20px; font-weight: 800; }',
+    'html.pico-home #bf-overlay #bf-result .bf-outcome { font-size: 17px; }',
+    'html.pico-home #bf-overlay #bf-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; margin-top: 14px !important; }',
+    'html.pico-home #bf-overlay #bf-actions:empty { display: none; }',
+    'html.pico-home #bf-overlay #bf-actions .s7btn, html.pico-home #bf-overlay #bf-result .s7btn { min-height: 48px; min-width: 96px; margin: 0 !important;',
+    '  padding: 4px 18px !important; font: 800 18px/1.2 var(--plain-font) !important; letter-spacing: .04em; text-transform: uppercase; }',
+    /* Study Break (teacher 2026-10-10: "should the study break window be refactored as well in pico
+       park style?" — yes). The Phase 3 frame (orange ring + title strip, its own close box) stays;
+       this restyles the Desk's DOM parts inside it: the score and help lines, the 1v1 labels, the
+       lobby (title, bet line, classmate rows, status, Back), the in-game challenge (bet) dialog and
+       the buttons. The canvas (board, preview, mode card, countdown, game-over card) is drawn by the
+       game and is untouched. Geometry rule (PICO_DESK_SPEC Phase 3): nothing here changes the game
+       window's box or the canvas; the score / help lines keep their fixed heights, and the touch
+       strip keeps its padding and size (colour only). Scoped to the framed overlay (flag on). */
+    'html.pico-home #game-overlay.pico-framed { background: rgba(0, 0, 64, .45); }',
+    'html.pico-home #game-overlay.pico-framed .game-content { border-color: var(--orange); background: var(--paper); }',
+    'html.pico-home #game-overlay.pico-framed .game-score { background: #FFFBF0; border-top-color: var(--orange); color: var(--ink);',
+    '  font: 800 11px/14px var(--plain-font) !important; letter-spacing: .02em; }',
+    'html.pico-home #game-overlay.pico-framed .game-help { border-top-color: #e4e4e4; color: #333; font-family: var(--plain-font) !important; }',
+    'html.pico-home #game-overlay.pico-framed #game-split .split-label { font: 800 12px/1.3 var(--plain-font) !important; letter-spacing: .04em; color: var(--ink); }',
+    'html.pico-home #game-overlay.pico-framed #game-split > div > div:nth-child(2) { background: var(--orange) !important; }',
+    /* The lobby: a Pico list of classmates. */
+    'html.pico-home #game-overlay.pico-framed #game-lobby { background: var(--paper); color: var(--ink); font-family: var(--plain-font); }',
+    'html.pico-home #game-overlay.pico-framed #game-lobby > .chicago { font: 800 16px/1.3 var(--plain-font) !important; letter-spacing: .06em; text-transform: uppercase; }',
+    'html.pico-home #game-overlay.pico-framed #lobby-casino, html.pico-home #game-overlay.pico-framed #lobby-status {',
+    '  font: 13px/1.35 var(--plain-font) !important; color: #555 !important; }',
+    'html.pico-home #game-overlay.pico-framed #lobby-players { border-top: 2px solid #e4e4e4; }',
+    'html.pico-home #game-overlay.pico-framed #lobby-players > button { min-height: 44px; margin: 0; background: var(--paper); color: var(--ink);',
+    '  border: 0; border-bottom: 2px solid #e4e4e4 !important; font: 800 15px/1.2 var(--plain-font) !important; cursor: pointer; }',
+    'html.pico-home #game-overlay.pico-framed #lobby-players > button > span:last-child { font: 700 13px/1.2 var(--plain-font) !important; color: #555; }',
+    'html.pico-home #game-overlay.pico-framed #lobby-players > button:not(:disabled):hover,',
+    'html.pico-home #game-overlay.pico-framed #lobby-players > button:not(:disabled):focus-visible { outline: 3px solid var(--orange); outline-offset: -3px; }',
+    'html.pico-home #game-overlay.pico-framed #lobby-players > button:not(:disabled) > span:last-child { color: #1f6b3a; }',
+    'html.pico-home #game-overlay.pico-framed #lobby-players > button:disabled { opacity: .55; cursor: default; }',
+    'html.pico-home #game-overlay.pico-framed #lobby-players > div { font: 14px/1.35 var(--plain-font) !important; color: #555 !important; }',
+    /* The in-game challenge (bet) dialog: the recovered window look on its own box (no frame bar). */
+    'html.pico-home #game-overlay.pico-framed #challenge-dialog { background: var(--paper) !important; border: 4px solid var(--orange) !important;',
+    '  border-radius: 4px; box-shadow: none !important; color: var(--ink); font-family: var(--plain-font); }',
+    'html.pico-home #game-overlay.pico-framed #challenge-title { font: 800 18px/1.3 var(--plain-font) !important; letter-spacing: .04em; }',
+    'html.pico-home #game-overlay.pico-framed #challenge-msg { font: 15px/1.4 var(--plain-font) !important; }',
+    'html.pico-home #game-overlay.pico-framed #challenge-timer { font: 800 20px/1.2 var(--plain-font) !important; color: var(--ink) !important; }',
+    /* Buttons (Back, Accept / Decline): Pico buttons. The touch strip keeps its size (colours only). */
+    'html.pico-home #game-overlay.pico-framed .s7btn:not(.game-touch-btn) { min-height: 44px; padding: 4px 14px !important;',
+    '  font: 700 15px/1.2 var(--plain-font) !important; background: var(--paper); color: var(--ink);',
+    '  border: 3px solid var(--orange); border-radius: 4px; box-shadow: none; cursor: pointer; }',
+    'html.pico-home #game-overlay.pico-framed .s7btn.s7btn-default:not(.game-touch-btn) { background: var(--orange); color: #fff; }',
+    'html.pico-home #game-overlay.pico-framed .s7btn:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }',
+    'html.pico-home #game-overlay.pico-framed .game-touch { background: #FFFBF0; border-top-color: var(--orange); }',
+    'html.pico-home #game-overlay.pico-framed .game-touch-btn { background: var(--paper); color: var(--ink); border-color: var(--orange); font-family: var(--plain-font); }',
+    '@media (max-width: 700px) {',
+    '  #pico-home .player { margin-left: 0; }',
+    '  #pico-home .tile { width: 140px; }',
+    '  #pico-home .sign-board { flex-wrap: wrap; }',
+    '}',
+  ].join('\n');
+
+  // ── Small DOM helpers ──────────────────────────────────────────────────────
+  function el(tag, className, text) {
+    var node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text != null) node.textContent = text;
+    return node;
+  }
+
+  function button(className, text) {
+    var node = el('button', className, text);
+    node.type = 'button';
+    return node;
+  }
+
+  function sprite(name, scale, extraClass) {
+    var r = ATLAS[name];
+    var s = scale || SCALE;
+    var node = el('span', 'sp sp-' + name + (extraClass ? ' ' + extraClass : ''));
+    node.setAttribute('aria-hidden', 'true');
+    node.style.width = r.w * s + 'px';
+    node.style.height = r.h * s + 'px';
+    node.style.backgroundSize = ATLAS_SIZE.w * s + 'px ' + ATLAS_SIZE.h * s + 'px';
+    node.style.backgroundPosition = (-r.x * s) + 'px ' + (-r.y * s) + 'px';
+    return node;
+  }
+
+  // Elapsed-time checks use the monotonic clock (wall-clock time can jump, or be pinned in tests).
+  function monotonicNow() {
+    return (window.performance && typeof window.performance.now === 'function') ? window.performance.now() : Date.now();
+  }
+
+  function byId(id) {
+    return document.getElementById(id);
+  }
+
+  // Call a Desk function by name if it exists. Never throws: the home must not break the Desk.
+  function callDesk(name, args) {
+    try {
+      var fn = window[name];
+      if (typeof fn !== 'function') return undefined;
+      return fn.apply(window, args || []);
+    } catch (_) {
+      return undefined;
+    }
+  }
+
+  // ── Reading the Desk's state ───────────────────────────────────────────────
+  // The Desk's top-level `let`/`const` (S, cP, OFF, NC, EX, PO, R, MN) are shared with this
+  // classic script by name; window.* covers the tests' stubs.
+
+  function deskSchedule() {
+    try { return Array.isArray(S) ? S : []; } catch (_) { return []; }
+  }
+
+  function deskPeriod() {
+    try { return cP; } catch (_) { return 'B'; }
+  }
+
+  function deskToday() {
+    var t = callDesk('tdy');
+    if (t instanceof Date) return t;
+    var n = new Date();
+    return new Date(n.getFullYear(), n.getMonth(), n.getDate());
+  }
+
+  function deskState() {
+    return window.DeskState || {};
+  }
+
+  // Completion marks, read fresh the way rCal and paintLocalDoneCells read them
+  // (getStudentMarks()), so a lesson finished between rebuilds ticks at once. The rCal
+  // snapshot on DeskState is only a fallback.
+  function freshMarks() {
+    var marks = callDesk('getStudentMarks');
+    if (marks && typeof marks === 'object') return marks;
+    return deskState().gateMarks || {};
+  }
+
+  // Next-up = the call rCal and paintLocalDoneCells both make, with the same inputs:
+  // calNextUpTopic(_orderedPeriodTopics(), marks). Falls back to rCal's DeskState value.
+  function freshNextUp(marks) {
+    var ordered = callDesk('_orderedPeriodTopics');
+    if (typeof window.calNextUpTopic !== 'function' || !Array.isArray(ordered)) return deskState().nextUpTopic || null;
+    var next = callDesk('calNextUpTopic', [ordered, marks]);
+    return next === undefined ? (deskState().nextUpTopic || null) : next;
+  }
+
+  function sentinels() {
+    try { return { OFF: OFF, NC: NC, EX: EX, PO: PO, R: R }; } catch (_) { return {}; }
+  }
+
+  function sameDay(a, b) {
+    return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+  }
+
+  function isSignedIn() {
+    return Boolean(callDesk('getStudentEmail'));
+  }
+
+  function isTeacher() {
+    return callDesk('_deskIsTeacher') === true;
+  }
+
+  function isPreviewingAsStudent() {
+    return callDesk('_previewAsStudentActive') === true;
+  }
+
+  // The calendar cell's own label: the `.tl` text of htm(inf, ds), parsed inertly.
+  var parser = document.implementation.createHTMLDocument('');
+  function cellParts(inf, ds) {
+    var html = callDesk('htm', [inf, ds]);
+    var box = parser.createElement('div');
+    box.innerHTML = typeof html === 'string' ? html : '';
+    var tl = box.querySelector('.tl');
+    return { label: tl ? tl.textContent.trim() : '' };
+  }
+
+  // The tile "!" = exactly the set _paintZeroCells paints on the calendar: lessons whose zero has
+  // already landed (w.past). Zeros that are only coming stay on the sign.
+  function zeroTopics() {
+    var set = {};
+    var warns = callDesk('_zeroCurrentWarnings');
+    if (!Array.isArray(warns)) return set;
+    warns.forEach(function (w) { if (w && w.past && w.lessonKey) set[w.lessonKey] = true; });
+    return set;
+  }
+
+  // ── Weeks: the schedule S grouped Mon–Fri, the way rCal groups it ─────────
+  function mondayOf(date) {
+    var d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    var dow = d.getDay();
+    d.setDate(d.getDate() + (dow === 0 ? -6 : 1 - dow));
+    return d;
+  }
+
+  function buildWeeks() {
+    var weeks = [];
+    var byMonday = {};
+    deskSchedule().forEach(function (entry) {
+      var date = new Date(entry[0], entry[1], entry[2]);
+      var monday = mondayOf(date);
+      var key = monday.getTime();
+      if (!byMonday[key]) {
+        byMonday[key] = { monday: monday, entries: {}, summer: false };
+        weeks.push(byMonday[key]);
+      }
+      byMonday[key].entries[date.getDay()] = entry;
+    });
+    // Summer-prep weeks go in front, as rCal does (empty once school has started).
+    var summer = callDesk('_summerWeeks');
+    if (!Array.isArray(summer) || !summer.length) return weeks;
+    var front = summer.map(function (wk) {
+      var entries = {};
+      wk.d.forEach(function (entry) { entries[new Date(entry[0], entry[1], entry[2]).getDay()] = entry; });
+      return { monday: wk.m, entries: entries, summer: true };
+    });
+    return front.concat(weeks);
+  }
+
+  // Today's week; before the year the first week, after it the last.
+  function todayWeekIndex(weeks, today) {
+    if (!weeks.length) return 0;
+    for (var i = 0; i < weeks.length; i++) {
+      var end = new Date(weeks[i].monday);
+      end.setDate(end.getDate() + 6);
+      if (today >= weeks[i].monday && today <= end) return i;
+    }
+    if (today < weeks[0].monday) return 0;
+    return weeks.length - 1;
+  }
+
+  // ── Days: one tile's facts, all from the Desk ─────────────────────────────
+  function isClickable(inf, c) {
+    return Boolean(inf && inf !== c.OFF && inf !== c.NC && inf !== c.EX && inf !== c.PO && inf.t);
+  }
+
+  function isLessonCell(inf) {
+    return Boolean(inf && typeof inf === 'object' && /^\d+\.\d+/.test(inf.t));
+  }
+
+  // The Day vocabulary kind for a cell: lesson / pc / work / noClass / sign.
+  function dayKind(inf, c) {
+    if (!inf || inf === c.NC || inf === c.OFF) return 'noClass';
+    if (inf.kind === 'break') return 'noClass';
+    if (inf.kind === 'work') return 'work';
+    if (inf.kind === 'pc') return 'pc';
+    if (inf === c.EX || inf === c.PO) return 'sign';
+    if (inf.kind === 'poster' || inf.kind === 'orientation' || inf.kind === 'baseline') return 'sign';
+    if (inf.t === c.R) return 'sign';
+    if (isLessonCell(inf)) return 'lesson';
+    return 'sign';
+  }
+
+  function buildDay(week, dow, today, ctx) {
+    var date = new Date(week.monday);
+    date.setDate(date.getDate() + (dow - 1));
+    var entry = week.entries[dow];
+    var inf = entry ? (ctx.period === 'B' ? entry[3] : entry[4]) : null;
+    var ds = MONTH_SHORT[date.getMonth()] + ' ' + date.getDate();
+    try { if (Array.isArray(MN)) ds = MN[date.getMonth()] + ' ' + date.getDate(); } catch (_) {}
+    var day = {
+      date: date, ds: ds, inf: inf, summer: week.summer,
+      kind: dayKind(inf, ctx.c),
+      today: sameDay(date, today),
+      label: '', aria: ds, done: false, warn: false, next: false,
+    };
+    if (entry) {
+      day.label = cellParts(inf, ds).label;
+      var aria = callDesk('cellAria', [inf, ds]);
+      if (typeof aria === 'string') day.aria = aria;
+    }
+    if (day.kind !== 'lesson') return day;
+    day.done = callDesk('localLessonState', [inf.t, ctx.marks]) === 'done';
+    day.warn = String(inf.t).split('+').some(function (key) { return ctx.zeros[key]; });
+    // Continue here = the next-up cell rCal highlights (summer cells: the summer next-up).
+    day.next = inf.t === ctx.nextUp || (week.summer && ctx.summerNextUp && inf.t === ctx.summerNextUp);
+    return day;
+  }
+
+  function weekUnits(days) {
+    var units = [];
+    days.forEach(function (day) {
+      var inf = day.inf;
+      if (!inf || typeof inf !== 'object') return;
+      var unit = (inf.ced && inf.ced.unit) || inf.u;
+      if (unit && units.indexOf(unit) < 0) units.push(unit);
+    });
+    return units;
+  }
+
+  // ── State of the view ──────────────────────────────────────────────────────
+  var view = {
+    weekIndex: null, selected: 0, days: [], menu: null, menuOpener: null, menuSelected: 0, lessonsOpener: null,
+    panel: { open: false, source: null, opener: null, selected: null, recommended: -1 },
+    walletOpener: null, dogeSelected: null,
+  };
+
+  // ── Tile clicks: the same handler the calendar cell calls (rCal) ──────────
+  function openDay(day, opener) {
+    var c = sentinels();
+    var inf = day.inf;
+    if (!isClickable(inf, c)) return;
+    var chosen = opener && opener.closest ? opener.closest('li') : null;
+    // The opener's stable identity (the tile's date) is taken NOW: a re-render during the fade
+    // replaces the tile node, and a detached node no longer resolves to its date.
+    var ref = openerRef(opener);
+    whiteOutThen(chosen, function () { openDayNow(day, ref); });
+  }
+
+  function openDayNow(day, ref) {
+    var inf = day.inf;
+    cancelPollReturn();
+    notePanelSourceRef('tile', ref, day);
+    if (isLessonCell(inf) && isLocked(day)) {
+      var prev = previousTopic(day);
+      callDesk('_showLessonLockedDialog', [inf.t, prev, day.ds]);
+      return;
+    }
+    if (inf.kind === 'orientation') { callDesk('openGradeHelp'); return; }
+    if (inf.kind === 'baseline') { callDesk('_openBaselineInfo'); return; }
+    callDesk('maybeBumpThenOpen', [inf, day.ds]);
+  }
+
+  // ── Stage select → level (the game's level-select animation, applied to the week strip) ──
+  // The chosen tile (or the sign) stays at full strength while the rest of the home fades to white
+  // (220 ms), holds for 120 ms, then the lesson opens — 340 ms in all, inside the 350 ms budget.
+  // Reduced motion: the white state is set at once and the lesson opens straight away. One open at
+  // a time: activations during the fade are ignored. The page stays white while the panel is open
+  // and fades back in when it closes (onPanelClosed); if what opened was not the panel (a dialog,
+  // the speed bump), the white is cleared at once.
+  var WHITEOUT_FADE_MS = 220;
+  var WHITEOUT_HOLD_MS = 120;
+  var whiteOutPending = false;
+
+  function prefersReducedMotion() {
+    try { return Boolean(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); } catch (_) { return false; }
+  }
+
+  function startWhiteOut(chosen) {
+    var root = byId('pico-home');
+    if (!root) return;
+    Array.prototype.forEach.call(root.querySelectorAll('.pico-chosen'), function (node) { node.classList.remove('pico-chosen'); });
+    if (chosen) chosen.classList.add('pico-chosen');
+    root.classList.add('pico-whiteout');
+  }
+
+  function ensureWhiteOut() {
+    var root = byId('pico-home');
+    if (root && !root.classList.contains('pico-whiteout')) startWhiteOut(null);
+  }
+
+  function clearWhiteOut() {
+    var root = byId('pico-home');
+    if (!root || !root.classList.contains('pico-whiteout')) return;
+    root.classList.remove('pico-whiteout');
+    Array.prototype.forEach.call(root.querySelectorAll('.pico-chosen'), function (node) { node.classList.remove('pico-chosen'); });
+  }
+
+  function whiteOutThen(chosen, open) {
+    if (whiteOutPending) return;
+    startWhiteOut(chosen);
+    function run() {
+      whiteOutPending = false;
+      open();
+      if (!isPanelOpen()) clearWhiteOut();
+    }
+    if (prefersReducedMotion()) { run(); return; }
+    whiteOutPending = true;
+    setTimeout(run, WHITEOUT_FADE_MS + WHITEOUT_HOLD_MS);
+  }
+
+  // ── One active outline ───────────────────────────────────────────────────────
+  // The active outline belongs to the element with focus inside the Pico home or the lesson panel;
+  // a pointer resting on a nav item or the Doge (at once) or on a tile / row (after the dwell) takes
+  // it while it stays there; otherwise the current selection (open menu row, panel row, else tile)
+  // holds it. Every other current marker is green.
+  var OUTLINE_TARGETS = '.tile, .navbtn, .action, .pico-row, #doge-presence';
+  var HOVER_DWELL_MS = 160;
+  var activeOutline = null;
+  var hoverHeld = null;
+
+  function outlineTarget(node) {
+    if (!node || node.nodeType !== 1 || !node.closest) return null;
+    var target = node.closest(OUTLINE_TARGETS);
+    if (!target) return null;
+    if (target.closest('#pico-home') || target.closest('#resource-body')) return target;
+    return null;
+  }
+
+  function restingOutline() {
+    var focused = outlineTarget(document.activeElement);
+    if (focused) return focused;
+    if (dogeMenuOpen()) return document.querySelector('#pico-doge-list .action.is-selected');
+    if (byId('pico-menu-backdrop') && !byId('pico-menu-backdrop').hidden) return document.querySelector('#pico-menu-list .action.is-selected');
+    if (isPanelOpen()) return document.querySelector('#resource-body .pico-row.is-selected');
+    return document.querySelector('#pico-tiles .tile.is-selected');
+  }
+
+  // Classes are written only when they change: classList.add / remove rewrite the class attribute
+  // even when nothing changes, and the Doge's class observer (watchOutlines) would see its own
+  // writes and loop forever.
+  function setClass(node, name, on) {
+    if (node.classList.contains(name) !== on) node.classList.toggle(name, on);
+  }
+
+  function setActive(node) {
+    if (activeOutline && activeOutline !== node) setClass(activeOutline, 'is-active', false);
+    activeOutline = node || null;
+    if (activeOutline) setClass(activeOutline, 'is-active', true);
+    paintGreens();
+  }
+
+  // Green = a current marker that is not the active one.
+  var outlineStats = { dogeCallbacks: 0, greenPaints: 0 };   // read by tests/pico-home-stage.test.js
+  var paintingGreens = false;
+  function paintGreens() {
+    if (paintingGreens) return;
+    paintingGreens = true;
+    outlineStats.greenPaints += 1;
+    try {
+      var marks = Array.prototype.slice.call(document.querySelectorAll('#pico-home .tile.is-selected, #pico-home .action.is-selected, '
+        + '#resource-body .pico-row.is-selected, #pico-home .navbtn[aria-current="page"], #pico-home #doge-presence.doge-active'));
+      var green = marks.filter(function (node) { return node !== activeOutline; });
+      Array.prototype.forEach.call(document.querySelectorAll('.pico-green'), function (node) {
+        if (green.indexOf(node) < 0) setClass(node, 'pico-green', false);
+      });
+      green.forEach(function (node) { setClass(node, 'pico-green', true); });
+    } finally {
+      paintingGreens = false;
+    }
+  }
+
+  // The Doge observer reacts only to the Doge's own open state (doge-active), never to the
+  // outline classes this file writes.
+  var lastDogeActive = null;
+  function onDogeClass() {
+    outlineStats.dogeCallbacks += 1;
+    var doge = byId('doge-presence');
+    if (!doge) return;
+    var activeNow = doge.classList.contains('doge-active');
+    if (activeNow === lastDogeActive) return;
+    lastDogeActive = activeNow;
+    paintGreens();
+  }
+
+  function refreshActive() {
+    if (hoverHeld && !document.contains(hoverHeld)) hoverHeld = null;
+    setActive(hoverHeld || restingOutline());
+  }
+
+  // Tiles and rows take the selection only after the pointer has rested HOVER_DWELL_MS; leaving
+  // first cancels it. Keyboard moves never wait, and they win: a key that moves the selection
+  // cancels every pending dwell and drops the pointer's hold until the mouse really moves again
+  // (a mouseenter caused by the page moving under a still pointer does not count). A re-render
+  // (tiles, menu rows, panel rows rebuilt) cancels pending dwells too. When a dwell fires it
+  // re-checks: the node is still in the page, the pointer is still on it, no key moved since.
+  var pendingDwells = [];
+  var keyMoves = 0;
+  var pointerSuspended = false;
+  var POINTER_MOVE_KEYS = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 'PageUp', 'PageDown', 'Tab'];
+
+  function cancelDwells() {
+    pendingDwells.forEach(function (timer) { clearTimeout(timer); });
+    pendingDwells = [];
+  }
+
+  function onKeyboardMove(event) {
+    if (POINTER_MOVE_KEYS.indexOf(event.key) < 0) return;
+    cancelDwells();
+    keyMoves += 1;
+    pointerSuspended = true;
+    if (!hoverHeld) return;
+    hoverHeld = null;
+    refreshActive();
+  }
+
+  // A real mouse move (a position change; a zero-delta mousemove, e.g. one a browser sends when
+  // the page moves under a still pointer, does not count) ends the suspension and arms the hover
+  // for whatever the pointer is over, as if it had just been entered (the pointer may never leave
+  // the tile it was resting on when the key was pressed).
+  var lastPointer = null;
+  var pointerArms = typeof WeakMap === 'function' ? new WeakMap() : null;
+
+  function onPointerMove(event) {
+    var x = event.clientX, y = event.clientY;
+    var moved = !lastPointer || lastPointer.x !== x || lastPointer.y !== y;
+    lastPointer = { x: x, y: y };
+    if (!moved || !pointerSuspended) return;
+    pointerSuspended = false;
+    var node = event.target && event.target.nodeType === 1 ? event.target : null;
+    for (; node && pointerArms; node = node.parentElement) {
+      var arm = pointerArms.get(node);
+      if (arm) { arm(); return; }
+    }
+  }
+
+  function hoverDwell(node, select) {
+    var timer = null;
+    var pointerOn = false;
+    function drop() {
+      if (timer === null) return;
+      clearTimeout(timer);
+      pendingDwells = pendingDwells.filter(function (t) { return t !== timer; });
+      timer = null;
+    }
+    function arm() {
+      pointerOn = true;
+      drop();
+      if (pointerSuspended) return;
+      var armedAt = keyMoves;
+      timer = setTimeout(function () {
+        pendingDwells = pendingDwells.filter(function (t) { return t !== timer; });
+        timer = null;
+        if (!node.isConnected || !pointerOn || keyMoves !== armedAt || pointerSuspended) return;
+        hoverHeld = node;
+        select();
+        refreshActive();
+      }, HOVER_DWELL_MS);
+      pendingDwells.push(timer);
+    }
+    if (pointerArms) pointerArms.set(node, arm);
+    node.addEventListener('mouseenter', arm);
+    node.addEventListener('mouseleave', function () {
+      pointerOn = false;
+      drop();
+      if (hoverHeld !== node) return;
+      hoverHeld = null;
+      refreshActive();
+    });
+  }
+
+  // Nav items and the Doge take the outline at once while the pointer is on them.
+  function hoverNow(node) {
+    function arm() {
+      if (pointerSuspended) return;
+      hoverHeld = node;
+      refreshActive();
+    }
+    if (pointerArms) pointerArms.set(node, arm);
+    node.addEventListener('mouseenter', arm);
+    node.addEventListener('mouseleave', function () { if (hoverHeld === node) { hoverHeld = null; refreshActive(); } });
+  }
+
+  function watchOutlines() {
+    document.querySelectorAll('#pico-home .navbtn').forEach(hoverNow);
+    var doge = byId('doge-presence');
+    if (doge && doge.closest('#pico-home')) hoverNow(doge);
+    document.addEventListener('focusin', refreshActive);
+    window.addEventListener('keydown', onKeyboardMove, true);
+    window.addEventListener('mousemove', onPointerMove, true);
+    document.addEventListener('focusout', function () { setTimeout(refreshActive, 0); });
+    if (typeof MutationObserver === 'function') {
+      // TODAY's page marker and the Doge menu's open state change outside our selection code.
+      new MutationObserver(paintGreens).observe(byId('pico-home'), { subtree: true, attributes: true, attributeFilter: ['aria-current'] });
+      if (doge) {
+        lastDogeActive = doge.classList.contains('doge-active');
+        new MutationObserver(onDogeClass).observe(doge, { attributes: true, attributeFilter: ['class'] });
+      }
+    }
+    refreshActive();
+  }
+
+  function previousTopic(day) {
+    var name = day.summer ? '_prevSummerTopic' : '_prevTopicInSequence';
+    var prev = callDesk(name, [day.inf.t]);
+    return prev == null ? null : prev;
+  }
+
+  // The Desk's own gate (it has returned "unlocked" for every lesson since 2026-09-10).
+  function isLocked(day) {
+    if (typeof window._isLessonUnlocked !== 'function') return false;
+    var marks = freshMarks();
+    var unlocked = callDesk('_isLessonUnlocked', [day.inf.t, day.date, previousTopic(day), deskToday(), marks, isSignedIn()]);
+    return unlocked === false;
+  }
+
+  function openDayGrade(day) {
+    if (!isClickable(day.inf, sentinels())) return;
+    callDesk('openDayGrade', [day.ds]);
+  }
+
+  // ── Render: week picker ───────────────────────────────────────────────────
+  function renderWeek(weeks, days) {
+    var index = view.weekIndex;
+    var monday = weeks.length ? weeks[index].monday : mondayOf(deskToday());
+    byId('pico-week-title').textContent = 'WEEK OF ' + MONTHS[monday.getMonth()] + ' ' + monday.getDate();
+    byId('pico-week-page').textContent = weeks.length ? '(' + (index + 1) + '/' + weeks.length + ')' : '';
+    var units = weekUnits(days);
+    byId('pico-unit').textContent = units.length ? 'UNIT ' + units.join(' / ') : '';
+    byId('pico-week-prev').disabled = index <= 0;
+    byId('pico-week-next').disabled = index >= weeks.length - 1;
+    var lessons = days.filter(function (d) { return d.kind === 'lesson'; });
+    var allDone = lessons.length > 0 && lessons.every(function (d) { return d.done; });
+    byId('pico-crown').hidden = !allDone;
+    var examNum = byId('cd-days') && byId('cd-days').querySelector('.num');
+    var examText = examNum ? examNum.textContent.trim() : '';
+    byId('pico-exam').textContent = /^\d+$/.test(examText) ? examText + ' days to exam' : '';
+    var onToday = index === todayWeekIndex(weeks, deskToday());
+    var todayBtn = document.querySelector('#pico-home .navbtn[data-nav="TODAY"]');
+    if (onToday) todayBtn.setAttribute('aria-current', 'page');
+    else todayBtn.removeAttribute('aria-current');
+  }
+
+  // ── Render: tiles ──────────────────────────────────────────────────────────
+  function tileStage(day) {
+    var stage = el('span', 'tile-stage');
+    if (day.kind === 'pc') stage.appendChild(sprite('flag'));
+    // Work Day: the push block; the words come from the cell's own label ("Work Day") below.
+    if (day.kind === 'work') stage.appendChild(sprite('pushBox'));
+    if (day.kind === 'noClass') {
+      stage.appendChild(sprite('lyingCat'));
+      stage.appendChild(sprite('zzz', SCALE, 'zzz'));
+      stage.appendChild(el('span', 'tile-word', 'NO CLASS'));
+    }
+    if (day.kind === 'sign') stage.appendChild(sprite('signboard'));
+    if (day.kind !== 'lesson') return stage;
+    // Lesson: nothing for not started, "!" for missing work, tick for done.
+    if (day.warn) stage.appendChild(sprite('bang'));
+    else if (day.done) stage.appendChild(sprite('tick'));
+    return stage;
+  }
+
+  // Words for screen readers that the marks carry visually.
+  function tileAria(day) {
+    var bits = [day.aria];
+    if (day.today) bits.push('today');
+    if (day.done) bits.push('complete');
+    if (day.warn) bits.push('has work that became a zero');
+    if (day.next) bits.push('continue here');
+    return bits.join(', ');
+  }
+
+  function startTile(days) {
+    for (var i = 0; i < days.length; i++) if (days[i].next) return i;
+    for (var j = 0; j < days.length; j++) if (days[j].today) return j;
+    return 0;
+  }
+
+  function selectTile(index, moveFocus) {
+    var buttons = document.querySelectorAll('#pico-tiles .tile');
+    if (!buttons.length) return;
+    view.selected = (index + buttons.length) % buttons.length;
+    buttons.forEach(function (btn, i) { btn.classList.toggle('is-selected', i === view.selected); });
+    if (moveFocus && document.activeElement !== buttons[view.selected]) buttons[view.selected].focus();
+    refreshActive();
+  }
+
+  function renderTiles(days) {
+    var list = byId('pico-tiles');
+    var hadFocus = list.contains(document.activeElement);
+    cancelDwells();
+    list.textContent = '';
+    days.forEach(function (day, i) {
+      var item = el('li');
+      if (day.next) item.appendChild(sprite('triangleBlue', SCALE, 'continue'));
+      var btn = button('tile');
+      if (!isClickable(day.inf, sentinels())) btn.setAttribute('aria-disabled', 'true');
+      btn.setAttribute('aria-label', tileAria(day));
+      btn.appendChild(el('span', 'tile-date', DOW[day.date.getDay()] + ' ' + day.date.getDate()));
+      btn.appendChild(tileStage(day));
+      var floor = el('span', 'tile-floor');
+      floor.appendChild(sprite(day.today ? 'tileRaised' : 'platform'));
+      btn.appendChild(floor);
+      var name = el('span', 'tile-name', day.label);
+      name.title = day.label;
+      btn.appendChild(name);
+      btn.addEventListener('click', function (event) {
+        // Teacher report 2026-10-07: during a game, no tile opens from a stale-focus key press.
+        if (!activationAllowed(event, btn)) { refuseActivation(btn); return; }
+        selectTile(i, false);
+        openDay(day, btn);
+      });
+      btn.addEventListener('dblclick', function (event) { event.preventDefault(); openDayGrade(day); });
+      btn.addEventListener('contextmenu', function (event) { event.preventDefault(); openDayGrade(day); });
+      btn.addEventListener('focus', function () { selectTile(i, false); });
+      hoverDwell(btn, function () { selectTile(i, false); });
+      item.appendChild(btn);
+      list.appendChild(item);
+    });
+    var keep = hadFocus ? Math.min(view.selected, days.length - 1) : startTile(days);
+    selectTile(keep, hadFocus);
+  }
+
+  // ── Render: the sign (mirrors the Do Now card) ────────────────────────────
+  function doNowLines() {
+    var msg = byId('donow-msg');
+    var card = byId('donow-card');
+    if (!msg || !card || card.style.display === 'none') return [];
+    return msg.textContent.split('\n').map(function (s) { return s.trim(); }).filter(Boolean);
+  }
+
+  function doNowWarn() {
+    var card = byId('donow-card');
+    if (!card) return false;
+    return card.classList.contains('donow-zeros-soon') || card.classList.contains('donow-zeros-now');
+  }
+
+  // The missing-work pill's own words ("2 become a 0 by Thu Oct 8").
+  function missingPillText() {
+    var pill = document.querySelector('#donow-grades .qpill-missing');
+    return pill ? pill.textContent.trim() : '';
+  }
+
+  // The current quarter's pill exactly as the Do Now shows it (official when published).
+  function gradeInfo() {
+    var status = byId('donow-grade-status');
+    if (status && status.style.display !== 'none' && status.textContent.trim()) {
+      var span = status.querySelector('span');
+      return { status: (span || status).textContent.trim() };
+    }
+    var pill = document.querySelector('#donow-grades .qpill:not(.qpill-missing)');
+    if (!pill) return null;
+    var key = pill.querySelector('.qkey');
+    var value = pill.querySelector('.qgrade');
+    var rule = pill.querySelector('.qrule');
+    return {
+      key: key ? key.textContent.trim() : '',
+      value: value ? value.textContent.trim() : '',
+      official: Boolean(rule && /official/.test(rule.textContent)),
+    };
+  }
+
+  // The Do Now's own primary action: today's lesson panel when there is one, else the card.
+  function signOpen(event) {
+    // Teacher report 2026-10-07: during a game, the sign opens only from a real click or a Tab-reached Enter.
+    var go = byId('pico-sign-go');
+    if (!activationAllowed(event, go)) { refuseActivation(go); return; }
+    cancelPollReturn();
+    var todayInf = deskState().todayLessonInf;
+    if (todayInf == null) { try { todayInf = _todayLessonInf; } catch (_) { todayInf = null; } }
+    if (todayInf) {
+      var sign = document.querySelector('#pico-home .scene > .sign');
+      var ref = openerRef(byId('pico-sign-go'));   // identity now, not after the fade
+      whiteOutThen(sign, function () {
+        notePanelSourceRef('sign', ref);
+        callDesk('_focusTodayLessonVideo');
+      });
+      return;
+    }
+    showLessons(byId('pico-sign-go'));
+    callDesk('_menuShowDoNow');
+  }
+
+  function renderGrade(board) {
+    var info = gradeInfo();
+    var grade = button('sign-grade');
+    grade.addEventListener('click', function () { view.walletOpener = { sign: 'grade' }; callDesk('openWallet'); });
+    if (info && info.status) {
+      grade.appendChild(el('span', 'grade-status', info.status));
+      grade.setAttribute('aria-label', info.status + ' Open My Grade');
+      board.appendChild(grade);
+      return;
+    }
+    var value = info && info.value ? info.value : '—';
+    var caption = info ? (info.key + (info.official ? ' official' : '')) : 'My grade';
+    grade.appendChild(el('span', 'grade-num', value));
+    grade.appendChild(el('span', 'grade-cap', caption));
+    grade.setAttribute('aria-label', caption + ' grade ' + value + '. Open My Grade');
+    board.appendChild(grade);
+  }
+
+  function renderSignedOut(board) {
+    var main = el('div', 'sign-main');
+    main.appendChild(el('p', 'sign-action', 'Sign in to see your work'));
+    board.appendChild(main);
+    var go = button('sign-go', 'Sign in');
+    go.id = 'pico-sign-go';
+    go.addEventListener('click', function () { callDesk('openSignInModal'); });
+    board.appendChild(go);
+  }
+
+  function renderSign() {
+    var board = byId('pico-sign');
+    board.textContent = '';
+    board.classList.remove('is-warn');
+    if (!isSignedIn()) { renderSignedOut(board); return; }
+
+    var lines = doNowLines();
+    var warn = doNowWarn();
+    board.classList.toggle('is-warn', warn);
+    var main = el('div', 'sign-main');
+    var action = el('p', 'sign-action');
+    if (warn) action.appendChild(sprite('bang'));
+    action.appendChild(el('span', null, lines[0] || '…'));
+    main.appendChild(action);
+    if (lines.length > 1) main.appendChild(el('p', 'sign-context', lines.slice(1).join(' ')));
+    if (warn) {
+      var when = el('p', 'sign-when');
+      var pillText = missingPillText();
+      if (pillText) when.appendChild(el('span', null, pillText));
+      var link = button('sign-link', 'See all missing work');
+      link.addEventListener('click', function () { callDesk('openWallet'); });
+      when.appendChild(link);
+      main.appendChild(when);
+    }
+    board.appendChild(main);
+
+    var go = button('sign-go', 'Open');
+    go.id = 'pico-sign-go';
+    go.setAttribute('aria-label', 'Open my Do Now');
+    go.addEventListener('click', signOpen);
+    board.appendChild(go);
+    renderGrade(board);
+  }
+
+  // ── Render: name · period ──────────────────────────────────────────────────
+  function playerName() {
+    var who = null;
+    try { who = window.rosterClient && window.rosterClient.current && window.rosterClient.current(); } catch (_) { who = null; }
+    if (who && who.expired) return 'Sign-in expired';
+    if (who) return who.realName || who.username || '';
+    if (isSignedIn()) return String(callDesk('getStudentEmail'));
+    return 'Not signed in';
+  }
+
+  function badgeCount(id) {
+    var badge = byId(id);
+    if (!badge || badge.hidden) return 0;
+    var n = parseInt(badge.textContent, 10);
+    return n > 0 ? n : 0;
+  }
+
+  // Badges that exist today (message from the teacher, teacher inbox) show on OPTION.
+  function optionBadgeCount() {
+    var total = badgeCount('menu-message-teacher-badge');
+    if (isTeacher()) total += badgeCount('menu-teacher-inbox-badge');
+    return total;
+  }
+
+  function setNavBadge(id, count, bob) {
+    var badge = byId(id);
+    badge.hidden = count === 0;
+    badge.textContent = count > 9 ? '9+' : String(count);
+    badge.classList.toggle('is-bobbing', Boolean(bob) && count > 0);
+  }
+
+  function renderNav() {
+    byId('pico-player').textContent = playerName() + ' · Period ' + deskPeriod();
+    setNavBadge('pico-option-badge', optionBadgeCount(), false);
+    // LESSONS carries the Review icon's badge (cards due) and its bob.
+    setNavBadge('pico-lessons-badge', reviewBadge(), reviewBobbing());
+  }
+
+  // ── Render: everything ─────────────────────────────────────────────────────
+  function render() {
+    var root = byId('pico-home');
+    if (!root) return;
+    var weeks = buildWeeks();
+    var today = deskToday();
+    if (view.weekIndex == null || view.weekIndex >= weeks.length) view.weekIndex = todayWeekIndex(weeks, today);
+    var marks = freshMarks();
+    var ctx = {
+      period: deskPeriod(),
+      c: sentinels(),
+      marks: marks,
+      zeros: zeroTopics(),
+      nextUp: freshNextUp(marks),
+      summerNextUp: (function () { try { return _calNextUp; } catch (_) { return null; } })(),
+    };
+    var days = [];
+    if (weeks.length) {
+      for (var dow = 1; dow <= 5; dow++) days.push(buildDay(weeks[view.weekIndex], dow, today, ctx));
+    }
+    view.days = days;
+    renderNav();
+    renderWeek(weeks, days);
+    renderSign();
+    renderTiles(days);
+    if (isWalletOpen()) renderGradeHead();
+  }
+
+  var renderTimer = null;
+  function scheduleRender() {
+    if (renderTimer) return;
+    renderTimer = setTimeout(function () { renderTimer = null; render(); }, 30);
+  }
+
+  function goWeek(step) {
+    view.weekIndex = (view.weekIndex || 0) + step;
+    render();
+  }
+
+  function goToday() {
+    view.weekIndex = null;
+    render();
+  }
+
+  // ── SCHEDULE: the existing calendar window over the home ──────────────────
+  function showLessons(opener) {
+    view.lessonsOpener = opener || null;
+    document.documentElement.classList.add('pico-lessons-open');
+    callDesk('restoreWindow');
+  }
+
+  // The window's own close / minimize boxes set display:none on #window-wrap.
+  function watchLessonsWindow() {
+    var wrap = byId('window-wrap');
+    if (!wrap || typeof MutationObserver !== 'function') return;
+    new MutationObserver(function () {
+      if (wrap.style.display !== 'none') return;
+      if (!document.documentElement.classList.contains('pico-lessons-open')) return;
+      document.documentElement.classList.remove('pico-lessons-open');
+      if (challengeHasFocus()) return;
+      giveBackFocus(view.lessonsOpener);
+    }).observe(wrap, { attributes: true, attributeFilter: ['style'] });
+  }
+
+  // True when a Desk dialog or app window is showing, so Esc belongs to it.
+  function deskOverlayOpen() {
+    var nodes = document.querySelectorAll('[id$="-overlay"], .app-overlay, [role="dialog"]');
+    for (var i = 0; i < nodes.length; i++) {
+      var node = nodes[i];
+      if (node.closest('#pico-home') || node.closest('#window-wrap')) continue;
+      var display = node.style.display;
+      if (display && display !== 'none') return true;
+    }
+    return false;
+  }
+
+  // ── Badges the desktop icons carry today, read from the icons themselves ──
+  function iconBadgeCount(selector) {
+    var badge = document.querySelector(selector);
+    if (!badge) return 0;
+    var n = parseInt(badge.textContent, 10);
+    return n > 0 ? n : 0;
+  }
+
+  function reviewBadge() {
+    return iconBadgeCount('.app-icon[data-app="review"] .review-due-badge');
+  }
+
+  // The Review icon bobs while cards are due (class review-has-due); the Pico badge bobs too.
+  function reviewBobbing() {
+    var icon = document.querySelector('.app-icon[data-app="review"]');
+    return Boolean(icon && icon.classList.contains('review-has-due'));
+  }
+
+  // ── Menus (OPTION, LESSONS, PRACTICE): one recovered window, one list ─────
+  function optionItems() {
+    var items = [];
+    if (isSignedIn()) items.push({ label: 'SIGN OUT', run: function () { callDesk('signOutStudent'); } });
+    else items.push({ label: 'SIGN IN', run: function () { callDesk('openSignInModal'); } });
+    items.push({ label: 'CHANGE PASSWORD', run: function () { callDesk('changeMyPassword'); } });
+    var muted = false;
+    try { muted = Boolean(MacSFX && MacSFX.muted); } catch (_) { muted = false; }
+    items.push({ label: 'SOUND: ' + (muted ? 'OFF' : 'ON'), keepOpen: true, run: function () { callDesk('_toggleSound'); } });
+    // The per-device quieter level (SFX_SPEC §1), the Desk's Sound → Quieter.
+    var quiet = false;
+    try { quiet = Boolean(window.sfx && window.sfx.getLevel() === 'quiet'); } catch (_) { quiet = false; }
+    items.push({ label: 'QUIETER: ' + (quiet ? 'ON' : 'OFF'), keepOpen: true, run: function () { callDesk('_toggleSfxQuiet'); } });
+    // Low-power sound (auto / on / off), the Desk's Sound → Low-power sound.
+    var lowPower = 'auto';
+    try { lowPower = (window.sfx && window.sfx.getLowPower()) || 'auto'; } catch (_) { lowPower = 'auto'; }
+    items.push({ label: 'LOW POWER: ' + lowPower.toUpperCase(), keepOpen: true, run: function () { callDesk('_cycleSfxLowPower'); } });
+    items.push({ label: 'MESSAGE TEACHER', badge: badgeCount('menu-message-teacher-badge'), run: function () { callDesk('_openStudentDmModal'); } });
+    items.push({ label: 'HOW GRADES WORK', run: function () { callDesk('openGradeHelp'); } });
+    items.push({ label: 'START HERE', run: function () { window.open('start-here.html', '_blank', 'noopener'); } });
+    items.push({ label: 'USE ORIGINAL DESK', run: useOriginalDesk });
+    if (isTeacher()) {
+      items.push({ head: 'TEACHER' });
+      items.push({ label: 'TEACHER WORKSPACE', run: function () { callDesk('openTeacherTools'); } });
+      items.push({ label: 'TEACHER INBOX', badge: badgeCount('menu-teacher-inbox-badge'), run: function () { callDesk('openTeacherInbox'); } });
+      items.push({ label: 'DOK LADDERS', run: function () { callDesk('openApp', ['dok']); } });
+      items.push({ label: 'PREVIEW AS STUDENT', run: function () { callDesk('_togglePreviewAsStudent'); } });
+      // Teacher 2026-10-06: only the teacher may switch periods — a B student sees only B's schedule
+      // (the Desk sets the period from the roster section at sign-in).
+      ['B', 'E'].forEach(function (p) {
+        items.push({ label: 'PERIOD ' + p, pressed: deskPeriod() === p, run: function () { callDesk('setP', [p]); } });
+      });
+    } else if (isPreviewingAsStudent()) {
+      // A teacher previewing as a student needs the way back (the Desk's own toggle).
+      items.push({ head: 'TEACHER' });
+      items.push({ label: 'EXIT PREVIEW AS STUDENT', run: function () { callDesk('_togglePreviewAsStudent'); } });
+    }
+    return items;
+  }
+
+  // LESSONS (teacher 2026-10-06): the schedule, Review and Practice. The Bulletin (being
+  // deprecated) and This Week are not listed; their Desk openers still exist for the old Desk.
+  function lessonsItems() {
+    return [
+      { label: 'SCHEDULE', run: function () { showLessons(view.menuOpener); } },
+      { label: 'REVIEW', badge: reviewBadge(), bob: reviewBobbing(), run: function () { callDesk('openReview'); } },
+      { label: 'PRACTICE', submenu: 'PRACTICE' },
+    ];
+  }
+
+  // LESSONS → PRACTICE (teacher 2026-10-06): the formula deck, the TI-84 trainer and every
+  // worksheet. The quiz is reached from the lesson panel.
+  function practiceItems() {
+    return [
+      { label: 'FORMULA DEFENSE', run: function () { window.open('https://tmux-trainer.vercel.app/#deck=ap-stats-formulas', '_blank', 'noopener'); } },
+      { label: 'TI-84 TRAINER', run: function () { callDesk('openApp', ['ti84']); } },
+      { label: 'ALL WORKSHEETS', run: function () { window.open('TOC.html', '_blank', 'noopener'); } },
+      { label: 'BACK', submenu: 'LESSONS' },
+    ];
+  }
+
+  var MENUS = {
+    OPTION: { title: 'OPTION', items: optionItems },
+    LESSONS: { title: 'LESSONS', items: lessonsItems },
+    PRACTICE: { title: 'LESSONS · PRACTICE', items: practiceItems },
+  };
+
+  function menuButtons() {
+    return document.querySelectorAll('#pico-menu-list .action');
+  }
+
+  function selectMenuItem(index, moveFocus) {
+    var buttons = menuButtons();
+    if (!buttons.length) return;
+    var i = (index + buttons.length) % buttons.length;
+    buttons.forEach(function (btn, j) { btn.classList.toggle('is-selected', j === i); });
+    view.menuSelected = i;
+    if (moveFocus) buttons[i].focus();
+    refreshActive();
+  }
+
+  function itemBadge(item) {
+    var badge = el('span', 'nav-badge' + (item.bob ? ' is-bobbing' : ''), item.badge > 9 ? '9+' : String(item.badge));
+    badge.setAttribute('aria-label', item.badge + ' new');
+    return badge;
+  }
+
+  function renderMenuList() {
+    var menu = MENUS[view.menu];
+    byId('pico-menu-title').textContent = menu.title;
+    var list = byId('pico-menu-list');
+    list.setAttribute('aria-label', menu.title);
+    cancelDwells();
+    list.textContent = '';
+    var index = 0;
+    menu.items().forEach(function (item) {
+      var li = el('li');
+      if (item.head) {
+        li.appendChild(el('p', 'option-head', item.head));
+        list.appendChild(li);
+        return;
+      }
+      var btn = button('action');
+      var myIndex = index++;
+      btn.appendChild(el('span', 'action-text', item.label));
+      if (item.submenu) btn.setAttribute('aria-haspopup', 'menu');
+      if (item.pressed != null) btn.setAttribute('aria-pressed', item.pressed ? 'true' : 'false');
+      if (item.badge) btn.appendChild(itemBadge(item));
+      btn.addEventListener('click', function () { runMenuItem(item, myIndex); });
+      btn.addEventListener('focus', function () { selectMenuItem(myIndex, false); });
+      hoverDwell(btn, function () { selectMenuItem(myIndex, false); });
+      li.appendChild(btn);
+      list.appendChild(li);
+    });
+  }
+
+  function runMenuItem(item, index) {
+    if (item.submenu) {
+      view.menu = item.submenu;
+      renderMenuList();
+      selectMenuItem(0, true);
+      return;
+    }
+    if (item.keepOpen) {
+      item.run();
+      renderMenuList();
+      selectMenuItem(index, true);
+      return;
+    }
+    closeMenu();
+    if (view.menuOpener) notePendingOpener(openerRef(view.menuOpener));
+    item.run();
+  }
+
+  function isMenuOpen() {
+    return !byId('pico-menu-backdrop').hidden;
+  }
+
+  function openMenu(name, opener) {
+    view.menu = name;
+    view.menuOpener = opener;
+    renderMenuList();
+    byId('pico-menu-backdrop').hidden = false;
+    selectMenuItem(0, true);
+  }
+
+  function closeMenu(returnFocus) {
+    var backdrop = byId('pico-menu-backdrop');
+    if (backdrop.hidden) return;
+    backdrop.hidden = true;
+    if (returnFocus === false) return;
+    giveBackFocus(view.menuOpener);
+  }
+
+  // Keys inside an open menu: Esc closes, Up/Down move the selection, Tab stays inside the
+  // window. Called from onCaptureKey, so it sees the key before the Desk's own capture-phase
+  // activity handler and the classroom board's document listener.
+  function onMenuKey(event) {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closeMenu();
+      return;
+    }
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      selectMenuItem((view.menuSelected || 0) + (event.key === 'ArrowDown' ? 1 : -1), true);
+      return;
+    }
+    if (event.key !== 'Tab') return;
+    var focusable = byId('pico-menu').querySelectorAll('button');
+    var first = focusable[0];
+    var last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); return; }
+    if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+  }
+
+  var GAME_KEYS = { ArrowUp: 1, ArrowDown: 1, ArrowLeft: 1, ArrowRight: 1, ' ': 1, Spacebar: 1 };
+
+  // ── Focus belongs to the game unless the student is on the keyboard ──────────
+  // Teacher 2026-10-06: "no keystroke input for lesson picker, all keystrokes go to the cat." The
+  // classroom board listens on the document, so any key not taken by an open Pico menu or the
+  // lesson panel reaches the cat. Pico code never leaves focus parked on a tile, nav button or
+  // menu for a student who did not get there by keyboard: Tab marks a keyboard user, a pointer
+  // press clears the mark. When a window or menu closes, a keyboard user gets focus back on its
+  // opener; anyone else gets nothing focused (the page body), so the next arrow moves the cat.
+  var keyboardUser = false;
+
+  function noteKeyboardUser(event) {
+    if (event.key !== 'Tab') return;
+    keyboardUser = true;
+    tabArmed = true;
+  }
+
+  // Teacher report 2026-10-07: "the playing area went white and the Tue Oct 6 lesson card opened
+  // unprompted" — a Space (jump) / Enter during a level activated a Pico button that held stale
+  // focus. While a game runs, a tile or the sign opens only from a real pointer click
+  // (isTrusted, detail > 0) or a keyboard activation of a control the student reached with Tab.
+  var tabArmed = false;     // a Tab was pressed; the next focusin is the control it reached
+  var tabReached = null;    // the control the last Tab landed on
+
+  function noteTabFocus(event) {
+    if (!tabArmed) return;
+    tabArmed = false;
+    tabReached = event.target;
+  }
+
+  function gameActive() {
+    var mount = byId('classroom-board-mount');
+    if (!mount) return false;
+    return mount.hasAttribute('data-park-active') || mount.hasAttribute('data-calculator-participating');
+  }
+
+  function activationAllowed(event, control) {
+    if (!gameActive()) return true;
+    if (event && event.isTrusted && event.detail > 0) return true;
+    // A keyboard user (a Tab was pressed and no pointer since) activating the control that holds
+    // focus. Identity is by keyboard use, not by node: a re-render replaces the tile the Tab landed
+    // on and keyboard focus restore moves to its replacement (Codex review 2026-10-07).
+    return Boolean(control && keyboardUser && document.activeElement === control);
+  }
+
+  // A refused activation also lets go of the stale focus, so the next key reaches the cat.
+  function refuseActivation(control) {
+    if (control && document.activeElement === control && typeof control.blur === 'function') control.blur();
+  }
+
+  // Any pointer press ends keyboard use. A press on the floor also lets go of whatever Pico
+  // control holds focus, so the keys that follow reach the board.
+  function onPointerPress(event) {
+    keyboardUser = false;
+    tabArmed = false;     // teacher report 2026-10-07: a pointer press ends Tab-reached focus
+    tabReached = null;
+    var target = event.target;
+    if (!target || !target.closest || !target.closest('#pico-floor')) return;
+    var active = document.activeElement;
+    if (!active || active === document.body || !active.closest || !active.closest('#pico-home')) return;
+    if (active.closest('#pico-floor')) return;
+    if (typeof active.blur === 'function') active.blur();
+  }
+
+  // A real pointer click on a Pico button (tile, nav, week arrow, sign) would leave the browser's
+  // focus on it, and the next Space or Enter would press it again instead of reaching the cat.
+  // After the click has done its work, a button that still holds focus lets go. Keyboard
+  // activations (click detail 0) and keyboard users keep their focus.
+  function onPointerClick(event) {
+    if (keyboardUser || !event.detail) return;
+    var target = event.target;
+    var control = target && target.closest ? target.closest('#pico-home button, #pico-home [role="button"]') : null;
+    if (!control || control.closest('#pico-floor') || control.closest('#pico-menu-backdrop') || control.closest('#pico-doge-backdrop')) return;
+    if (document.activeElement === control) control.blur();
+  }
+
+  // After a window or menu closes: back to its opener for a keyboard user; otherwise let go.
+  function giveBackFocus(opener) {
+    if (keyboardUser && opener && typeof opener.focus === 'function' && document.contains(opener)) {
+      opener.focus();
+      return;
+    }
+    var active = document.activeElement;
+    if (active && active !== document.body && typeof active.blur === 'function') active.blur();
+  }
+
+  // Typing targets keep every key: inputs, textareas, selects, contenteditable, iframes.
+  function isEditable(node) {
+    if (!node || node.nodeType !== 1) return false;
+    if (node.isContentEditable) return true;
+    return /^(INPUT|TEXTAREA|SELECT|IFRAME)$/.test(node.tagName);
+  }
+
+  // One capture-phase listener on window runs before every Desk key handler (window comes before
+  // document on the capture path). WHAT IT TAKES (the complete list; every other key, on any
+  // target, passes through untouched to the Desk and the classroom board — the week strip, the
+  // week picker and the sign have no key handling of their own; a focused tile is a plain button):
+  //   1. A Pico menu (OPTION / LESSONS / PRACTICE) is open: Esc (closes it), Up / Down (move its
+  //      selection), Tab (kept inside the menu's own buttons — its focus trap), and Enter / Space /
+  //      the other arrows (stopped, so none reaches the game). Taken from the menu itself or from
+  //      the page body / the floor. A Desk dialog on top keeps its keys.
+  //   1b. The PLAY window (the Doge's Online Now list) is open: the same keys as a Pico menu
+  //      (Esc closes it through the Desk's DogePresence.closeDropdown).
+  //   2. The lesson panel (#resource-overlay), from inside it, when no Desk dialog is above it:
+  //      Esc (closes it), Up / Down (move along its action list), and the other arrows / Space
+  //      (stopped only).
+  // Other capture listeners (onKeyboardMove, noteFloorInput, noteKeyboardUser) only observe.
+  function onCaptureKey(event) {
+    var target = event.target;
+    if (isEditable(target)) return;
+    // My Grade's bucket nav: Left / Right move between ZEROED / DUE SOON / NOT YET / DONE.
+    if (target && target.closest && target.closest('#pico-ledger-nav')) {
+      if (onLedgerNavKey(event)) event.stopPropagation();
+      return;
+    }
+    var inPico = Boolean(target && target.closest && target.closest('#pico-home'));
+    var onPage = !target || target === document || target === document.body || target === document.documentElement;
+    if (dogeMenuOpen()) {
+      var inDoge = inPico && Boolean(target.closest('#pico-doge-backdrop'));
+      var looseDoge = onPage || Boolean(target.closest && (target.closest('#pico-floor') || target.closest('#doge-presence')));
+      if (!inDoge && !looseDoge) return;
+      onDogeMenuKey(event);
+      if (GAME_KEYS[event.key] || event.key === 'Escape' || event.key === 'Tab' || event.key === 'Enter') event.stopPropagation();
+      return;
+    }
+    if (isMenuOpen()) {
+      var inMenu = inPico && Boolean(target.closest('#pico-menu-backdrop'));
+      var loose = onPage || Boolean(target.closest && target.closest('#pico-floor'));
+      if (!inMenu && !loose) return;
+      onMenuKey(event);
+      if (GAME_KEYS[event.key] || event.key === 'Escape' || event.key === 'Tab' || event.key === 'Enter') event.stopPropagation();
+      return;
+    }
+    if (isPanelOpen() && target && target.closest && target.closest('#resource-overlay')) {
+      // A Desk dialog stacked above the panel owns the keys: pass them through untouched.
+      if (modalAbovePanel()) return;
+      if (onPanelKey(event) || GAME_KEYS[event.key]) event.stopPropagation();
+      return;
+    }
+  }
+
+  // ── Phase 2: the Desk's lesson panel and ledger inside recovered Pico windows ──
+  // WRAP, DON'T REWRITE. The Desk's own #resource-overlay and #app-wallet-overlay stay where
+  // they are (so their stacking order, ids and every handler are untouched). With the flag on
+  // they get a Pico frame (a title bar + ✕ added once) and CSS scoped to html.pico-home. The
+  // panel's own rows are regrouped inside #resource-body after each Desk render: one Pico list
+  // row per action, everything else in a "More" fold. Nothing is dropped and no row is rebuilt.
+
+  // How the panel was opened: a Pico tile (title = its weekday + date) or the sign (title = the
+  // lesson label). Anything else looks the date up in the schedule.
+  function notePanelSource(kind, opener, day) {
+    notePanelSourceRef(kind, openerRef(opener), day);
+  }
+
+  function notePanelSourceRef(kind, ref, day) {
+    view.panel.source = { kind: kind, day: day || null };
+    view.panel.opener = ref;
+  }
+
+  // Openers are remembered by a stable identity, not the node: renderTiles / renderSign replace
+  // their nodes on every Pico re-render (an async grade refresh, a Do Now update), so a saved
+  // node can be gone by the time a window closes. A tile is its date; the sign and nav buttons
+  // are their role. Anything else (e.g. a calendar cell in SCHEDULE) keeps the node itself.
+  function openerRef(node) {
+    if (!node || node.nodeType !== 1) return null;
+    var tile = node.closest('#pico-tiles .tile');
+    if (tile) {
+      var tiles = Array.prototype.slice.call(document.querySelectorAll('#pico-tiles .tile'));
+      var day = view.days[tiles.indexOf(tile)];
+      if (day) return { tile: day.date.getTime() };
+    }
+    if (node.id === 'pico-sign-go') return { sign: 'go' };
+    if (node.closest('#pico-sign .sign-grade')) return { sign: 'grade' };
+    var nav = node.closest('#pico-home .navbtn');
+    if (nav) return { nav: nav.getAttribute('data-nav') };
+    return { node: node };
+  }
+
+  function resolveOpener(ref) {
+    var fallback = document.querySelector('#pico-home .navbtn[data-nav="TODAY"]');
+    if (!ref) return fallback;
+    if (ref.tile) {
+      var index = -1;
+      view.days.forEach(function (day, i) { if (day.date.getTime() === ref.tile) index = i; });
+      return document.querySelectorAll('#pico-tiles .tile')[index] || fallback;
+    }
+    if (ref.sign === 'go') return byId('pico-sign-go') || fallback;
+    if (ref.sign === 'grade') return document.querySelector('#pico-sign .sign-grade') || fallback;
+    if (ref.nav) return document.querySelector('#pico-home .navbtn[data-nav="' + ref.nav + '"]') || fallback;
+    if (ref.node && document.contains(ref.node)) return ref.node;
+    return fallback;
+  }
+
+  // An incoming challenge owns focus (its YES button) until it is answered: a window closing
+  // underneath never pulls focus away from it.
+  function challengeHasFocus() {
+    var layer = byId('pico-doge-layer');
+    return Boolean(layer && layer.contains(document.activeElement));
+  }
+
+  // Focus after a window closes: its opener for a keyboard user, nothing otherwise
+  // (giveBackFocus). An incoming challenge keeps the focus it has.
+  function restoreFocus(ref) {
+    if (challengeHasFocus()) return;
+    giveBackFocus(resolveOpener(ref));
+  }
+
+  // ── Which modal is on top ───────────────────────────────────────────────────
+  // Desk dialogs that can open over the lesson panel (day grade, alerts, appeals, sign-in, the
+  // flashcard deck, app windows…). The panel owns Esc / arrows only when none of these is showing
+  // above it; otherwise the key passes through untouched to the dialog on top.
+  var DESK_MODALS = '[id$="-overlay"], [id$="-modal"], .dialog-overlay, .app-overlay, [role="dialog"][aria-modal="true"]';
+
+  function isShown(node) {
+    for (var n = node; n && n.nodeType === 1; n = n.parentElement) {
+      var style = window.getComputedStyle(n);
+      if (style.display === 'none') return false;
+    }
+    return window.getComputedStyle(node).visibility !== 'hidden';
+  }
+
+  function zIndexOf(node) {
+    var z = parseInt(window.getComputedStyle(node).zIndex, 10);
+    return isNaN(z) ? null : z;
+  }
+
+  // A shown Desk modal stacked at or above the lesson panel (unknown stacking counts as above).
+  function modalAbovePanel() {
+    var overlay = panelOverlay();
+    var panelZ = zIndexOf(overlay);
+    var nodes = document.querySelectorAll(DESK_MODALS);
+    for (var i = 0; i < nodes.length; i++) {
+      var node = nodes[i];
+      if (node === overlay || overlay.contains(node) || node.contains(overlay)) continue;
+      if (node.closest('#pico-home')) continue;
+      if (!isShown(node)) continue;
+      var z = zIndexOf(node);
+      if (z === null || panelZ === null || z >= panelZ) return node;
+    }
+    return null;
+  }
+
+  function firstFocusable(root) {
+    return root.querySelector('button:not([disabled]), a[href], input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])');
+  }
+
+  // After a panel button opens a Desk dialog: if the Desk left focus behind in the panel, move
+  // it into the dialog on top, so Esc and Tab reach that dialog first.
+  // When that dialog closes again, focus comes back to the panel button that opened it.
+  function focusDialogAbove() {
+    var returnTo = document.activeElement;
+    if (!panelOverlay().contains(returnTo)) return;
+    var modal = modalAbovePanel();
+    if (!modal) return;
+    var target = firstFocusable(modal) || modal;
+    if (!target.hasAttribute('tabindex') && !firstFocusable(modal)) target.setAttribute('tabindex', '-1');
+    target.focus();
+    var watcher = new MutationObserver(function () {
+      if (isShown(modal)) return;
+      watcher.disconnect();
+      if (!isPanelOpen()) return;
+      var active = document.activeElement;
+      if (active && active !== document.body && isShown(active)) return;
+      if (document.contains(returnTo)) returnTo.focus();
+      else selectPanelRow(view.panel.selected || 0, true);
+    });
+    watcher.observe(modal, { attributes: true, attributeFilter: ['style', 'class', 'hidden'] });
+  }
+
+  function panelOverlay() {
+    return byId('resource-overlay');
+  }
+
+  function isPanelOpen() {
+    var overlay = panelOverlay();
+    return Boolean(overlay && overlay.style.display && overlay.style.display !== 'none');
+  }
+
+  // The schedule row for the panel's day string ("Oct 5"), so the bar can name the weekday.
+  function dateForDs(ds) {
+    var rows = deskSchedule();
+    for (var i = 0; i < rows.length; i++) {
+      var date = new Date(rows[i][0], rows[i][1], rows[i][2]);
+      var label = MONTH_SHORT[date.getMonth()] + ' ' + date.getDate();
+      try { if (Array.isArray(MN)) label = MN[date.getMonth()] + ' ' + date.getDate(); } catch (_) {}
+      if (label === ds) return date;
+    }
+    return null;
+  }
+
+  function dayTitle(date) {
+    return DOW[date.getDay()] + ' ' + MONTHS[date.getMonth()] + ' ' + date.getDate();
+  }
+
+  function lastPanel() {
+    try { return _lastResourcePanel || null; } catch (_) { return null; }
+  }
+
+  function panelTitle() {
+    var source = view.panel.source || {};
+    var header = byId('resource-header');
+    var label = header ? header.textContent.trim() : '';
+    if (source.kind === 'tile' && source.day) return dayTitle(source.day.date);
+    if (source.kind === 'sign') return label;
+    var last = lastPanel();
+    var date = last ? dateForDs(last.dateStr) : null;
+    return date ? dayTitle(date) : label;
+  }
+
+  // ── Rows: which panel elements are actions, and their status ─────────────
+  function hasControl(node) {
+    if (!node || node.nodeType !== 1) return false;
+    if (node.matches('a, button, label, input')) return true;
+    return Boolean(node.querySelector('a, button, input'));
+  }
+
+  // A section = the panel's "Today's Lesson" / "Due Today" / "Assigned Today" block: a div whose
+  // first child is its small .chicago heading.
+  function isSection(node) {
+    if (!node || node.tagName !== 'DIV') return false;
+    var head = node.firstElementChild;
+    return Boolean(head && head.classList.contains('chicago') && !hasControl(head) && node.children.length > 1);
+  }
+
+  // The panel's own status for a row: 'done' (✓ Completed / flashcards at the Desk's 80
+  // lesson-complete tint / video ✓ visited), 'todo' (a Done slot not yet done, an unvisited
+  // video), or null (no status: tutor, links). The flashcard label carries the exact score
+  // ("Flashcards 85% — redo to raise it") because that score IS the Blooket grade.
+  function rowStatus(row) {
+    var text = row.textContent;
+    if (/✓ Completed|✓ done|✓ perfected|Flashcards 100% ✓/.test(text)) return 'done';
+    var flashcards = /Flashcards (\d+)% — redo/.exec(text);
+    if (flashcards) return Number(flashcards[1]) >= 80 ? 'done' : 'todo';
+    if (row.querySelector('.worksheet-done-slot, .desk-quiz-done-slot')) return 'todo';
+    if (/\bVideo \d/.test(text)) return /✓ visited/.test(text) ? 'done' : 'todo';
+    return null;
+  }
+
+  function rowControl(row) {
+    if (row.matches('a, button')) return row;
+    return row.querySelector('a[href], button:not([disabled]), a, button, input, label');
+  }
+
+  // Regroup the freshly rendered #resource-body (idempotent: once per Desk render).
+  function decoratePanel() {
+    var body = byId('resource-body');
+    if (!body || body.querySelector(':scope > .pico-lesson-list')) return false;
+    cancelDwells();   // the rows are being rebuilt
+    var list = el('ol', 'pico-lesson-list');
+    list.setAttribute('aria-label', 'Activities');
+    var more = el('details', 'pico-more');
+    more.appendChild(el('summary', null, 'More'));
+    var moreBody = el('div', 'pico-more-body');
+    more.appendChild(moreBody);
+
+    function addRow(row) {
+      var item = el('li', 'pico-lesson-item');
+      row.classList.add('pico-row');
+      item.appendChild(row);
+      list.appendChild(item);
+    }
+
+    Array.prototype.slice.call(body.children).forEach(function (node) {
+      if (isSection(node)) {
+        Array.prototype.slice.call(node.children).forEach(function (child, i) {
+          if (i === 0) {
+            var head = el('li', 'pico-list-head');
+            head.appendChild(child);
+            list.appendChild(head);
+            return;
+          }
+          if (hasControl(child)) addRow(child);
+          else moreBody.appendChild(child);
+        });
+        node.remove();
+        return;
+      }
+      if (hasControl(node)) { addRow(node); return; }
+      if (node.classList.contains('lesson-coach')) moreBody.appendChild(node);
+      // Anything else (the panel's own message paragraphs) stays where it is.
+    });
+
+    body.appendChild(list);
+    if (moreBody.children.length) body.appendChild(more);
+    markRecommended();
+    return true;
+  }
+
+  function panelRows() {
+    return document.querySelectorAll('#resource-body .pico-row');
+  }
+
+  // The coloured triangle: the first not-done action by the panel's own status. Never moves.
+  function markRecommended() {
+    var rows = panelRows();
+    view.panel.recommended = -1;
+    for (var i = 0; i < rows.length; i++) {
+      if (rowStatus(rows[i]) !== 'todo') continue;
+      view.panel.recommended = i;
+      var item = rows[i].parentNode;
+      item.insertBefore(sprite('triangleBlue', SCALE, 'continue'), rows[i]);
+      item.insertBefore(el('span', 'sr-only', 'Recommended: '), rows[i]);
+      return;
+    }
+  }
+
+  // The orange outline: the selection. Follows Tab / arrows / mouse. Moving the selection moves
+  // focus to the row's main control, so Enter always activates the outlined row — unless focus
+  // is already on a control inside that row (a secondary link, a Done button), which keeps it.
+  function selectPanelRow(index, moveFocus) {
+    var rows = panelRows();
+    if (!rows.length) return;
+    var i = (index + rows.length) % rows.length;
+    rows.forEach(function (row, j) { row.classList.toggle('is-selected', j === i); });
+    view.panel.selected = i;
+    refreshActive();
+    if (!moveFocus) return;
+    if (rows[i].contains(document.activeElement)) return;
+    if (isEditable(document.activeElement)) return;
+    var control = rowControl(rows[i]);
+    // Teacher report 2026-10-07: only keyboard moves reach here (hover never focuses).
+    if (control) control.focus();
+  }
+
+  function wirePanelRows() {
+    panelRows().forEach(function (row, i) {
+      row.addEventListener('focusin', function () { selectPanelRow(i, false); });
+      // Teacher report 2026-10-07: hover is VISUAL ONLY (outline + selection), never focus.
+      hoverDwell(row, function () { selectPanelRow(i, false); });
+    });
+  }
+
+  // "This day" details the calendar cell carries today (its aria text: date, label, due, 2x,
+  // status), the day grade (double-click / right-click on the cell) and the day's polls.
+  function renderPanelDay() {
+    var host = byId('pico-lesson-day');
+    if (!host) return;
+    host.textContent = '';
+    var last = lastPanel();
+    if (!last || !last.inf) { host.hidden = true; return; }
+    var rows = [];
+    var aria = callDesk('cellAria', [last.inf, last.dateStr]);
+    if (typeof aria === 'string' && aria) rows.push({ term: 'This day', text: aria });
+    var dayGrade = button('pico-day-btn', 'Day grade');
+    dayGrade.addEventListener('click', function () {
+      callDesk('openDayGrade', [last.dateStr]);
+      focusDialogAbove();
+    });
+    rows.push({ term: 'Day grade', node: dayGrade });
+    var polls = dayPolls(last.dateStr);
+    if (polls && polls.length && boardCanShowPolls()) {
+      var pollBtn = button('pico-day-btn', 'Class poll results (' + polls.length + ')');
+      pollBtn.setAttribute('data-poll', '1');
+      pollBtn.addEventListener('click', function () { showPollsFromPanel(polls, last); });
+      rows.push({ term: 'Class poll', node: pollBtn });
+    }
+    rows.forEach(function (row) {
+      host.appendChild(el('dt', null, row.term));
+      var dd = el('dd');
+      if (row.node) dd.appendChild(row.node);
+      else dd.textContent = row.text;
+      host.appendChild(dd);
+    });
+    host.hidden = rows.length === 0;
+  }
+
+  // The polls archived for a day: the same _pollArchive lookup the calendar's poll dot makes.
+  function dayPolls(ds) {
+    var date = dateForDs(ds);
+    if (!date) return null;
+    var key = date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0');
+    try { return (_pollArchive && _pollArchive[key]) || null; } catch (_) { return null; }
+  }
+
+  // Same as the poll dot's click: the board's result screen. Returns false when there is no
+  // board to show it on (e.g. signed out).
+  function showPolls(polls) {
+    try {
+      if (_classroomBoardHandle && typeof _classroomBoardHandle.showResultScreen === 'function') {
+        _classroomBoardHandle.showResultScreen(polls);
+        return true;
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  // The board draws its result screen inside the floor (under #pico-home), which sits below the
+  // lesson panel's layer, so the panel steps aside: close it, show the result on the board and
+  // scroll the board into view (as the calendar's poll dot does), then re-open the same lesson
+  // when the result screen is dismissed (its close button or its own 2 s timer) and put focus
+  // back on the poll button.
+  function resultScreenNode() {
+    return document.querySelector('#classroom-board-mount [data-classroom-result-screen]');
+  }
+
+  function resultScreenShown(node) {
+    return Boolean(node) && node.style.transform !== 'translateY(-100%)';
+  }
+
+  function boardCanShowPolls() {
+    try { return Boolean(_classroomBoardHandle && typeof _classroomBoardHandle.showResultScreen === 'function'); } catch (_) { return false; }
+  }
+
+  // The pending return is ONE cancellable token: { reopen, watcher, timer }. Anything else the
+  // student does before the result screen is dismissed (another panel, a tile, a nav button, My
+  // Grade, Use Original Desk) or the board going away cancels it, so a stale lesson never
+  // re-opens over what they chose next.
+  var pollReturn = null;
+
+  function cancelPollReturn() {
+    if (!pollReturn) return;
+    if (pollReturn.watcher) pollReturn.watcher.disconnect();
+    if (pollReturn.timer) clearTimeout(pollReturn.timer);
+    pollReturn = null;
+  }
+
+  function showPollsFromPanel(polls, last) {
+    cancelPollReturn();
+    var token = { reopen: { inf: last.inf, ds: last.dateStr, source: view.panel.source, opener: view.panel.opener } };
+    view.panel.stepAside = true;
+    callDesk('closeResourcePanel');
+    var screen = showPolls(polls) ? resultScreenNode() : null;
+    pollReturn = token;
+    if (!resultScreenShown(screen)) {
+      // Nothing showed: come straight back (after the close has been processed).
+      token.timer = setTimeout(function () { finishPollReturn(token); }, 0);
+      return;
+    }
+    try {
+      var mount = byId('classroom-board-mount');
+      if (mount) mount.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    } catch (_) {}
+    var closeBtn = screen.querySelector('[data-classroom-result-close]');
+    if (closeBtn) closeBtn.focus({ preventScroll: true });
+    token.watcher = new MutationObserver(function () {
+      // The board was torn down (its destroy removes the screen without a style change).
+      if (!document.contains(screen)) { cancelPollReturn(); return; }
+      if (resultScreenShown(screen)) return;
+      finishPollReturn(token);
+    });
+    token.watcher.observe(screen, { attributes: true, attributeFilter: ['style'] });
+    token.watcher.observe(document.body, { childList: true, subtree: true });
+  }
+
+  // Re-open the suspended lesson, but only if this token is still the pending one, no panel is
+  // open, and the Desk's last panel is still the suspended lesson.
+  function finishPollReturn(token) {
+    if (pollReturn !== token) return;
+    cancelPollReturn();
+    var last = lastPanel();
+    if (isPanelOpen() || !last || last.inf !== token.reopen.inf) return;
+    view.panel.source = token.reopen.source;
+    view.panel.opener = token.reopen.opener;
+    view.panel.focusPoll = true;
+    callDesk('showResourcePanel', [token.reopen.inf, token.reopen.ds]);
+  }
+
+  // After every Desk render of the panel: regroup, title, triangle, selection, day details.
+  function onPanelChange() {
+    if (!isPanelOpen()) return;
+    var opening = !view.panel.open;
+    view.panel.open = true;
+    if (opening) cancelPollReturn();
+    // The page stays white behind the lesson panel however it was opened (a Desk path that opens
+    // it after a tick, the LESSONS menu); a tile / sign open has already whitened it around its pick.
+    if (opening) ensureWhiteOut();
+    if (opening && !view.panel.opener) view.panel.opener = openerRef(document.activeElement);
+    var fresh = decoratePanel();
+    byId('pico-lesson-bar').textContent = panelTitle();
+    renderPanelDay();
+    if (!fresh && !opening) return;
+    wirePanelRows();
+    var focusInside = panelOverlay().contains(document.activeElement);
+    var start = view.panel.recommended >= 0 ? view.panel.recommended : 0;
+    if (!opening && typeof view.panel.selected === 'number') start = view.panel.selected;
+    if (!panelRows().length) byId('pico-lesson-close').focus();
+    else selectPanelRow(start, opening || !focusInside);
+    if (!opening || !view.panel.focusPoll) return;
+    view.panel.focusPoll = false;
+    var pollBtn = document.querySelector('#pico-lesson-day .pico-day-btn[data-poll]');
+    if (pollBtn) pollBtn.focus();
+  }
+
+  function onPanelClosed() {
+    clearWhiteOut();
+    if (!view.panel.open) return;
+    view.panel.open = false;
+    view.panel.selected = null;
+    var opener = view.panel.opener;
+    view.panel.source = null;
+    view.panel.opener = null;
+    // Stepping aside for the poll result screen: no focus restore (it goes to the result).
+    if (view.panel.stepAside) { view.panel.stepAside = false; return; }
+    // Only pull focus back when it was left in the (now hidden) panel or dropped to the page.
+    var active = document.activeElement;
+    if (active && active !== document.body && !panelOverlay().contains(active) && isShown(active)) return;
+    restoreFocus(opener);
+  }
+
+  // Keys while the lesson panel has focus: Esc closes, Up/Down move the selection.
+  function onPanelKey(event) {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      callDesk('closeResourcePanel');
+      return true;
+    }
+    if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return false;
+    event.preventDefault();
+    selectPanelRow((view.panel.selected || 0) + (event.key === 'ArrowDown' ? 1 : -1), true);
+    return true;
+  }
+
+  function setupLessonPanel() {
+    var overlay = panelOverlay();
+    if (!overlay) return;
+    var box = overlay.querySelector('.dialog-box');
+    var body = byId('resource-body');
+    if (!box || !body) return;
+    overlay.classList.add('pico-lesson');
+    box.classList.add('pico-frame', 'pico-win');
+    box.setAttribute('role', 'dialog');
+    box.setAttribute('aria-modal', 'true');
+    box.setAttribute('aria-labelledby', 'pico-lesson-bar');
+    var bar = el('div', 'win-bar');
+    bar.id = 'pico-lesson-bar';
+    var close = button('win-close');
+    close.id = 'pico-lesson-close';
+    close.setAttribute('aria-label', 'Close');
+    close.appendChild(sprite('close', 1));
+    close.addEventListener('click', function () { callDesk('closeResourcePanel'); });
+    // The white interior holds the Desk's own header, body and OK row, unchanged.
+    var inner = el('div', 'pico-frame-body');
+    Array.prototype.slice.call(box.children).forEach(function (child) { inner.appendChild(child); });
+    var details = el('dl', 'pico-lesson-day');
+    details.id = 'pico-lesson-day';
+    details.hidden = true;
+    inner.insertBefore(details, body.nextSibling);
+    box.appendChild(bar);
+    box.appendChild(close);
+    box.appendChild(inner);
+
+    var observer = new MutationObserver(function () {
+      observer.disconnect();
+      if (isPanelOpen()) onPanelChange();
+      else onPanelClosed();
+      observe();
+    });
+    function observe() {
+      observer.observe(overlay, { attributes: true, attributeFilter: ['style'] });
+      observer.observe(body, { childList: true });
+    }
+    observe();
+  }
+
+  // ── My Grade: the Desk's ledger window in the recovered frame ─────────────
+  function walletOverlay() {
+    return byId('app-wallet-overlay');
+  }
+
+  function isWalletOpen() {
+    var overlay = walletOverlay();
+    return Boolean(overlay && overlay.style.display && overlay.style.display !== 'none');
+  }
+
+  // The official grade at the top: the same value the sign shows (the Do Now pill).
+  function renderGradeHead() {
+    var head = byId('pico-grade-head');
+    if (!head) return;
+    head.textContent = '';
+    var info = gradeInfo();
+    if (info && info.status) {
+      head.appendChild(el('p', 'grade-status', info.status));
+      return;
+    }
+    var value = info && info.value ? info.value : '—';
+    var caption = info ? (info.key + (info.official ? ' official' : '')) : 'My grade';
+    head.appendChild(el('span', 'grade-num', value));
+    head.appendChild(el('span', 'grade-cap', caption));
+  }
+
+  function setupMyGrade() {
+    var overlay = walletOverlay();
+    if (!overlay) return;
+    var win = overlay.querySelector('.app-window');
+    var content = byId('wallet-content');
+    if (!win || !content) return;
+    overlay.classList.add('pico-mygrade');
+    win.classList.add('pico-frame', 'pico-win');
+    win.setAttribute('role', 'dialog');
+    win.setAttribute('aria-labelledby', 'pico-mygrade-bar');
+    var bar = el('div', 'win-bar', 'MY GRADE');
+    bar.id = 'pico-mygrade-bar';
+    var close = button('win-close');
+    close.id = 'pico-mygrade-close';
+    close.setAttribute('aria-label', 'Close');
+    close.appendChild(sprite('close', 1));
+    close.addEventListener('click', function () { callDesk('destroyWallet'); });
+    var head = el('div', 'pico-grade-head');
+    head.id = 'pico-grade-head';
+    head.setAttribute('aria-live', 'polite');
+    win.insertBefore(head, content);
+    win.appendChild(bar);
+    win.appendChild(close);
+    setupPicoLedger(win, head, content);
+
+    var wasOpen = false;
+    new MutationObserver(function () {
+      var open = isWalletOpen();
+      if (open && !wasOpen) {
+        cancelPollReturn();
+        cancelScrollClaim();
+        if (!view.walletOpener) view.walletOpener = openerRef(document.activeElement);
+        renderGradeHead();
+        resetLedgerBucket();
+        renderLedgerWallet();
+        close.focus();
+      }
+      if (!open && wasOpen) restoreFocus(view.walletOpener);
+      if (!open) view.walletOpener = null;
+      wasOpen = open;
+    }).observe(overlay, { attributes: true, attributeFilter: ['style'] });
+  }
+
+  // ── My Grade drawn in the Pico style (teacher 2026-10-08) ───────────────────
+  // The ledger's grade surfaces are drawn here as Pico pieces: the status line (a strip under
+  // the orange bar), the Missing-work rows (tiles), the balance card (a sub-panel: grade, the
+  // official / "Today's estimate" badges, the drop sentence, the PC strategy and work-ahead
+  // lines, "how your grade is counted", See the class) and the bonus bank (a sub-panel).
+  //
+  // Every word and number comes from the SAME Desk function the System 7 window calls:
+  // _zeroCurrentWarnings, _pastDueCurrentWork, _zeroCardStatus, _zeroWhenText, _pastDueWhenText,
+  // _zeroSchoologyTitle, cedLabel, _walletCurrentGrade, _walletDisplayReadiness,
+  // _walletApplyZeroTint, _walletGradeDropText, _officialGradeTitle, _walletEffortBlock,
+  // _walletCountingNote, _walletBonusBlock. The buttons are the Desk's own builders
+  // (_zeroCardActionButton, _walletSeeClassButton) or call the Desk's handler
+  // (_snapOpenAssignment); the per-row class scores and graphs are attached by the Desk's own
+  // _zeroCardAttachScores. Nothing is computed here.
+  //
+  // The Desk still paints #wallet-content exactly as before (its text is identical with the flag
+  // on or off). The parts drawn here are hidden there by CSS; the rest of it (signed-records
+  // chip, effort points, rewards, export / print, the score breakdown, recorded work) is moved,
+  // node by node, into the closed MORE folds (v2). The Desk's _walletPaint and
+  // _walletPrependZeroCard (and, for the hero, _walletDogePanel / _dogeWalletRender) are wrapped (original
+  // first, then this redraw), like rCal / renderDoNow in watchDesk; their bodies are untouched.
+
+  // The grey of the Desk's "Past due — not counting yet" rows (.wz-later). Red and yellow are the
+  // Desk's ZERO_TINT (= the Do Now CSS), read at draw time.
+  var LEDGER_LATER_TINT = { bg: '#eee', border: '#aaa' };
+  // DONE tiles: the Pico green (#3DA35D) used for every secondary marker; "caught up".
+  var LEDGER_DONE_TINT = { bg: '#e7f5ec', border: '#3DA35D' };
+
+  var ledgerState = { receipts: [], zeroSig: null };
+
+  function wrapDeskAfter(name, after) {
+    var original = window[name];
+    if (typeof original !== 'function' || original.picoLedgerWrapped) return;
+    var wrapped = function () {
+      var result = original.apply(this, arguments);
+      try { after.apply(null, arguments); } catch (_) {}
+      return result;
+    };
+    wrapped.picoLedgerWrapped = true;
+    window[name] = wrapped;
+  }
+
+  function idEl(tag, className, id) {
+    var node = el(tag, className);
+    node.id = id;
+    return node;
+  }
+
+  // v2 (teacher 2026-10-10: "quite lengthy… put a pico park style menu in there for
+  // navigation… the candy/doge balance should be at the forefront"). Layout, top to bottom:
+  //   status strip                      (always visible)
+  //   HERO: grade block | CANDY · KEYS  (always visible)
+  //   NAV:  ZEROED · DUE SOON · NOT YET · DONE, each with its count (always visible)
+  //   scroll area: the tiles of the chosen bucket, the effort + bonus lines, then closed folds
+  //   (MORE ▸ HOW IT IS COUNTED / REWARDS / SCORE BREAKDOWN / RECEIPTS / EXPORT / PRINT / SUMMER)
+  //   holding the Desk's own nodes (moved, handlers intact), open state remembered per device.
+  function setupPicoLedger(win, head, content) {
+    var status = idEl('p', 'pico-ledger-status', 'pico-ledger-status');
+    status.hidden = true;
+    status.setAttribute('aria-live', 'polite');
+    win.insertBefore(status, head);
+
+    var top = idEl('div', 'pico-ledger pico-ledger-top', 'pico-ledger-top');
+    var hero = el('div', 'pl-hero');
+    var balance = idEl('section', 'pl-panel pl-balance', 'pico-ledger-balance');
+    balance.setAttribute('aria-label', 'Your grade');
+    var wallet = idEl('section', 'pl-panel pl-wallet', 'pico-ledger-wallet');
+    wallet.setAttribute('aria-label', 'Candy and keys');
+    hero.appendChild(balance);
+    hero.appendChild(wallet);
+    top.appendChild(hero);
+    var nav = idEl('div', 'pl-nav', 'pico-ledger-nav');
+    nav.setAttribute('role', 'toolbar');
+    nav.setAttribute('aria-label', 'Show work');
+    LEDGER_BUCKETS.forEach(function (bucket) {
+      var btn = button('pl-nav-btn', null);
+      btn.setAttribute('data-bucket', bucket.key);
+      btn.setAttribute('aria-pressed', 'false');
+      btn.addEventListener('click', function () { selectLedgerBucket(bucket.key, false); });
+      nav.appendChild(btn);
+    });
+    top.appendChild(nav);
+    win.insertBefore(top, head);
+
+    // One scroll area under the hero and the nav.
+    var body = idEl('div', 'pico-mygrade-body', 'pico-mygrade-body');
+    win.insertBefore(body, head);
+    body.appendChild(head);
+
+    var ledger = idEl('div', 'pico-ledger', 'pico-ledger');
+    var zero = idEl('div', 'pl-zero', 'pico-ledger-zero');
+    zero.setAttribute('role', 'group');
+    zero.setAttribute('aria-label', 'Work');
+    var about = idEl('section', 'pl-panel pl-about', 'pico-ledger-about');
+    about.hidden = true;
+    var bonus = idEl('section', 'pl-panel pl-bonus', 'pico-ledger-bonus');
+    bonus.hidden = true;
+    ledger.appendChild(zero);
+    ledger.appendChild(about);
+    ledger.appendChild(bonus);
+    body.appendChild(ledger);
+    body.appendChild(idEl('div', 'pico-ledger pl-folds', 'pico-ledger-folds'));
+    body.appendChild(content);
+
+    wrapDeskAfter('_walletPaint', function (host, receipts) {
+      if (host !== byId('wallet-content')) return;
+      ledgerState.receipts = Array.isArray(receipts) ? receipts : [];
+      drawPicoLedger();
+    });
+    wrapDeskAfter('_walletPrependZeroCard', function (host) {
+      if (host !== byId('wallet-content')) return;
+      renderLedgerZero();
+    });
+    // The rewards box the Desk appends to its balance card: tagged for the REWARDS fold.
+    wrapDeskAfter('_walletDogePanel', function (host, pts) {
+      if (!host || !host.querySelector(':scope > .wallet-counting-note')) return;
+      // The Desk adds no rewards box when its preview is off (a student's explicit opt-out).
+      if (callDesk('_dogeWalletPreviewOn') !== true) {
+        ledgerState.wallet = { off: true };
+        renderLedgerWallet();
+        return;
+      }
+      var box = host.lastElementChild;
+      if (box) box.setAttribute('data-pico-fold', 'rewards');
+      ledgerState.wallet = { pending: true };
+      renderLedgerWallet();
+    });
+    // The Desk's /wallet answer, as its own rewards panel received it: the candy hero reads it.
+    wrapDeskAfter('_dogeWalletRender', function (box, w, pts) {
+      if (!box || box.getAttribute('data-pico-fold') !== 'rewards') return;
+      ledgerState.wallet = { w: w || null, pts: pts || null };
+      renderLedgerWallet();
+    });
+  }
+
+  function drawPicoLedger() {
+    markDeskDrawn();
+    renderLedgerZero();
+    renderLedgerBalance();
+    renderLedgerBonus();
+    renderLedgerWallet();
+    renderLedgerFolds();
+  }
+
+  // The Desk's balance-card children up to and including "how your grade is counted", and its
+  // bonus block, are drawn by the Pico ledger: hide them in the Desk's content (CSS below). The
+  // Missing-work card (.wallet-zero-card) is hidden by CSS alone.
+  function markDeskDrawn() {
+    var host = byId('wallet-content');
+    if (!host) return;
+    var note = host.querySelector('.wallet-counting-note');
+    if (note && note.parentNode && note.parentNode.parentNode === host) {
+      var card = note.parentNode;
+      card.classList.add('pico-ledger-rest');
+      for (var node = card.firstElementChild; node; node = node.nextElementSibling) {
+        node.classList.add('pico-ledger-drawn');
+        if (node === note) break;
+      }
+    }
+    var bonus = host.querySelector(':scope > .wallet-bonus-block');
+    if (bonus) bonus.classList.add('pico-ledger-drawn');
+  }
+
+  function ledgerList(name) {
+    var list = callDesk(name);
+    return Array.isArray(list) ? list : [];
+  }
+
+  // The Desk card's data-sig: the same rows keep the tiles (and focus on a tile's button)
+  // across a grade poll; only the status line is refreshed (as the Desk does).
+  function zeroSignature(warns, later, done) {
+    var sig = warns.map(function (w) { return w.lessonKey + ':' + w.kind + ':' + (w.past ? 1 : 0); }).join('|');
+    if (later.length) sig += '#later:' + later.map(function (w) { return w.lessonKey + ':' + w.kind; }).join('|');
+    if (done.length) sig += '#done:' + done.map(function (w) { return w.lessonKey + ':' + w.kind; }).join('|');
+    return sig;
+  }
+
+  // ── The four buckets (v2 nav). Every row sits in exactly one, decided by the Desk's own lists:
+  //   ZEROED   = _zeroCurrentWarnings() rows with past: true      (the ledger's red rows; a 0 now)
+  //   DUE SOON = _zeroCurrentWarnings() rows with past: false     (yellow; inside ZERO_WARN_DAYS)
+  //   NOT YET  = _pastDueCurrentWork() rows                       (grey; past due, the 0 is further
+  //                                                                than ZERO_WARN_DAYS away)
+  //   DONE     = the /grade lesson tracks that HAVE work, by the exact fields the two Desk lists
+  //              test for "missing" (worksheet: lessonGradeNoQuiz or Cws; quiz: Q when quizTotal > 0;
+  //              Blooket: blooket when the deck counts) — so no track can be both missing and done.
+  //              No score is shown on a DONE tile (per-lesson grades live in SCORE BREAKDOWN, which
+  //              is the Desk's lessonGradeNoQuiz grid).
+  var LEDGER_BUCKETS = [
+    { key: 'zeroed', label: 'ZEROED' },
+    { key: 'soon', label: 'DUE SOON' },
+    { key: 'notyet', label: 'NOT YET' },
+    { key: 'done', label: 'DONE' },
+  ];
+
+  function deskLessons() {
+    try { return Array.isArray(_gradeLessonsCache) ? _gradeLessonsCache : []; } catch (_) {
+      return Array.isArray(window._gradeLessonsCache) ? window._gradeLessonsCache : [];
+    }
+  }
+
+  function doneRows() {
+    var out = [];
+    deskLessons().forEach(function (L) {
+      if (!L || !L.lessonKey) return;
+      var row = function (kind) { return { lessonKey: L.lessonKey, kind: kind, unit: L.unit, worksheetKey: L.worksheetKey }; };
+      if (L.lessonGradeNoQuiz != null || L.Cws != null) out.push(row('worksheet'));
+      if ((L.quizTotal || 0) > 0 && L.Q != null) out.push(row('quiz'));
+      if (L.hasBlooket && !L.blooketBonus && L.blooket != null) out.push(row('blooket'));
+    });
+    return out;
+  }
+
+  function ledgerBuckets() {
+    var warns = ledgerList('_zeroCurrentWarnings');
+    return {
+      warns: warns,
+      zeroed: warns.filter(function (w) { return w.past; }),
+      soon: warns.filter(function (w) { return !w.past; }),
+      notyet: ledgerList('_pastDueCurrentWork'),
+      done: doneRows(),
+    };
+  }
+
+  function rowTrack(kind) {
+    if (kind === 'blooket') return 'blooket';
+    if (kind === 'quiz') return 'quiz';
+    return 'worksheet';
+  }
+
+  function lessonLabel(key) {
+    var label = callDesk('cedLabel', [key]);
+    return label ? label.text : key;
+  }
+
+  function tileTint(state) {
+    if (state === 'later') return LEDGER_LATER_TINT;
+    if (state === 'done') return LEDGER_DONE_TINT;
+    var tint = window.ZERO_TINT;
+    if (!tint || !tint.now || !tint.soon) return null;
+    return state === 'now' ? tint.now : tint.soon;
+  }
+
+  // One Missing-work tile. Classes are the Desk row's (wz-past = a 0 now, red; none = a 0 soon,
+  // yellow; wz-later = past due, not counting yet, grey); data-zero says the same in words.
+  var BUCKET_OF_STATE = { now: 'zeroed', soon: 'soon', later: 'notyet', done: 'done' };
+
+  function zeroTile(w, state) {
+    var later = state === 'later';
+    var className = 'pl-tile wz-row';
+    if (later) className += ' wz-later';
+    else if (state === 'done') className += ' wz-done';
+    else className += (w.past ? ' wz-past' : '') + (w.kind === 'blooket' ? ' wz-blooket' : '') + (w.kind === 'quiz' ? ' wz-quiz' : '');
+    var tile = el('div', className);
+    var key = w.lessonKey + ':' + rowTrack(w.kind);
+    if (later) key = w.lessonKey + ':' + w.kind + ':later';
+    if (state === 'done') key = w.lessonKey + ':' + rowTrack(w.kind) + ':done';
+    tile.setAttribute('data-key', key);
+    tile.setAttribute('data-zero', state);
+    tile.setAttribute('data-bucket', BUCKET_OF_STATE[state]);
+    var tint = tileTint(state);
+    if (tint) {
+      tile.style.backgroundColor = tint.bg;
+      tile.style.borderColor = tint.border;
+    }
+
+    var label = lessonLabel(w.lessonKey);
+    var verb = callDesk('_zeroCardActionButton', [w, label]);
+    if (verb && verb.nodeType === 1) {
+      verb.className = 'pl-verb';
+      tile.appendChild(verb);
+    }
+    tile.appendChild(el('span', 'wz-label', label));
+    var title = callDesk('_zeroSchoologyTitle', [w]);
+    if (title) tile.appendChild(el('span', 'pl-badge wz-sgy', 'Schoology: ' + title));
+    if (state === 'done') {
+      tile.appendChild(el('span', 'wz-when', 'Done'));
+      return tile;
+    }
+    tile.appendChild(el('span', 'wz-when', callDesk(later ? '_pastDueWhenText' : '_zeroWhenText', [w]) || ''));
+    if (later) return tile;
+
+    // "graph": enabled (and switched to the inline graph) by the Desk's _zeroCardAttachScores once
+    // the class picture has loaded; until then it opens the Snapshot app on this assignment.
+    var see = button('wz-see pl-link', 'graph');
+    see.title = 'The graphs of the class on this one (no names)';
+    see.disabled = true;
+    see.onclick = function () { callDesk('_snapOpenAssignment', [w.lessonKey, w.kind]); };
+    tile.appendChild(see);
+    return tile;
+  }
+
+  function renderLedgerZero() {
+    var box = byId('pico-ledger-zero');
+    var status = byId('pico-ledger-status');
+    if (!box || !status) return;
+    var b = ledgerBuckets();
+    var warns = b.warns;
+    var later = b.notyet;
+    var any = Boolean(warns.length || later.length);
+
+    var text = any ? (callDesk('_zeroCardStatus', [warns, later]) || '') : '';
+    if (status.textContent !== text) status.textContent = text;
+    status.hidden = !text;
+
+    var sig = zeroSignature(warns, later, b.done);
+    if (sig !== ledgerState.zeroSig) {
+      ledgerState.zeroSig = sig;
+      box.textContent = '';
+      // Same frame rule as the Desk card: red once something is a 0, yellow while everything is
+      // only "soon", grey when only past-due rows are left.
+      var frame = null;
+      if (any) frame = warns.length ? (b.zeroed.length ? 'now' : 'soon') : 'calm';
+      if (frame) box.setAttribute('data-frame', frame);
+      else box.removeAttribute('data-frame');
+
+      // Past first, then by date (the warnings are already date-ordered), as the Desk orders them.
+      var ordered = b.zeroed.concat(b.soon);
+      ordered.forEach(function (w) { box.appendChild(zeroTile(w, w.past ? 'now' : 'soon')); });
+      if (later.length) {
+        var head = el('p', 'pl-later-head', 'Past due — not counting yet');
+        head.setAttribute('data-bucket', 'notyet');
+        box.appendChild(head);
+        later.forEach(function (w) { box.appendChild(zeroTile(w, 'later')); });
+      }
+      b.done.forEach(function (w) { box.appendChild(zeroTile(w, 'done')); });
+      LEDGER_BUCKETS.forEach(function (bucket) {
+        var empty = el('p', 'pl-empty', LEDGER_EMPTY[bucket.key]);
+        empty.setAttribute('data-bucket', bucket.key);
+        empty.setAttribute('data-empty', '');
+        box.appendChild(empty);
+      });
+      if (any) callDesk('_zeroCardAttachScores', [box, ordered]);
+    }
+    renderLedgerNav(b);
+  }
+
+  var LEDGER_EMPTY = {
+    zeroed: 'No zeros. Nothing here counts as a 0.',
+    soon: 'Nothing becomes a 0 in the next few days.',
+    notyet: 'Nothing is past due.',
+    done: 'No recorded work yet.',
+  };
+
+  function bucketCounts(b) {
+    return { zeroed: b.zeroed.length, soon: b.soon.length, notyet: b.notyet.length, done: b.done.length };
+  }
+
+  // Default: the first non-empty bucket in nav order (ZEROED if every bucket is empty).
+  function defaultBucket(counts) {
+    for (var i = 0; i < LEDGER_BUCKETS.length; i++) if (counts[LEDGER_BUCKETS[i].key]) return LEDGER_BUCKETS[i].key;
+    return LEDGER_BUCKETS[0].key;
+  }
+
+  function renderLedgerNav(b) {
+    var nav = byId('pico-ledger-nav');
+    if (!nav) return;
+    var counts = bucketCounts(b);
+    ledgerState.counts = counts;
+    if (!ledgerState.bucket) ledgerState.bucket = defaultBucket(counts);
+    Array.prototype.forEach.call(nav.querySelectorAll('.pl-nav-btn'), function (btn) {
+      var key = btn.getAttribute('data-bucket');
+      var bucket = LEDGER_BUCKETS.filter(function (x) { return x.key === key; })[0];
+      var text = bucket.label + ' (' + counts[key] + ')';
+      if (btn.textContent !== text) btn.textContent = text;
+    });
+    applyLedgerFilter();
+  }
+
+  // The filter only hides / shows the tiles already built (same nodes, same Desk buttons).
+  function applyLedgerFilter() {
+    var bucket = ledgerState.bucket;
+    var nav = byId('pico-ledger-nav');
+    if (nav) {
+      Array.prototype.forEach.call(nav.querySelectorAll('.pl-nav-btn'), function (btn) {
+        var on = btn.getAttribute('data-bucket') === bucket;
+        btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+        btn.classList.toggle('is-current', on);
+        btn.tabIndex = on ? 0 : -1;
+      });
+    }
+    var box = byId('pico-ledger-zero');
+    if (!box) return;
+    var shown = 0;
+    Array.prototype.forEach.call(box.children, function (node) {
+      var own = node.getAttribute('data-bucket');
+      if (!own) return;   // a Desk score list follows its tile (CSS: hidden with a hidden tile)
+      if (node.hasAttribute('data-empty')) return;
+      node.hidden = own !== bucket;
+      if (!node.hidden && node.classList.contains('pl-tile')) shown++;
+    });
+    Array.prototype.forEach.call(box.querySelectorAll('[data-empty]'), function (node) {
+      node.hidden = node.getAttribute('data-bucket') !== bucket || shown > 0;
+    });
+    box.setAttribute('data-showing', bucket);
+  }
+
+  function selectLedgerBucket(key, moveFocus) {
+    ledgerState.bucket = key;
+    applyLedgerFilter();
+    if (moveFocus) {
+      var btn = document.querySelector('#pico-ledger-nav .pl-nav-btn[data-bucket="' + key + '"]');
+      if (btn) btn.focus();
+    }
+  }
+
+  // Left / Right move between the buckets (wrapping), from a nav button.
+  function onLedgerNavKey(event) {
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return false;
+    event.preventDefault();
+    var keys = LEDGER_BUCKETS.map(function (x) { return x.key; });
+    var at = keys.indexOf(ledgerState.bucket);
+    var next = (at + (event.key === 'ArrowRight' ? 1 : -1) + keys.length) % keys.length;
+    selectLedgerBucket(keys[next], true);
+    return true;
+  }
+
+  // A fresh open starts on the default bucket again.
+  function resetLedgerBucket() {
+    ledgerState.bucket = null;
+    renderLedgerNav(ledgerBuckets());
+  }
+
+  function rosterName() {
+    try {
+      var client = window.rosterClient;
+      return client && client.username ? (client.username() || '') : '';
+    } catch (_) { return ''; }
+  }
+
+  // The balance card as a Pico sub-panel: the Desk card's tint and words, in Pico pieces.
+  function renderLedgerBalance() {
+    var box = byId('pico-ledger-balance');
+    if (!box) return;
+    box.textContent = '';
+    box.removeAttribute('style');
+    box.className = 'pl-panel pl-balance';
+
+    var grade = callDesk('_walletCurrentGrade') || { pct: null, q: null };
+    var readiness = callDesk('_walletDisplayReadiness');
+    var hued = Boolean(readiness && readiness.state !== 'nodue' && typeof readiness.hue === 'number');
+    var warns = ledgerList('_zeroCurrentWarnings');
+    if (hued) {
+      box.style.backgroundColor = 'hsl(' + readiness.hue + ',60%,88%)';
+      box.style.borderColor = 'hsl(' + readiness.hue + ',65%,45%)';
+    }
+    // The same zero tint as the Do Now (classes wallet-zeros-soon / wallet-zeros-now).
+    callDesk('_walletApplyZeroTint', [box, warns]);
+
+    var who = el('div', 'pl-who');
+    who.appendChild(el('span', 'pl-name', rosterName() || 'Your ledger'));
+    if (grade.q) who.appendChild(el('span', 'pl-badge pl-quarter', grade.q));
+    var seeClass = callDesk('_walletSeeClassButton');   // students only; opens the Snapshot app
+    if (seeClass && seeClass.nodeType === 1) {
+      seeClass.className = 'pl-btn wallet-see-class';
+      seeClass.removeAttribute('style');
+      who.appendChild(seeClass);
+    }
+    box.appendChild(who);
+
+    var row = el('div', 'pl-grade-row');
+    var num = el('span', 'pl-grade-num', grade.pct != null ? grade.pct + '%' : '—');
+    if (hued) num.style.color = 'hsl(' + readiness.hue + ',70%,35%)';
+    var labelText = grade.official ? 'Official grade (same as Schoology)' : 'Grade';
+    if (warns.length) {
+      num.style.color = callDesk('_zeroAnyPast', [warns]) ? '#a30000' : '#7a5c00';
+      if (!grade.official) labelText = 'Grade today';
+    }
+    if (grade.official) {
+      var title = callDesk('_officialGradeTitle', [grade.official]);
+      if (title) row.title = title;
+    }
+    row.appendChild(num);
+    row.appendChild(el('span', 'pl-badge pl-grade-label', labelText));
+    box.appendChild(row);
+
+    if (grade.official) {
+      box.appendChild(el('p', 'wallet-grade-estimate pl-line', "Today's estimate: " + (grade.estimate != null ? grade.estimate + '%' : '—')
+        + ' — moves as you work; the official grade updates every night.'));
+    }
+    if (warns.length) {
+      box.appendChild(el('p', 'wallet-grade-drop pl-line', callDesk('_walletGradeDropText', [warns]) || ''));
+    }
+
+    // Under the tiles: the PC on file + strategy and the work done ahead (the Desk block's own
+    // lines, as text). "How your grade is counted" goes in its fold (renderLedgerFolds).
+    var about = byId('pico-ledger-about');
+    if (!about) return;
+    about.textContent = '';
+    var effort = callDesk('_walletEffortBlock', [grade.q]);
+    if (effort && effort.children) {
+      Array.prototype.forEach.call(effort.children, function (line) {
+        about.appendChild(el('p', line.className + ' pl-line', line.textContent));
+      });
+    }
+    about.hidden = !about.children.length;
+  }
+
+  // ── HERO right: CANDY (and KEYS) ───────────────────────────────────────────
+  // CANDY = the Desk rewards panel's own number: the /wallet answer its _dogeWalletRender received
+  // (candyOwed, else candyBalance = spendable), formatted by the Desk's _candyFmt. When the
+  // rewards backend is not provisioned / offline, the Desk shows its preview (candy from effort
+  // points via WalletLogic.candyFromPoints) — so does this, marked "preview". No request is made
+  // here. KEYS = the park's unspent campaign key count for this player, as the classroom board's
+  // calculator room reports it (getView().keyCounts, from the relay lobby); omitted until the
+  // board has that lobby.
+  function walletCandy() {
+    var state = ledgerState.wallet;
+    if (!state) return null;
+    if (state.off) return { off: true };
+    if (state.pending) return { text: '…', note: 'loading' };
+    var w = state.w;
+    if (!w || w._notProvisioned || !w.ok) {
+      var logic = window.WalletLogic;
+      if (!logic || typeof logic.candyFromPoints !== 'function') return null;
+      var total = (state.pts && typeof state.pts.total === 'number') ? state.pts.total : 0;
+      return { text: logic.candyFromPoints(total).toFixed(0), note: 'preview' };
+    }
+    var owed = (typeof w.candyOwed === 'number') ? w.candyOwed : (w.candyBalance || 0);
+    var text = callDesk('_candyFmt', [owed]);
+    return { text: text == null ? String(owed) : text, note: 'to spend' };
+  }
+
+  function parkKeyCount() {
+    var scene = parkScene();
+    if (!scene || typeof scene.getView !== 'function') return null;
+    var roomView = null;
+    try { roomView = scene.getView(); } catch (_) { return null; }
+    if (!roomView || !roomView.lobby || !roomView.lobby.campaignKeys || !roomView.keyCounts) return null;
+    var name = boardUsername();
+    if (!name || !(name in roomView.keyCounts)) return null;
+    var count = roomView.keyCounts[name];
+    return typeof count === 'number' ? count : null;
+  }
+
+  // The name the classroom board joined the park with (_mountClassroomBoard: rosterClient.current()).
+  function boardUsername() {
+    try {
+      var client = window.rosterClient;
+      var current = client && typeof client.current === 'function' ? client.current() : null;
+      return current && current.username ? current.username : '';
+    } catch (_) { return ''; }
+  }
+
+  function heroStat(className, label, value, note) {
+    var stat = el('div', 'pl-stat ' + className);
+    stat.appendChild(el('span', 'pl-stat-label', label));
+    stat.appendChild(el('span', 'pl-stat-num', value));
+    if (note) stat.appendChild(el('span', 'pl-stat-note', note));
+    return stat;
+  }
+
+  function renderLedgerWallet() {
+    var box = byId('pico-ledger-wallet');
+    if (!box) return;
+    box.textContent = '';
+    var candy = walletCandy();
+    if (candy && !candy.off) box.appendChild(heroStat('pl-candy', 'CANDY', candy.text, candy.note));
+    var keys = parkKeyCount();
+    if (keys != null) box.appendChild(heroStat('pl-keys', 'KEYS', String(keys), 'park keys'));
+    box.hidden = !box.children.length;
+  }
+
+  // ── Folds: everything else, closed by default, open state remembered per device ──
+  var FOLD_KEY = 'apstats-pico-mygrade-folds';
+  var LEDGER_FOLDS = [
+    { key: 'counted', label: 'HOW YOUR GRADE IS COUNTED' },
+    { key: 'rewards', label: 'REWARDS' },
+    { key: 'breakdown', label: 'SCORE BREAKDOWN' },
+    { key: 'receipts', label: 'RECEIPTS' },
+    { key: 'export', label: 'EXPORT / PRINT' },
+    { key: 'summer', label: 'SUMMER FOUNDATIONS' },
+  ];
+
+  function readFoldState() {
+    try {
+      var raw = localStorage.getItem(FOLD_KEY);
+      var parsed = raw ? JSON.parse(raw) : null;
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch (_) { return {}; }
+  }
+
+  function writeFoldState(state) {
+    try { localStorage.setItem(FOLD_KEY, JSON.stringify(state)); } catch (_) {}
+  }
+
+  // Which fold each of the Desk's painted nodes belongs to. The Desk's own nodes are MOVED into
+  // the folds (handlers, async fills and ids travel with them); the parts the Pico ledger draws
+  // stay in #wallet-content, hidden. Unknown nodes go to RECEIPTS (never dropped).
+  function deskFoldNodes() {
+    var host = byId('wallet-content');
+    var groups = {};
+    LEDGER_FOLDS.forEach(function (fold) { groups[fold.key] = []; });
+    if (!host) return groups;
+    var note = host.querySelector('.wallet-counting-note');
+    var card = note && note.parentNode && note.parentNode.parentNode === host ? note.parentNode : null;
+    if (card) {
+      var after = false;
+      Array.prototype.slice.call(card.children).forEach(function (node) {
+        if (node === note) { after = true; return; }
+        if (!after) return;
+        if (node.getAttribute('data-pico-fold') === 'rewards') { groups.rewards.push(node); return; }
+        var buttons = Array.prototype.map.call(node.querySelectorAll('button'), function (b) { return b.textContent; });
+        if (buttons.indexOf('Export sealed transcript') >= 0) { groups['export'].push(node); return; }
+        if (!node.textContent.trim()) return;   // the separator rule
+        if (/Summer Foundations|Catching up|Take a breather|ready for lesson/.test(node.textContent)) { groups.summer.push(node); return; }
+        groups.receipts.push(node);   // signed-records chip, effort points
+      });
+    }
+    Array.prototype.slice.call(host.children).forEach(function (node) {
+      if (node === card || node.classList.contains('wallet-zero-card') || node.classList.contains('wallet-bonus-block')) return;
+      if (node.querySelector('.bd-caret')) { groups.breakdown.push(node); return; }
+      groups.receipts.push(node);   // legend, "Recorded work" header, the grouped feed
+    });
+    return groups;
+  }
+
+  function renderLedgerFolds() {
+    var holder = byId('pico-ledger-folds');
+    if (!holder) return;
+    var groups = deskFoldNodes();
+    var note = callDesk('_walletCountingNote');
+    if (note && note.textContent) groups.counted = [el('p', 'wallet-counting-note pl-note', note.textContent)];
+    var open = readFoldState();
+    holder.textContent = '';
+    LEDGER_FOLDS.forEach(function (fold) {
+      var nodes = groups[fold.key];
+      if (!nodes.length) return;
+      var section = el('section', 'pl-fold');
+      section.setAttribute('data-fold', fold.key);
+      var head = button('pl-fold-head', null);
+      var bodyNode = el('div', 'pl-fold-body');
+      bodyNode.id = 'pico-fold-' + fold.key;
+      head.setAttribute('aria-controls', bodyNode.id);
+      var paint = function (isOpen) {
+        head.textContent = 'MORE ' + (isOpen ? '▾ ' : '▸ ') + fold.label;
+        head.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        bodyNode.hidden = !isOpen;
+      };
+      paint(Boolean(open[fold.key]));
+      head.addEventListener('click', function () {
+        var state = readFoldState();
+        state[fold.key] = bodyNode.hidden;
+        writeFoldState(state);
+        paint(Boolean(state[fold.key]));
+      });
+      nodes.forEach(function (node) {
+        if (node.parentNode) node.setAttribute('data-pico-moved', fold.key);
+        bodyNode.appendChild(node);
+      });
+      section.appendChild(head);
+      section.appendChild(bodyNode);
+      holder.appendChild(section);
+    });
+  }
+
+  // The bonus bank as a Pico sub-panel: the Desk's own block (same receipts), as text.
+  function renderLedgerBonus() {
+    var box = byId('pico-ledger-bonus');
+    if (!box) return;
+    box.textContent = '';
+    var block = callDesk('_walletBonusBlock', [ledgerState.receipts]);
+    box.hidden = !(block && block.children && block.children.length);
+    if (box.hidden) return;
+    Array.prototype.forEach.call(block.children, function (line, index) {
+      box.appendChild(index === 0 ? el('h3', 'pl-head', line.textContent) : el('p', 'pl-line', line.textContent));
+    });
+  }
+
+  // ── Phase 3: every other window in a plain Pico frame ───────────────────────
+  // Each Desk window / dialog keeps its content, ids, handlers, stacking and position. With the
+  // flag on it gets the recovered frame (orange frame, a title bar carrying the dialog's own
+  // title text, a ✕ that calls the dialog's own close) — added once, idempotent across the
+  // Desk's re-renders — and CSS scoped to html.pico-home (font family / base size, borders,
+  // button look). The System 7 title-bar parts the frame replaces (title text, stripes, close
+  // box, collapse box) are hidden, not removed; any other control on that bar (Study Break's
+  // mute, an app's pop-out) stays visible. The lesson panel and My Grade (Phase 2) are framed
+  // by their own setup above; the Study Break challenge alert is styled on its own top layer.
+  //
+  // overlay id              frame box in it   title source (in the box; '' = none)   ✕ = Desk close
+  var FRAMED = [
+    { overlay: 'dialog-overlay',          box: '.dialog-box', title: '',                               close: ['closeDialog'] },            // showDialog alerts: About, lesson locked, baseline info, …
+    { overlay: 'donow-bump-overlay',      box: '.dialog-box', title: '',                               close: ['closeDoNowBump'] },
+    { overlay: 'signin-overlay',          box: '.dialog-box', title: '.dialog-msg > .chicago',         close: ['closeSignInModal'] },
+    { overlay: 'signup-overlay',          box: '.dialog-box', title: '.dialog-msg > .chicago',         close: ['_switchToSignIn'] },
+    { overlay: 'pwchange-overlay',        box: '.dialog-box', title: '#pwchange-title',                close: ['closePwChangeModal'], closable: pwChangeClosable },
+    { overlay: 'namefinder-overlay',      box: '.dialog-box', title: '',                               close: ['closeNameFinder'] },        // created by the Desk on first use
+    { overlay: 'day-grade-overlay',       box: '.dialog-box', title: '#day-grade-header',              close: ['closeDayGrade'] },
+    { overlay: 'grade-help-overlay',      box: '.dialog-box', title: '.dialog-box > .chicago',         close: ['closeGradeHelp'] },
+    { overlay: 'my-gradebook-overlay',    box: '.dialog-box', title: '#my-gradebook-title',            close: ['closeMyGradebook'] },
+    { overlay: 'my-receipts-overlay',     box: '.dialog-box', title: '.dialog-box > .chicago > span',  close: ['closeMyReceipts'] },
+    { overlay: 'bf-overlay',              box: '.dialog-box', title: '#bf-header',                     close: ['closeBlooketFlashcards'] }, // Review + flashcard decks
+    { overlay: 'student-dm-modal',        box: '.sdm-panel',  title: '#sdm-title',                     close: ['_closeStudentDmModal'] },   // Message teacher
+    { overlay: 'teacher-nudge-modal',     box: '.tnm-panel',  title: '#tnm-title',                     close: ['_closeTeacherNudgeModal'] },
+    { overlay: 'app-bulletin-overlay',    box: '.app-window', title: '.game-title-bar .title-text',    close: ['destroyBulletin'] },
+    { overlay: 'app-snapshot-overlay',    box: '.app-window', title: '.game-title-bar .title-text',    close: ['destroyApp', 'snapshot'] },
+    { overlay: 'app-week-overlay',        box: '.app-window', title: '.game-title-bar .title-text',    close: ['destroyApp', 'week'] },
+    { overlay: 'app-ti84-overlay',        box: '.app-window', title: '.game-title-bar .title-text',    close: ['destroyApp', 'ti84'] },
+    { overlay: 'app-quiz-overlay',        box: '.app-window', title: '.game-title-bar .title-text',    close: ['destroyApp', 'quiz'] },
+    { overlay: 'app-formulas-overlay',    box: '.app-window', title: '.game-title-bar .title-text',    close: ['destroyApp', 'formulas'] },
+    { overlay: 'app-dok-overlay',         box: '.app-window', title: '.game-title-bar .title-text',    close: ['destroyApp', 'dok'] },        // teacher
+    { overlay: 'app-teachertools-overlay', box: '.app-window', title: '.game-title-bar .title-text',   close: ['destroyTeacherTools'] },    // teacher workspace + inbox
+    { overlay: 'app-nightlyreview-overlay', box: '.app-window', title: '.game-title-bar .title-text',  close: ['closeNightlyReview'] },     // teacher
+    { overlay: 'app-gradecheckin-overlay', box: '.app-window', title: '.game-title-bar .title-text',   close: ['closeGradeCheckin'] },      // teacher
+    { overlay: 'app-progress-overlay',    box: '.app-window', title: '.game-title-bar .title-text',    close: ['destroyProgress'] },        // My Progress (icon parked; kept framed)
+    { overlay: 'override-gate-modal',     box: '.ogm-panel',  title: '#ogm-title',                     close: ['_hideOverrideGateModal'] }, // teacher view-as: override gate
+    { overlay: 'verify-qr-overlay',       box: '#verify-qr-card', title: 'strong',                     close: ['_escHide', 'verify-qr-overlay'] },    // teacher: Verify a Record (built on first use)
+    { overlay: 'reconcile-qr-overlay',    box: '#reconcile-qr-card', title: 'strong',                  close: ['_escHide', 'reconcile-qr-overlay'] }, // Guest Reconcile: no menu item since 2026-10-08 (dormant; kept framed)
+    { overlay: 'guest-pass-overlay',      box: '#guest-pass-card', title: 'strong',                    close: ['_escHide', 'guest-pass-overlay'] },   // guest pass: no menu item since 2026-10-08 (dormant; kept framed)
+    { overlay: 'game-overlay',            box: '.game-window', title: '.game-title-bar .title-text',   close: ['closeGame'], ownClose: true }, // Study Break: frame only; its own close box (restyled in place) stays the ✕
+  ];
+
+  // Not framed, on purpose (each checked against the Desk's -overlay ids, role="dialog" and
+  // .dialog-box containers):
+  //   #resource-overlay, #app-wallet-overlay  framed by Phase 2 (lesson panel, My Grade)
+  //   #doge-challenge-panel                   Study Break challenge alert: on its own top layer, drawn in the
+  //                                           recovered frame by CSS scoped to #pico-doge-layer (not a .pico-win)
+  //   #challenge-dialog                       inside the Study Break window's content (never touched)
+  //   .avatar-pop                             the cat's name/candy/game popover on the floor: anchored to
+  //                                           the cat, not a modal dialog — it belongs to the board
+  //   #big-qr-overlay                         full-screen tap-to-close QR viewer; a frame would shrink the
+  //                                           code a phone has to scan
+  var FRAME_EXEMPT = ['resource-overlay', 'app-wallet-overlay', 'doge-challenge-panel', 'challenge-dialog', 'avatar-pop', 'big-qr-overlay'];
+
+  // The forced change-password dialog has no dismiss (TR2); only the voluntary one ("Cancel")
+  // gets a ✕.
+  function pwChangeClosable() {
+    var left = byId('pwchange-leftbtn');
+    return Boolean(left && left.textContent.trim() === 'Cancel');
+  }
+
+  // Parts of the System 7 title bar the frame replaces.
+  var REPLACED_BAR_PARTS = '.title-text, .title-stripes, .close-box, .collapse-box';
+
+  function frameTitle(entry, box) {
+    if (!entry.title) return '';
+    var source = box.querySelector(entry.title);
+    if (!source) return '';
+    var copy = source.cloneNode(true);
+    Array.prototype.forEach.call(copy.querySelectorAll('button, [role="button"], .close-box'), function (node) { node.remove(); });
+    return copy.textContent.replace(/\s+/g, ' ').trim();
+  }
+
+  function runFrameClose(entry) {
+    callDesk(entry.close[0], entry.close.slice(1));
+  }
+
+  // Frame one overlay (once). Returns false if the Desk has not built it yet.
+  function frameOverlay(entry) {
+    var overlay = byId(entry.overlay);
+    if (!overlay) return false;
+    var box = overlay.querySelector(entry.box);
+    if (!box) return false;
+    if (box.classList.contains('pico-win') && box.querySelector(':scope > [data-pico-bar]')) return true;
+    overlay.classList.add('pico-framed');
+    box.classList.add('pico-frame', 'pico-win', 'pico-p3');
+
+    var state = { opener: null, shown: false };
+    var bar = null;
+    var close = null;
+    // The chrome is guarded by its presence, not the class: a Desk that rebuilds the box's
+    // innerHTML (the QR cards do on every open) gets the bar and ✕ back.
+    function chromeComplete() {
+      return Boolean(bar && bar.parentNode === box && (entry.ownClose || (close && close.parentNode === box)));
+    }
+    function ensureChrome() {
+      if (!bar || bar.parentNode !== box) {
+        bar = el('div', 'win-bar');
+        bar.setAttribute('data-pico-bar', entry.overlay);
+        box.appendChild(bar);
+      }
+      // A window that keeps its own close box (Study Break) gets no frame ✕.
+      if (entry.ownClose || (close && close.parentNode === box)) return;
+      close = button('win-close');
+      close.setAttribute('aria-label', 'Close');
+      close.setAttribute('data-pico-close', entry.overlay);
+      close.appendChild(sprite('close', 1));
+      close.addEventListener('click', function (event) {
+        event.stopPropagation();
+        closeFromX();
+      });
+      box.appendChild(close);
+    }
+    // ✕: the Desk's own close, then focus to the opener (TODAY if it cannot be found).
+    function closeFromX() {
+      var opener = state.opener;
+      runFrameClose(entry);
+      if (isShown(overlay)) return;
+      state.shown = false;
+      state.opener = null;
+      restoreFocus(opener);
+    }
+    ensureChrome();
+
+    // Hide the replaced title-bar parts; hide the whole bar when nothing else is on it.
+    var oldBar = box.querySelector(':scope > .game-title-bar');
+    if (oldBar) {
+      oldBar.classList.add('pico-orig-bar');
+      var others = Array.prototype.filter.call(oldBar.children, function (child) { return !child.matches(REPLACED_BAR_PARTS); });
+      if (!others.length) oldBar.classList.add('pico-orig-bar-empty');
+    }
+
+    function refresh() {
+      ensureChrome();
+      var title = frameTitle(entry, box);
+      if (bar.textContent !== title) bar.textContent = title;   // no write when unchanged (no observer loop)
+      if (close) close.hidden = Boolean(entry.closable && !entry.closable());
+    }
+    function onVisibility() {
+      var shown = isShown(overlay);
+      if (shown === state.shown) { if (shown) refresh(); return; }
+      state.shown = shown;
+      if (shown) {
+        refresh();
+        // The opener as it was when it was activated (before the Desk moved focus into the
+        // dialog); otherwise whatever had focus outside the dialog.
+        var pending = takePendingOpener();
+        if (pending) state.opener = pending;
+        else if (!overlay.contains(document.activeElement)) state.opener = openerRef(document.activeElement);
+        return;
+      }
+      // Closed some other way: put focus back on the opener when it was left in the hidden
+      // dialog or dropped (TODAY if the opener cannot be found).
+      var active = document.activeElement;
+      var lost = !active || active === document.body || overlay.contains(active) || !isShown(active);
+      var opener = state.opener;
+      state.opener = null;
+      if (lost) restoreFocus(opener);
+    }
+    new MutationObserver(onVisibility).observe(overlay, { attributes: true, attributeFilter: ['style', 'class', 'hidden'] });
+    // Title changes and box rebuilds (chrome re-added, title re-read).
+    new MutationObserver(function () {
+      if (!chromeComplete()) refresh();
+    }).observe(box, { childList: true });
+    var titleSource = entry.title ? box.querySelector(entry.title) : null;
+    if (titleSource) new MutationObserver(refresh).observe(titleSource, { childList: true, characterData: true, subtree: true });
+    else if (entry.title) new MutationObserver(refresh).observe(box, { childList: true, subtree: true, characterData: true });
+    refresh();
+    state.shown = isShown(overlay);
+    return true;
+  }
+
+  // The Pico control that was just activated, captured before the Desk opener runs (the Desk
+  // often moves focus into its dialog synchronously). Used by the next dialog that opens within
+  // a second; then dropped so a later, Desk-initiated dialog never inherits it.
+  var pendingOpener = null;
+
+  function notePendingOpener(ref) {
+    pendingOpener = ref ? { ref: ref, at: monotonicNow() } : null;
+  }
+
+  function takePendingOpener() {
+    var pending = pendingOpener;
+    pendingOpener = null;
+    if (!pending || monotonicNow() - pending.at > 1000) return null;
+    return pending.ref;
+  }
+
+  function frameAll() {
+    FRAMED.forEach(frameOverlay);
+  }
+
+  // Overlays the Desk builds later (the name finder) are framed when they appear.
+  function setupFrames() {
+    frameAll();
+    // Any activation inside the Pico home (nav, sign, tiles) is a possible opener.
+    byId('pico-home').addEventListener('click', function (event) {
+      if (event.target && event.target.closest && event.target.closest('.navbtn, .tile, .action, .sign-go, .sign-grade, #doge-presence')) cancelScrollClaim();
+      var control = event.target && event.target.closest && event.target.closest('button');
+      if (control && !control.closest('#pico-menu-backdrop') && !control.closest('#pico-doge-backdrop')) notePendingOpener(openerRef(control));
+    }, true);
+    new MutationObserver(function () {
+      FRAMED.forEach(function (entry) {
+        var overlay = byId(entry.overlay);
+        if (overlay && !overlay.querySelector('.pico-win')) frameOverlay(entry);
+      });
+    }).observe(document.body, { childList: true });
+  }
+
+  // ── Flashcards: the Desk's deck window in the Pico style ────────────────────
+  // The timed deck (_ft*), its finish screen and the Review deck (_rv*) all run in the Desk's
+  // #bf-overlay. Nothing here runs, scores, orders, times, logs or saves a card: the Desk does.
+  // The skin is CSS (above) plus two read-only additions placed before #bf-timer:
+  //   counter  "n / N" — timed: cards cleared of the deck (_ftState.round); Review: this card of
+  //            the session (_rvState). The Desk's own progress line stays under it.
+  //   bar      the timer as a bar: _ftState.remaining of BLOOKET_FULLDECK_SECONDS, turning the
+  //            Desk's warning red exactly when the Desk paints its seconds red.
+  // Both repaint from a MutationObserver on the window (the Desk rewrites the timer text every
+  // second and the progress line every card), and write only when a value changed.
+  var REVIEW_SESSION_MAX = 20;   // the Desk's Review stop (_rvRate: ratings >= 20; "of up to 20")
+  var DESK_TIMER_WARN = /^(#b03a2e|rgb\(176,\s*58,\s*46\))$/i;   // _ftRenderTimer's colour at <= 10 s
+
+  function deckSeconds() {
+    // A top-level const in the Desk's script: shared global scope, not a window property.
+    return (typeof BLOOKET_FULLDECK_SECONDS === 'number') ? BLOOKET_FULLDECK_SECONDS : null;
+  }
+
+  // What the counter shows, read from the Desk's own deck state. null = no counter.
+  function deckCounter() {
+    var rv = window._rvState;
+    if (rv && rv.current && (rv.stage === 'answer' || rv.stage === 'rate' || rv.stage === 'saving')) {
+      var queued = Array.isArray(rv.queue) ? rv.queue.length : 0;
+      var at = rv.ratings + 1;
+      var of = Math.min(REVIEW_SESSION_MAX, at + queued);
+      return { text: at + ' / ' + of, label: 'Card ' + at + ' of ' + of };
+    }
+    var ft = window._ftState;
+    var round = ft && ft.round;
+    if (!round || !Array.isArray(round.order) || !round.order.length) return null;
+    var cleared = round.total - round.order.length;
+    return { text: cleared + ' / ' + round.total, label: cleared + ' of ' + round.total + ' cards cleared' };
+  }
+
+  // The timer bar's state, or null when the Desk is not showing its timer.
+  function deckTimer(timer) {
+    var ft = window._ftState;
+    var total = deckSeconds();
+    if (!timer || timer.style.display === 'none' || !ft || !ft.round || !total) return null;
+    var left = Math.max(0, Math.min(total, Number(ft.remaining) || 0));
+    return { percent: (left / total) * 100, low: DESK_TIMER_WARN.test(String(timer.style.color || '').trim()) };
+  }
+
+  function syncDeck() {
+    var count = byId('pico-fc-count');
+    var bar = byId('pico-fc-time');
+    if (!count || !bar) return;
+    var counter = deckCounter();
+    if (count.hidden !== !counter) count.hidden = !counter;
+    if (counter && count.textContent !== counter.text) count.textContent = counter.text;
+    if (counter && count.title !== counter.label) count.title = counter.label;
+    var timer = deckTimer(byId('bf-timer'));
+    if (bar.hidden !== !timer) bar.hidden = !timer;
+    if (!timer) return;
+    var width = timer.percent + '%';
+    var fill = bar.firstChild;
+    if (fill.style.width !== width) fill.style.width = width;
+    if (bar.classList.contains('is-low') !== timer.low) bar.classList.toggle('is-low', timer.low);
+  }
+
+  function setupFlashcards() {
+    var timer = byId('bf-timer');
+    var box = timer && timer.closest('.dialog-box');
+    if (!box || byId('pico-fc-count')) return;
+    var count = idEl('div', 'pico-fc-count', 'pico-fc-count');
+    count.hidden = true;
+    var bar = idEl('div', 'pico-fc-time', 'pico-fc-time');
+    bar.setAttribute('aria-hidden', 'true');   // the Desk's own "⏱ Ns" text is the readable timer
+    bar.hidden = true;
+    bar.appendChild(el('span', 'pico-fc-fill'));
+    box.insertBefore(count, timer);
+    box.insertBefore(bar, timer);
+    new MutationObserver(syncDeck).observe(box, {
+      childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['style'],
+    });
+    syncDeck();
+  }
+
+  // ── Study Break owns the keyboard while it is open ─────────────────────────
+  // Teacher 2026-10-10: "when I do Study Break my keystrokes are still going to the Pico Park cat;
+  // they should be contained within the Study Break window." Every key listener involved sits on
+  // `document` in the bubble phase: Study Break's (studyBreak.init), the board's cat
+  // (classroom-board.js) and the park scenes (apstat-park calculator room / campaign), so no
+  // ordering of document listeners can separate them. Instead, while Study Break is the top
+  // window, one window-level capture listener (registered before any other Pico listener) stops
+  // the event before it reaches `document` and hands it to Study Break's own handler, unchanged.
+  // Nothing else is re-dispatched. The handler is the one studyBreak.init registers: init is
+  // wrapped (call the original; while it runs, note the first keydown / keyup listener it adds to
+  // `document`). Its body, the Tetris engine and the relay messages are untouched.
+  //
+  // Not taken (everything flows exactly as before): Study Break closed; Tab (focus moves as
+  // usual); a typing field outside the game; a Desk dialog stacked above the game (Study Break's
+  // own "covered" rule); a key aimed at another open dialog; the Doge challenge alert while it is
+  // up (it owns Enter / Esc); Study Break initialised before this file could wrap it.
+  var studyBreakKeys = { keydown: null, keyup: null };
+
+  function wrapStudyBreakInit() {
+    var sb = window.studyBreak;
+    if (!sb || typeof sb.init !== 'function' || sb.init.picoKeysWrapped || sb.initialized) return;
+    var original = sb.init;
+    var wrapped = function () {
+      if (this.initialized) return original.apply(this, arguments);
+      var hadOwn = Object.prototype.hasOwnProperty.call(document, 'addEventListener');
+      var add = document.addEventListener;
+      document.addEventListener = function (type, listener) {
+        if ((type === 'keydown' || type === 'keyup') && !studyBreakKeys[type] && typeof listener === 'function') studyBreakKeys[type] = listener;
+        return add.apply(this, arguments);
+      };
+      try {
+        return original.apply(this, arguments);
+      } finally {
+        if (hadOwn) document.addEventListener = add;
+        else delete document.addEventListener;
+      }
+    };
+    wrapped.picoKeysWrapped = true;
+    sb.init = wrapped;
+  }
+
+  function overlayZ(node) {
+    return parseInt(window.getComputedStyle(node).zIndex, 10) || 0;
+  }
+
+  // Study Break's own Escape rule (a visibly higher Desk modal owns the key), applied to every key.
+  function studyBreakCovered(game) {
+    var gameZ = overlayZ(game);
+    return Array.prototype.some.call(document.querySelectorAll('[id$="-overlay"], [id$="-modal"]'), function (node) {
+      if (node === game || game.contains(node)) return false;
+      var style = window.getComputedStyle(node);
+      return style.display !== 'none' && style.visibility !== 'hidden' && overlayZ(node) > gameZ;
+    });
+  }
+
+  function inOtherDialog(target, game) {
+    var dialog = target.closest('[id$="-overlay"], [id$="-modal"], [role="dialog"], #pico-menu-backdrop, #pico-doge-backdrop, #pico-doge-layer');
+    return Boolean(dialog && dialog !== game && !game.contains(dialog) && isShown(dialog));
+  }
+
+  function studyBreakOwnsKey(event) {
+    var sb = window.studyBreak;
+    if (!sb || typeof sb.isOpen !== 'function' || !sb.isOpen() || !sb.overlay) return false;
+    if (!studyBreakKeys[event.type] || event.key === 'Tab') return false;
+    if (window.DogePresence && window.DogePresence.incomingChallenge) return false;
+    var game = sb.overlay;
+    var target = event.target && event.target.nodeType === 1 ? event.target : null;
+    if (target && !game.contains(target)) {
+      if (isEditable(target) || inOtherDialog(target, game)) return false;
+    }
+    return !studyBreakCovered(game);
+  }
+
+  function onStudyBreakKey(event) {
+    if (!studyBreakOwnsKey(event)) return;
+    event.stopImmediatePropagation();   // never reaches document: not the cat, not the park
+    studyBreakKeys[event.type].call(document, event);
+  }
+
+  function setupStudyBreakKeys() {
+    wrapStudyBreakInit();
+    window.addEventListener('keydown', onStudyBreakKey, true);
+    window.addEventListener('keyup', onStudyBreakKey, true);
+  }
+
+  // ── The flag ───────────────────────────────────────────────────────────────
+  function useOriginalDesk() {
+    cancelPollReturn();
+    stopFloorWatch();
+    try { localStorage.setItem(FLAG_KEY, '0'); } catch (_) {}
+    var url = new URL(window.location.href);
+    url.searchParams.delete('home');
+    window.location.href = url.toString();
+  }
+
+  // ── Building the home ──────────────────────────────────────────────────────
+  var MARKUP = [
+    '<div class="scene">',
+    '  <div class="topnav">',
+    '    <h1 class="title">APSTAT PARK</h1>',
+    '    <nav aria-label="Main"><ul class="navlist">',
+    '      <li><button type="button" class="navbtn" data-nav="TODAY">TODAY</button></li>',
+    '      <li><button type="button" class="navbtn" data-nav="LESSONS" aria-haspopup="dialog">LESSONS<span class="nav-badge" id="pico-lessons-badge" hidden></span></button></li>',
+    '      <li><button type="button" class="navbtn" data-nav="MY GRADE">MY GRADE</button></li>',
+    '      <li><button type="button" class="navbtn" data-nav="OPTION" aria-haspopup="dialog">OPTION<span class="nav-badge" id="pico-option-badge" hidden></span></button></li>',
+    '    </ul></nav>',
+    '    <span class="player" id="pico-player"></span>',
+    '    <span class="doge-slot" id="pico-doge-slot"></span>',
+    '  </div>',
+    '  <section class="week-b" aria-label="Week">',
+    '    <div class="win week-win">',
+    '      <div class="win-bar" id="pico-unit"></div>',
+    '      <div class="win-body week-win-body">',
+    '        <span class="carousel">',
+    '          <button type="button" class="arrow" id="pico-week-prev" aria-label="Previous week"></button>',
+    '          <h2 class="week-title" id="pico-week-title"></h2>',
+    '          <button type="button" class="arrow" id="pico-week-next" aria-label="Next week"></button>',
+    '        </span>',
+    '        <span class="week-page" id="pico-week-page"></span>',
+    '        <span class="crown" id="pico-crown" hidden><span class="sr-only">Whole week finished</span></span>',
+    '        <span class="week-exam" id="pico-exam"></span>',
+    '      </div>',
+    '    </div>',
+    '  </section>',
+    '  <section class="sign" aria-label="Do Now">',
+    '    <div class="sign-board" id="pico-sign"></div>',
+    '    <span id="pico-sign-post"></span>',
+    '  </section>',
+    '  <ol class="tiles" id="pico-tiles" aria-label="This week"></ol>',
+    '  <div class="floor" id="pico-floor"><div class="floor-band"></div></div>',
+    '</div>',
+    '<div class="backdrop" id="pico-menu-backdrop" hidden>',
+    '  <section class="win option-win" id="pico-menu" role="dialog" aria-modal="true" aria-labelledby="pico-menu-title">',
+    '    <div class="win-bar" id="pico-menu-title"></div>',
+    '    <button type="button" class="win-close" id="pico-menu-close" aria-label="Close"></button>',
+    '    <div class="win-body"><ul class="actions" id="pico-menu-list"></ul></div>',
+    '  </section>',
+    '</div>',
+    '<div class="backdrop" id="pico-doge-backdrop" hidden>',
+    '  <section class="win doge-win" id="pico-doge-menu" role="dialog" aria-modal="true" aria-labelledby="pico-doge-title">',
+    '    <div class="win-bar" id="pico-doge-title">PLAY</div>',
+    '    <button type="button" class="win-close" id="pico-doge-close" aria-label="Close"></button>',
+    '    <div class="win-body"><ul class="actions" id="pico-doge-list" aria-label="Online now"></ul></div>',
+    '  </section>',
+    '</div>',
+  ].join('\n');
+
+  function injectStyle() {
+    if (byId('pico-home-style')) return;
+    var style = el('style');
+    style.id = 'pico-home-style';
+    style.textContent = CSS;
+    document.head.appendChild(style);
+  }
+
+  // Study Break's Doge (DogePresence): the menu bar's own #doge-presence node — sprite, presence
+  // badge, the (hidden) System 7 dropdown and the incoming-challenge panel — moved to the
+  // right of the Pico nav, so every behaviour keeps working untouched. Flag on only; it gets a
+  // PLAY label and a keyboard handle (Enter / Space = its own onclick, DogePresence.toggle()).
+  function mountDoge() {
+    var doge = byId('doge-presence');
+    var slot = byId('pico-doge-slot');
+    if (!doge || !slot) return;
+    slot.appendChild(doge);
+    if (!doge.querySelector('.pico-doge-label')) {
+      var label = el('span', 'pico-doge-label', 'PLAY');
+      label.setAttribute('aria-hidden', 'true');
+      doge.appendChild(label);
+    }
+    doge.setAttribute('role', 'button');
+    doge.setAttribute('tabindex', '0');
+    doge.setAttribute('aria-haspopup', 'dialog');
+    doge.setAttribute('aria-label', 'Play Study Break — who is online, challenges and candy bets');
+    doge.addEventListener('keydown', function (event) {
+      if (event.target !== doge) return;
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      doge.click();
+    });
+    hoistChallengePanel();
+  }
+
+  // The incoming-challenge alert must sit above EVERYTHING that can be open on the Pico home: the
+  // Pico menus (inside #pico-home, z 4), the SCHEDULE window (#window-wrap, z 6), app windows
+  // (250), the lesson panel and Desk dialogs (300-350) and the name finder / QR layers (100001+).
+  // In the nav it would inherit the nav's stacking context, so the panel (only the panel; the
+  // button and its dropdown stay in the nav) lives in its own top layer on <body>. DogePresence
+  // finds it by id, so its timing, buttons and countdown are untouched.
+  var CHALLENGE_LAYER_Z = 100005;
+  function hoistChallengePanel() {
+    var panel = byId('doge-challenge-panel');
+    if (!panel) return;
+    var layer = byId('pico-doge-layer');
+    if (!layer) {
+      layer = el('div');
+      layer.id = 'pico-doge-layer';
+      document.body.appendChild(layer);
+    }
+    layer.appendChild(panel);
+  }
+
+  // ── PLAY: the Doge's "Online Now" menu in the recovered window ──────────────
+  // Teacher 2026-10-08: "the menu system for the dogecoin icon should be in the pico park style".
+  // WRAP, DON'T REWRITE. The Desk's DogePresence keeps every piece of state and behaviour: who is
+  // online (players, locations, connected), which row is open (expandedRow), whether the menu is
+  // open (dropdownOpen), presence polling, the challenge, candy and message actions. Its
+  // openDropdown / closeDropdown / renderDropdown are wrapped (original first, then this window is
+  // synced), so every path that opens, closes or refreshes the System 7 dropdown drives this
+  // window instead; the System 7 dropdown itself is hidden by CSS. Each button calls the same
+  // DogePresence method the System 7 menu item calls. Names come from the UNTRUSTED presence feed:
+  // textContent only, never HTML.
+  function doge() {
+    return window.DogePresence || null;
+  }
+
+  function dogeMenuOpen() {
+    var backdrop = byId('pico-doge-backdrop');
+    return Boolean(backdrop && !backdrop.hidden);
+  }
+
+  // Call a DogePresence method by name at click time (so the Desk's own, or a test's spy, runs).
+  function callDoge(name, args) {
+    var dp = doge();
+    if (!dp || typeof dp[name] !== 'function') return undefined;
+    try { return dp[name].apply(dp, args || []); } catch (_) { return undefined; }
+  }
+
+  function deskRoster() {
+    try { return typeof DeskRoster !== 'undefined' ? DeskRoster : (window.DeskRoster || null); } catch (_) { return window.DeskRoster || null; }
+  }
+
+  function rosterCall(name, user) {
+    var roster = deskRoster();
+    if (!roster || typeof roster[name] !== 'function') return '';
+    try { return roster[name](user); } catch (_) { return ''; }
+  }
+
+  // The Desk's own HTML fragments (location chip, where-line), read as text through the inert parser.
+  function deskFragmentText(html) {
+    var box = parser.createElement('div');
+    box.innerHTML = typeof html === 'string' ? html : '';
+    return box.textContent.replace(/\s+/g, ' ').trim();
+  }
+
+  // Name, then the username small (same as the Desk row); "?" for a name not on the roster.
+  function dogeWho(user, isSelf) {
+    var who = el('span', 'pico-doge-who');
+    var real = rosterCall('realName', user);
+    if (real) {
+      who.appendChild(document.createTextNode(real + ' '));
+      who.appendChild(el('span', 'pico-doge-user', user));
+    } else {
+      who.appendChild(document.createTextNode(String(user)));
+      if (!isSelf && rosterCall('isGuest', user)) {
+        var guest = el('span', 'pico-doge-guest', ' ?');
+        guest.title = 'Not signed in to the roster';
+        who.appendChild(guest);
+      }
+    }
+    if (isSelf) who.appendChild(el('span', 'pico-doge-you', ' (you)'));
+    return who;
+  }
+
+  // The Desk's location chip text (coarse for students, the lesson for the teacher).
+  function dogeChip(loc, teacher) {
+    var dp = doge();
+    var text = deskFragmentText(dp && typeof dp._locationChip === 'function' ? dp._locationChip(loc, teacher) : '');
+    var chip = el('span', 'pico-doge-chip', text);
+    if (!loc || !loc.surface) chip.classList.add('is-unknown');
+    else if (loc.onDesk) chip.classList.add('is-desk');
+    return chip;
+  }
+
+  function dogeAction(label, key, run) {
+    var btn = button('action', null);
+    btn.appendChild(el('span', 'action-text', label));
+    btn.setAttribute('data-pico-doge-key', key);
+    btn.addEventListener('click', function (event) {
+      event.stopPropagation();
+      run();
+    });
+    return btn;
+  }
+
+  // An action that leaves the menu for another window: the window's opener is the PLAY button.
+  function runDogeAndLeave(run) {
+    var playButton = byId('doge-presence');
+    run();
+    if (playButton) notePendingOpener(openerRef(playButton));
+  }
+
+  function dogeNote(text) {
+    var li = el('li');
+    li.appendChild(el('p', 'pico-doge-note', text));
+    return li;
+  }
+
+  // The per-player actions, in the Desk submenu's order: where they are, challenge (Desk only),
+  // message (teacher), send candy.
+  function dogePeerActions(user, loc, teacher) {
+    var dp = doge();
+    var acts = el('ul', 'pico-doge-acts');
+    var where = el('li');
+    var whereHtml = dp && typeof dp._whereSentence === 'function' ? dp._whereSentence(loc, teacher) : '';
+    where.appendChild(el('p', 'pico-doge-where', deskFragmentText(whereHtml)));
+    acts.appendChild(where);
+
+    var challenge = el('li');
+    if (loc && loc.onDesk) {
+      challenge.appendChild(dogeAction('CHALLENGE TO STUDY BREAK', 'challenge:' + user, function () {
+        callDoge('challengeFromMenu', [user]);
+      }));
+    } else {
+      var off = dogeAction('CHALLENGE (DESK ONLY)', 'challenge:' + user, function () {});
+      off.disabled = true;
+      off.title = "Only works when they're on the Desk";
+      challenge.appendChild(off);
+    }
+    acts.appendChild(challenge);
+
+    if (teacher) {
+      var message = el('li');
+      message.appendChild(dogeAction('MESSAGE', 'message:' + user, function () {
+        runDogeAndLeave(function () { callDoge('messageFromMenu', [user]); });
+      }));
+      acts.appendChild(message);
+    }
+
+    var candy = el('li');
+    candy.appendChild(dogeAction('SEND CANDY', 'candy:' + user, function () {
+      runDogeAndLeave(function () { callDoge('candyFromMenu', [user]); });
+    }));
+    acts.appendChild(candy);
+    return acts;
+  }
+
+  function dogePeerRow(user, teacher) {
+    var dp = doge();
+    var li = el('li');
+    var loc = dp._locationFor(user);
+    var expanded = dp.expandedRow === user;
+    var row = button('action pico-doge-peer', null);
+    row.setAttribute('data-pico-doge-key', 'peer:' + user);
+    row.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+    row.appendChild(dogeWho(user, false));
+    row.appendChild(dogeChip(loc, teacher));
+    var caret = el('span', 'pico-doge-caret', expanded ? '▾' : '▸');
+    caret.setAttribute('aria-hidden', 'true');
+    row.appendChild(caret);
+    row.addEventListener('click', function (event) {
+      event.stopPropagation();
+      callDoge('toggleRow', [user]);
+    });
+    li.appendChild(row);
+    if (expanded) li.appendChild(dogePeerActions(user, loc, teacher));
+    return li;
+  }
+
+  // The Desk dropdown's footer items, same calls. Guest mode is retired: My Guest Pass and
+  // Guest Reconcile are gone from both menus (teacher 2026-10-08); only STUDY BREAK remains.
+  function dogeFooter(list) {
+    var items = [{ label: 'STUDY BREAK', key: 'study-break', open: 'openGame' }];
+    var head = el('li');
+    head.appendChild(el('p', 'option-head', 'GAMES'));
+    list.appendChild(head);
+    items.forEach(function (item) {
+      var li = el('li');
+      li.appendChild(dogeAction(item.label, item.key, function () {
+        runDogeAndLeave(function () {
+          callDoge('closeDropdown');
+          callDesk(item.open);
+        });
+      }));
+      list.appendChild(li);
+    });
+  }
+
+  function dogeButtons() {
+    return Array.prototype.filter.call(document.querySelectorAll('#pico-doge-list .action'), function (btn) { return !btn.disabled; });
+  }
+
+  function selectDogeItem(index, moveFocus) {
+    var buttons = dogeButtons();
+    if (!buttons.length) return;
+    var i = (index + buttons.length) % buttons.length;
+    Array.prototype.forEach.call(document.querySelectorAll('#pico-doge-list .action'), function (btn) {
+      btn.classList.toggle('is-selected', btn === buttons[i]);
+    });
+    view.dogeSelected = buttons[i].getAttribute('data-pico-doge-key');
+    if (moveFocus) buttons[i].focus();
+    refreshActive();
+  }
+
+  function dogeIndexOfKey(key) {
+    var buttons = dogeButtons();
+    for (var i = 0; i < buttons.length; i++) if (buttons[i].getAttribute('data-pico-doge-key') === key) return i;
+    return -1;
+  }
+
+  function renderDogeMenu() {
+    var dp = doge();
+    var list = byId('pico-doge-list');
+    if (!dp || !list) return;
+    var focused = document.activeElement && list.contains(document.activeElement)
+      ? document.activeElement.getAttribute('data-pico-doge-key') : null;
+    cancelDwells();
+    list.textContent = '';
+    var title = 'PLAY';
+    if (!dp.connected) {
+      list.appendChild(dogeNote('Connecting...'));
+    } else {
+      var teacher = isTeacher();
+      var me = dp.getUsername();
+      var peers = dp._peers();
+      title = 'ONLINE NOW (' + (peers.length + 1) + ')';
+      var self = el('li', 'pico-doge-self');
+      self.appendChild(dogeWho(me, true));
+      self.appendChild(dogeChip(dp._locationFor(me) || { surface: 'desk', lesson: null, onDesk: true }, teacher));
+      list.appendChild(self);
+      peers.forEach(function (user) { list.appendChild(dogePeerRow(user, teacher)); });
+      if (!peers.length) list.appendChild(dogeNote('No classmates online yet'));
+    }
+    dogeFooter(list);
+    byId('pico-doge-title').textContent = title;
+    Array.prototype.forEach.call(list.querySelectorAll('.action'), function (btn) {
+      btn.addEventListener('focus', function () {
+        if (btn.disabled) return;
+        selectDogeItem(dogeIndexOfKey(btn.getAttribute('data-pico-doge-key')), false);
+      });
+      hoverDwell(btn, function () {
+        if (btn.disabled) return;
+        selectDogeItem(dogeIndexOfKey(btn.getAttribute('data-pico-doge-key')), false);
+      });
+    });
+    // Keep the selection (and focus, if it was in the list) on the same item across a re-render.
+    var keep = dogeIndexOfKey(focused || view.dogeSelected);
+    selectDogeItem(keep < 0 ? 0 : keep, Boolean(focused));
+  }
+
+  // Open / close / refresh, following the Desk's own dropdownOpen.
+  var dogeWasOpen = false;
+  function syncDogeMenu() {
+    var dp = doge();
+    var backdrop = byId('pico-doge-backdrop');
+    if (!dp || !backdrop) return;
+    var open = Boolean(dp.dropdownOpen);
+    if (open) renderDogeMenu();
+    if (open === dogeWasOpen) return;
+    dogeWasOpen = open;
+    backdrop.hidden = !open;
+    if (open) {
+      view.dogeSelected = null;
+      selectDogeItem(0, true);
+      return;
+    }
+    view.dogeSelected = null;
+    refreshActive();
+    if (challengeHasFocus()) return;
+    var active = document.activeElement;
+    var lost = !active || active === document.body || backdrop.contains(active);
+    if (lost) giveBackFocus(byId('doge-presence'));
+  }
+
+  function onDogeMenuKey(event) {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      callDoge('closeDropdown');
+      return;
+    }
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      var current = dogeIndexOfKey(view.dogeSelected);
+      selectDogeItem((current < 0 ? 0 : current) + (event.key === 'ArrowDown' ? 1 : -1), true);
+      return;
+    }
+    if (event.key !== 'Tab') return;
+    var focusable = Array.prototype.filter.call(byId('pico-doge-menu').querySelectorAll('button'), function (btn) { return !btn.disabled; });
+    var first = focusable[0];
+    var last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); return; }
+    if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+  }
+
+  function setupDogeMenu() {
+    var dp = doge();
+    var backdrop = byId('pico-doge-backdrop');
+    if (!dp || !backdrop) return;
+    byId('pico-doge-close').appendChild(sprite('close', 1));
+    byId('pico-doge-close').addEventListener('click', function (event) {
+      event.stopPropagation();
+      callDoge('closeDropdown');
+    });
+    backdrop.addEventListener('click', function (event) {
+      if (event.target === event.currentTarget) callDoge('closeDropdown');
+    });
+    // The Desk closes its dropdown on any mousedown outside #doge-presence; this window is outside
+    // it, so a press inside the window must not reach that document listener.
+    byId('pico-doge-menu').addEventListener('mousedown', function (event) { event.stopPropagation(); });
+    if (!dp._picoWrapped) {
+      ['openDropdown', 'closeDropdown', 'renderDropdown'].forEach(function (name) {
+        var original = dp[name];
+        if (typeof original !== 'function') return;
+        dp[name] = function () {
+          var result = original.apply(this, arguments);
+          syncDogeMenu();
+          return result;
+        };
+      });
+      dp._picoWrapped = true;
+    }
+    syncDogeMenu();
+  }
+
+  function buildRoot() {
+    var root = el('div');
+    root.id = 'pico-home';
+    root.innerHTML = MARKUP;
+    var mount = byId('pico-home-mount') || document.body;
+    mount.appendChild(root);
+    byId('pico-week-prev').appendChild(sprite('triOutLeft'));
+    byId('pico-week-next').appendChild(sprite('triOutRight'));
+    byId('pico-crown').appendChild(sprite('crown'));
+    byId('pico-sign-post').appendChild(sprite('signPost'));
+    byId('pico-menu-close').appendChild(sprite('close', 1));
+    mountDoge();
+    // The floor is the REAL board: the existing node moves here, never a second board.
+    var board = byId('classroom-board-mount');
+    if (board) byId('pico-floor').insertBefore(board, byId('pico-floor').firstChild);
+    return root;
+  }
+
+  function wire() {
+    byId('pico-week-prev').addEventListener('click', function () { goWeek(-1); });
+    byId('pico-week-next').addEventListener('click', function () { goWeek(1); });
+    document.querySelectorAll('#pico-home .navbtn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var name = btn.getAttribute('data-nav');
+        cancelPollReturn();
+        if (name === 'TODAY') { goToday(); return; }
+        if (name === 'MY GRADE') { view.walletOpener = { nav: 'MY GRADE' }; callDesk('openWallet'); return; }
+        openMenu(name, btn);
+      });
+    });
+    byId('pico-menu-close').addEventListener('click', function () { closeMenu(); });
+    byId('pico-menu-backdrop').addEventListener('click', function (event) {
+      if (event.target === event.currentTarget) closeMenu();
+    });
+    window.addEventListener('keydown', onCaptureKey, true);
+    window.addEventListener('keydown', noteKeyboardUser, true);
+    document.addEventListener('focusin', noteTabFocus, true);   // teacher report 2026-10-07
+    window.addEventListener('pointerdown', onPointerPress, true);
+    window.addEventListener('mousedown', onPointerPress, true);
+    window.addEventListener('click', onPointerClick);
+    // Esc closes the SCHEDULE window when no Desk dialog is on top of it.
+    document.addEventListener('keydown', function (event) {
+      if (event.key !== 'Escape' || event.defaultPrevented) return;
+      if (!document.documentElement.classList.contains('pico-lessons-open')) return;
+      if (deskOverlayOpen()) return;
+      callDesk('closeCalendar');
+    });
+    watchLessonsWindow();
+    watchDesk();
+  }
+
+  // Re-render whenever the Desk re-renders or repaints the calendar or the Do Now. The Desk's
+  // functions are wrapped (call the original, then schedule a render); their bodies are never
+  // touched. The observers catch DOM changes made by any other path.
+  var WRAPPED = ['rCal', 'renderDoNow', 'paintLocalDoneCells', 'paintDonowCells'];
+
+  function wrapDeskFunction(name) {
+    var original = window[name];
+    if (typeof original !== 'function' || original.picoWrapped) return;
+    var wrapped = function () {
+      var result = original.apply(this, arguments);
+      scheduleRender();
+      if (result && typeof result.then === 'function') result.then(scheduleRender, scheduleRender);
+      return result;
+    };
+    wrapped.picoWrapped = true;
+    window[name] = wrapped;
+  }
+
+  function watchDesk() {
+    WRAPPED.forEach(wrapDeskFunction);
+    if (typeof MutationObserver !== 'function') return;
+    var observer = new MutationObserver(scheduleRender);
+    var watch = [
+      ['#cg', { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] }],
+      ['#donow-card', { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['class', 'style'] }],
+      ['#menu-identity', { childList: true, subtree: true, characterData: true }],
+      ['#menu-message-teacher-badge', { childList: true, attributes: true, attributeFilter: ['hidden'] }],
+      ['#menu-teacher-inbox-badge', { childList: true, attributes: true, attributeFilter: ['hidden'] }],
+      ['#cd-days', { childList: true, subtree: true, characterData: true }],
+      ['.app-icon[data-app="review"]', { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['class'] }],
+    ];
+    watch.forEach(function (pair) {
+      var node = document.querySelector(pair[0]);
+      if (node) observer.observe(node, pair[1]);
+    });
+  }
+
+  // ── The floor: the real board as the page's bottom edge ───────────────────
+  // The board (classroom-board.js) has two scenes. Signed in, a student's board mounts the
+  // calculator room straight away (apstat-park/calculator-room.mjs: world 720 x 750, floor at
+  // 700, drawn at scale min(1, width / 720), transparent, its own orange floor block 50 high).
+  // Otherwise — loading, a whole-class poll / gate / activity — it is the 220-high presence strip
+  // (groundY = height - 50; cats, the three park doors with occupancy, poll board). The board
+  // marks its own state on the mount: data-calculator-active (room mounted),
+  // data-calculator-participating (the team calculator round is running) and data-park-active
+  // (a campaign / park level is open); its poll vote buttons and result screen are DOM children.
+  // Nothing here re-derives a rule: it only reads those signals and sizes the window onto it.
+  var BOARD_FLOOR_H = 50;             // the board's floor block under the ground line (both scenes)
+  var ROOM_WORLD_W = 720;             // calculator-room WORLD.width (scale = min(1, width / 720))
+  var ROOM_WORLD_FLOOR = 700;         // calculator-mission WORLD.floor: the block's top, in world px
+  // The loading veil lifts on its own after this long, so a board that never mounts the room
+  // (e.g. a teacher who cannot play the park) still shows its presence strip.
+  var VEIL_MAX_MS = 6000;
+  // Tallest idle thing standing on the room's floor: the "PICO PARK" door label, drawn at
+  // WORLD.floor - 70 (calculator-room.mjs drawScenery), plus a little air. The room's teaching
+  // text above it (WORLD.floor - 96 and higher) is cropped while idle.
+  var ROOM_IDLE_HEADROOM = 88;
+  // Strip: the 32-px park doors with the occupancy line 10 px above them, and the cats.
+  var STRIP_IDLE_HEADROOM = 72;
+
+  function boardCanvas() {
+    var mount = byId('classroom-board-mount');
+    return mount ? mount.querySelector(':scope > canvas') : null;
+  }
+
+  function shownDomChild(mount, selector) {
+    var node = mount.querySelector(selector);
+    return Boolean(node && node.style.display !== 'none');
+  }
+
+  // A game (or a whole-class moment the board shows above its floor) is running.
+  // The board's whole-class state, as it reports it to the Desk (onStateChange → the Desk's
+  // _lastClassroomSummary). These are the fields of the board's own classroomBusy(): a poll from
+  // open to close (voting does not end it), an armed gate, a green light, doorways, and an
+  // activity until it is finished. The strip draws those scenes above its floor.
+  function wholeClassBusy() {
+    var summary = null;
+    try { summary = _lastClassroomSummary; } catch (_) { summary = window._lastClassroomSummary || null; }
+    if (!summary) return false;
+    return Boolean(summary.poll || (summary.gate && summary.gate.armed) || summary.greenlight || summary.doorways
+      || (summary.activity && !summary.activity.finished));
+  }
+
+  function resultScreenDown(mount) {
+    var result = mount.querySelector('[data-classroom-result-screen]');
+    return Boolean(result && result.style.transform && result.style.transform !== 'translateY(-100%)');
+  }
+
+  // A game, a whole-class moment, or a result is showing above the board's floor.
+  // The board's current park scene and the calculator room's own view of the local player.
+  function parkScene() {
+    try {
+      var handle = window._classroomBoardHandle;
+      return handle && typeof handle.getParkScene === 'function' ? handle.getParkScene() : null;
+    } catch (_) { return null; }
+  }
+
+  // The player stands in the calculator zone (calculator-room.mjs getView: playerX >= entranceX).
+  // While students gather there is no round yet, but the keypad and "PUSH THE BLOCK HERE TO
+  // START" are above the idle band, so the floor shows the whole room (it never scrolls for this).
+  function inCalculatorZone() {
+    var scene = parkScene();
+    if (!scene || scene.kind !== 'calculator' || typeof scene.getView !== 'function') return false;
+    var roomView = scene.getView();
+    return Boolean(roomView && typeof roomView.playerX === 'number' && roomView.playerX >= roomView.entranceX);
+  }
+
+  function boardPlaying(mount) {
+    if (mount.hasAttribute('data-calculator-participating') || mount.hasAttribute('data-park-active')) return true;
+    if (inCalculatorZone()) return true;
+    if (resultScreenDown(mount)) return true;
+    if (wholeClassBusy()) return true;
+    return shownDomChild(mount, '[data-classroom-poll-votes]');
+  }
+
+  // The expanded floor is the board's whole canvas. The pulled-down result screen lives inside the
+  // board's container (which clips it), so its chart is capped to leave room for the question, the
+  // stepper and the close button under it (RESULT_CONTROLS_H) — see the result-canvas CSS rule.
+  var RESULT_CONTROLS_H = 100;
+  function expandedHeight(mount, canvas) {
+    return canvasHeight(canvas);
+  }
+
+  // Scroll ownership is decided by the CAUSE of an expansion, not by timing. The page scrolls the
+  // room in only when the expansion is the student's own game — the board's
+  // data-calculator-participating (their calculator round) or data-park-active (their park /
+  // campaign door) — after the student acted on the floor (a click on the board, or a key while
+  // nothing else has focus), and only if no whole-class cause (poll, gate, green light,
+  // doorways, activity, result screen, vote buttons) is part of it. Broadcasts never scroll,
+  // whatever the student did just before.
+  var floorArmed = false;     // the student acted on the floor since the last expansion
+  var scrollMemo = null;      // { before }: where the page was when we scrolled the room in
+  var userScrolled = false;   // the student scrolled while the room was in (our own writes excluded)
+  var ignoreScrollUntil = 0;
+
+  function noteFloorInput(event) {
+    var target = event.target;
+    if (event.type === 'pointerdown' || event.type === 'mousedown') {
+      if (target && target.closest && target.closest('#pico-floor')) floorArmed = true;
+      return;
+    }
+    if (isEditable(target)) return;
+    var onFloor = Boolean(target && target.closest && target.closest('#pico-floor'));
+    var onPage = target === document.body || target === document.documentElement;
+    if (onFloor || onPage) floorArmed = true;
+  }
+
+  // The student's own game: their park / campaign door, or their calculator round. Participation
+  // counts only with real round state from the relay (the room's getState()); walking to the keypad
+  // is not a round (teacher report 2026-10-06). Teacher decision 2026-10-06: the teacher plays as a
+  // full peer, so a teacher on the roster gets the same scroll-in as a student (no teacher branch).
+  function studentGameSignal(mount) {
+    if (mount.hasAttribute('data-park-active')) return true;
+    if (!mount.hasAttribute('data-calculator-participating')) return false;
+    var scene = parkScene();
+    return Boolean(scene && typeof scene.getState === 'function' && scene.getState());
+  }
+
+  function broadcastSignal(mount) {
+    return wholeClassBusy() || resultScreenDown(mount) || shownDomChild(mount, '[data-classroom-poll-votes]');
+  }
+
+  // Our own scroll writes and floor resizes must not count as the student scrolling.
+  function quietScroll() {
+    ignoreScrollUntil = monotonicNow() + 150;
+  }
+
+  function setRootScroll(root, value) {
+    quietScroll();
+    root.scrollTop = value;
+  }
+
+  function onRootScroll() {
+    if (monotonicNow() < ignoreScrollUntil) return;
+    scrollClaim = false;   // the student scrolled: a pending claim may no longer move the page
+    if (scrollMemo) userScrolled = true;
+  }
+
+  // Anything else the student opens (nav, tile, menu, My Grade …) ends a pending claim too.
+  function cancelScrollClaim() {
+    scrollClaim = false;
+  }
+
+  // Expanding: scroll the room in only for the student's own game.
+  // The round's state arrives a moment after the room expands (join → first calculator_state), so a
+  // student-started expansion keeps its claim open until the cause is known (claimScroll).
+  var scrollClaim = false;
+
+  function onExpand(mount) {
+    scrollClaim = floorArmed;
+    floorArmed = false;
+    scrollMemo = null;
+    userScrolled = false;
+    claimScroll(mount);
+  }
+
+  // Scroll the room in once the expansion turns out to be the student's own game (no broadcast).
+  function claimScroll(mount) {
+    var root = byId('pico-home');
+    if (!root || !scrollClaim || scrollMemo) return;
+    // A whole-class cause took over the expansion: the claim is void, not just postponed.
+    if (broadcastSignal(mount)) { scrollClaim = false; return; }
+    if (!studentGameSignal(mount)) return;
+    scrollClaim = false;
+    var before = root.scrollTop;
+    setRootScroll(root, root.scrollHeight);
+    scrollMemo = { before: before };
+  }
+
+  // Collapsing: decided BEFORE the floor shrinks (the browser clamps the scroll position as the
+  // page gets shorter). Returns the position to restore, or null to leave the page alone.
+  function takeScrollRestore() {
+    scrollClaim = false;
+    var memo = scrollMemo;
+    scrollMemo = null;
+    var scrolled = userScrolled;
+    userScrolled = false;
+    if (!memo || scrolled) return null;
+    return memo.before;
+  }
+
+  function canvasHeight(canvas) {
+    return parseFloat(canvas.style.height) || canvas.offsetHeight || 0;
+  }
+
+  // The board is showing something worth seeing: the room, a park level, or a whole-class scene.
+  function boardSceneUp(mount) {
+    if (mount.hasAttribute('data-calculator-active') || mount.hasAttribute('data-park-active')) return true;
+    return boardPlaying(mount);
+  }
+
+  // Loading veil: from the moment the board has nothing but its presence strip to show (first
+  // load, or the gap while the room remounts after a whole-class scene) until the scene is up or
+  // VEIL_MAX_MS has passed.
+  var veilSince = null;
+  function floorVeiled(mount) {
+    if (boardSceneUp(mount)) { veilSince = null; return false; }
+    if (veilSince === null) veilSince = monotonicNow();
+    return monotonicNow() - veilSince < VEIL_MAX_MS;
+  }
+
+  // The orange floor block's height at the bottom of the canvas: the room's (scaled; its top edge
+  // is WORLD.floor) or the strip's (BOARD_FLOOR_H at groundY = height - 50).
+  function floorBlockHeight(mount, canvas, roomScene) {
+    if (!roomScene) return BOARD_FLOOR_H;
+    var scale = Math.min(1, (mount.clientWidth || ROOM_WORLD_W) / ROOM_WORLD_W);
+    var block = canvasHeight(canvas) - ROOM_WORLD_FLOOR * scale;
+    return block > 0 ? block : BOARD_FLOOR_H * scale;
+  }
+
+  // The idle band: floor block + the tallest idle thing, at the scene's own scale.
+  function idleBandHeight(mount, veiled) {
+    if (!veiled && !mount.hasAttribute('data-calculator-active')) return STRIP_IDLE_HEADROOM + BOARD_FLOOR_H;
+    var width = mount.clientWidth || ROOM_WORLD_W;
+    var scale = Math.min(1, width / ROOM_WORLD_W);
+    return Math.round((ROOM_IDLE_HEADROOM + BOARD_FLOOR_H) * scale);
+  }
+
+  function layoutFloor() {
+    var floor = byId('pico-floor');
+    var mount = byId('classroom-board-mount');
+    if (!floor || !mount) return;
+    var canvas = boardCanvas();
+    var hadBoard = floor.classList.contains('has-board');
+    floor.classList.toggle('has-board', Boolean(canvas));
+    // The board measures its container on mount and on window resize (its own hook): once it has
+    // appeared in the full-width floor, let it measure again.
+    if (canvas && !hadBoard) setTimeout(function () { window.dispatchEvent(new Event('resize')); }, 0);
+    if (!canvas) {
+      floor.style.height = '';
+      floor.classList.remove('is-veiled');
+      view.boardPlaying = false;
+      return;
+    }
+    var veiled = floorVeiled(mount);
+    view.floorVeiled = veiled;
+    floor.classList.toggle('is-veiled', veiled);
+    var roomScene = veiled || mount.hasAttribute('data-calculator-active');
+    floor.style.setProperty('--pico-floor-block', floorBlockHeight(mount, canvas, roomScene) + 'px');
+    var playing = boardPlaying(mount);
+    var changing = playing !== Boolean(view.boardPlaying);
+    // Ownership of a collapse is read before the floor shrinks.
+    var restoreTo = (changing && !playing) ? takeScrollRestore() : null;
+    var height = playing ? expandedHeight(mount, canvas) : Math.min(canvasHeight(canvas), idleBandHeight(mount, veiled));
+    if (floor.style.height !== height + 'px') {
+      quietScroll();
+      floor.style.height = height + 'px';
+    }
+    floor.style.setProperty('--pico-result-chart-max', Math.max(60, canvasHeight(canvas) - RESULT_CONTROLS_H) + 'px');
+    floor.classList.toggle('is-room', playing);
+    // Teacher 2026-10-07: a park/campaign level draws its own ground with pits; the page-wide
+    // orange band under the transparent canvas was showing through every gap as solid ground.
+    floor.classList.toggle('is-level', mount.hasAttribute('data-park-active'));
+    floor.setAttribute('data-floor-mode', playing ? 'room' : 'band');
+    if (!changing) return;
+    view.boardPlaying = playing;
+    if (playing) { onExpand(mount); return; }
+    var root = byId('pico-home');
+    if (root && restoreTo !== null) setRootScroll(root, restoreTo);
+  }
+
+  var floorTimer = null;
+  var floorWatchTimer = null;
+  function stopFloorWatch() {
+    if (floorWatchTimer) clearInterval(floorWatchTimer);
+    floorWatchTimer = null;
+  }
+  function scheduleFloor() {
+    if (floorTimer) return;
+    floorTimer = setTimeout(function () { floorTimer = null; layoutFloor(); }, 16);
+  }
+
+  function watchFloor() {
+    var mount = byId('classroom-board-mount');
+    if (!mount || typeof MutationObserver !== 'function') return;
+    new MutationObserver(scheduleFloor).observe(mount, {
+      childList: true, attributes: true, subtree: true,
+      attributeFilter: ['style', 'data-calculator-active', 'data-calculator-participating', 'data-park-active'],
+    });
+    window.addEventListener('resize', scheduleFloor);
+    window.addEventListener('pointerdown', noteFloorInput, true);
+    window.addEventListener('mousedown', noteFloorInput, true);
+    window.addEventListener('keydown', noteFloorInput, true);
+    // The board reports whole-class changes only to the Desk's summary (no DOM marker for an
+    // activity or a vote), so the floor checks it on a light timer and on every board mutation.
+    var root = byId('pico-home');
+    if (root) root.addEventListener('scroll', onRootScroll, { passive: true });
+    floorWatchTimer = setInterval(function () {
+      if (document.visibilityState === 'hidden') return;   // paused while the tab is hidden
+      var board = byId('classroom-board-mount');
+      if (!board || !boardCanvas()) return;
+      if (boardPlaying(board) !== Boolean(view.boardPlaying) || floorVeiled(board) !== Boolean(view.floorVeiled)) layoutFloor();
+      else if (view.boardPlaying) claimScroll(board);   // a round's state may arrive after the expansion
+    }, 300);
+    layoutFloor();
+  }
+
+  function init() {
+    if (byId('pico-home')) return;
+    injectStyle();
+    setupStudyBreakKeys();   // first window capture listener: Study Break keys never reach the floor
+    buildRoot();
+    wire();
+    setupLessonPanel();
+    setupMyGrade();
+    setupFrames();
+    setupFlashcards();
+    setupDogeMenu();
+    watchFloor();
+    watchOutlines();
+    render();
+  }
+
+  // For tests/pico-home.test.js.
+  window.PicoHome = {
+    atlas: ATLAS,
+    atlasSize: ATLAS_SIZE,
+    render: render,
+    closeMenu: closeMenu,
+    rowStatus: rowStatus,
+    framed: FRAMED,
+    outlineStats: outlineStats,
+    whiteOutTiming: { fade: WHITEOUT_FADE_MS, hold: WHITEOUT_HOLD_MS, dwell: HOVER_DWELL_MS },
+    challengeLayerZ: CHALLENGE_LAYER_Z,
+    frameExempt: FRAME_EXEMPT,
+    hasPollReturn: function () { return pollReturn !== null; },
+    layoutFloor: layoutFloor,
+    stopFloorWatch: function () { stopFloorWatch(); },
+    floorConstants: { BOARD_FLOOR_H: BOARD_FLOOR_H, ROOM_WORLD_W: ROOM_WORLD_W, ROOM_WORLD_FLOOR: ROOM_WORLD_FLOOR, VEIL_MAX_MS: VEIL_MAX_MS, ROOM_IDLE_HEADROOM: ROOM_IDLE_HEADROOM, STRIP_IDLE_HEADROOM: STRIP_IDLE_HEADROOM },
+    days: function () { return view.days; },
+    syncDeck: syncDeck,
+    studyBreakOwnsKey: studyBreakOwnsKey,
+  };
+
+  // The Desk's own functions are defined by later scripts on the page, so start once the
+  // document has been parsed.
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();

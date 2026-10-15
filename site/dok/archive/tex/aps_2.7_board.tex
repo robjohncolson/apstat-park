@@ -1,0 +1,56 @@
+\documentclass[14pt]{extarticle}
+\usepackage{preamble}
+\geometry{letterpaper, landscape, margin=0.5in}
+\renewcommand{\answer}[1]{}
+\setlength{\parskip}{4pt}
+
+\begin{document}
+\pagestyle{empty}
+
+\daybanner{Unit 5 \textperiodcentered\ Topic 5.4 \textperiodcentered\ THE PROBLEM}{One Line, Two Model Diagnostics}
+
+\noindent\begin{minipage}[t]{0.57\linewidth}
+\vspace{0pt}
+Suppose a road-safety lab records braking distance $y$ at speeds $x$ from 10 through 50 mph on one vehicle and dry surface. The line is $\hat y=-10+2.5x$, the correlation is $r=0.997$, and the residual plot is shown. A residual is actual distance minus the line's prediction. At 50 mph, the actual distance is 119 feet.\par\smallskip \textbf{Ezra:} The large correlation and residuals on both sides of 0 justify using the line across the tested speeds.\par \textbf{June:} I would use where the residuals occur and the 50-mph error to judge safety, then check any replacement model separately.\par
+\end{minipage}\hfill
+\begin{minipage}[t]{0.40\linewidth}
+\vspace{0pt}
+\begin{center}
+\begin{tikzpicture}
+\begin{axis}[
+  width=0.65\linewidth,
+  height=1.75in,
+  xmin=5, xmax=55, ymin=-5, ymax=5,
+  xlabel={Speed (mph)}, ylabel={Residual (ft)}, grid=major,
+  tick label style={font=\small}, label style={font=\small}
+]
+\addplot[only marks, mark=*, mark size=1.7pt, color=dayblue] coordinates {
+  (10,4)
+  (15,1)
+  (20,-1)
+  (25,-2)
+  (30,-4)
+  (35,-2)
+  (40,-1)
+  (45,1)
+  (50,4)
+};
+\end{axis}
+\end{tikzpicture}
+\end{center}
+\end{minipage}
+
+\begin{firsttakebox}{FIRST TAKE --- one sentence before you work the parts}
+Would you trust this line to plan a safe stopping distance? Give one number or visible pattern in one sentence.
+\end{firsttakebox}
+
+\begin{description}[leftmargin=1.15in, labelwidth=1in, itemsep=2pt, topsep=2pt]
+  \item[\dokbadge{1}~(a)] Read the residual at 50 mph. Does the line predict too high or too low there?
+  \item[\dokbadge{2}~(b)] Verify the 50-mph residual using the equation. Describe where the residual plot is above and below zero.
+  \item[\dokbadge{3}~(c)] Whose judgment is supported? Explain why the residual pattern matters even with the large correlation, and connect the 50-mph error to safety. State what you would check in a replacement model for this vehicle and dry surface. Write 3--4 sentences.
+\end{description}
+
+\vfill
+\textbf{Self-paced bonus problem. Work (a)--(c) from this sheet; turn it in whenever you finish.}
+
+\end{document}

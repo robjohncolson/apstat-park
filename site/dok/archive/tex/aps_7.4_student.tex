@@ -1,0 +1,75 @@
+\documentclass[11pt]{article}
+\usepackage{preamble}
+\renewcommand{\answer}[1]{}
+
+\begin{document}
+
+\ladderheading{AP Statistics \textperiodcentered\ Unit 4 \textperiodcentered\ Topic 4.4}{Two Measurements per Technician}
+
+\focusbanner{THE PROBLEM}
+
+Suppose a company takes an SRS of 18 of its 300 technicians. Each completes the same task with old and new interfaces; interface order is randomly assigned. The plot shows $d=\text{new time}-\text{old time}$. Researchers ask whether the new interface reduces the population mean time.\par\smallskip \textbf{Nia:} ``The technician seems to be the independent unit, so I would build one difference per person; the subtraction order matters for the tail.''\par \textbf{Colin:} ``There are 36 recorded times, so I would use two independent samples of 18 and a two-sided alternative.''\par
+\begin{center}
+\begin{tikzpicture}
+\begin{axis}[
+  width=0.77\linewidth,
+  height=1.44in,
+  ymin=0, ymax=2, ytick=\empty, axis y line=none, axis x line=bottom,
+  xlabel={New-interface time minus old-interface time (seconds)}, tick label style={font=\small}, label style={font=\small}
+]
+\addplot[only marks, mark=*, mark size=2.2pt, color=dayblue] coordinates {
+  (-4.2,1)
+  (-3.6,1)
+  (-3.2,1)
+  (-2.9,1)
+  (-2.6,1)
+  (-2.4,1)
+  (-2.2,1)
+  (-2.0,1)
+  (-1.9,1)
+  (-1.7,1)
+  (-1.6,1)
+  (-1.4,1)
+  (-1.2,1)
+  (-1.0,1)
+  (-0.7,1)
+  (-0.4,1)
+  (0.0,1)
+  (0.6,1)
+};
+\end{axis}
+\end{tikzpicture}
+\end{center}
+\begin{firsttakebox}{FIRST TAKE --- one sentence before you work the parts}
+Would you compare each technician's two times or treat them as separate people? Explain in one sentence.
+\workspace{0.9in}
+\end{firsttakebox}
+
+\begin{callout}{\IconBook\ SET UP A TEST FOR A MEAN (keep on the page)}{calloutgreen}
+For a population mean with unknown population standard deviation, use a one-sample $t$-test.
+Matched pairs are two linked measurements: subtract in the same order and analyze one sample of differences.
+Write hypotheses about the population mean, not the sample mean. The null uses equality; the alternative
+uses $<$, $>$, or $\neq$, as determined by the research question and subtraction order.
+Check random sampling or assignment, $n\leq0.10N$ when sampling without replacement, and shape.
+For $n<30$, the values being analyzed should have no strong skewness or outliers.
+\end{callout}
+
+\newpage
+\textbf{Work (a)--(c).}\par\smallskip
+
+\dokbadge{1}~\textbf{(a)} Define $\mu_d$ in context.\par
+\workspace{0.8in}
+
+\dokbadge{2}~\textbf{(b)} Check the random-sample, 10 percent, and small-sample shape conditions in three short notes.\par
+\workspace{1.4in}
+
+\dokbadge{3}~\textbf{(c)} In 3--4 sentences, choose a setup and justify it. State the hypotheses using the given subtraction order and reduction question, then explain why the 36 times are not 36 independent people.\par
+\workspace{2.0in}
+
+\begin{sentenceframebox}\raggedright\textbf{Frame:} The independent units are \blank[1.4in]; preserving each pair changes the analysis by \blank[2.6in].\end{sentenceframebox}
+
+\begin{sentenceframebox}\raggedright\textbf{Frame:} With the stated subtraction order, the claim corresponds to \blank[1.2in]; the rejected setup instead answers \blank[2.5in].\end{sentenceframebox}
+
+\textbf{Turn this sheet in whenever you finish --- bonus credit. Part (c) is scored E / P / I.}\par
+
+\end{document}

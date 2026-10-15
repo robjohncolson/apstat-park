@@ -1,0 +1,42 @@
+\documentclass[14pt]{extarticle}
+\usepackage{preamble}
+\geometry{letterpaper, landscape, margin=0.5in}
+\renewcommand{\answer}[1]{}
+\setlength{\parskip}{4pt}
+
+\begin{document}
+\pagestyle{empty}
+
+\daybanner{Unit 5 \textperiodcentered\ Topic 5.5 \textperiodcentered\ THE PROBLEM}{Which Regression Line Fits?}
+
+\noindent\begin{minipage}[t]{0.57\linewidth}
+\vspace{0pt}
+Suppose a solar-farm analyst uses sunshine hours $x$ to predict daily generation $y$ in megawatt-hours (MWh). The table summarizes 12 observed days.\par\smallskip \textbf{Quinn:} ``Using $b=r(s_y/s_x)$ gives $\hat y=5.6+3.2x$. It passes through $(7,28)$, so it must be the LSRL. It explains 80 percent of the variation.''\par \textbf{Rowan:} ``Using $b=r(s_x/s_y)$ gives $\hat y=26.6+0.2x$. It also passes through $(7,28)$, so it is equally good. Explained variation is 64 percent.''\par
+\end{minipage}\hfill
+\begin{minipage}[t]{0.40\linewidth}
+\vspace{0pt}
+\begin{center}
+\textbf{Solar-farm summary (12 observed days)}\par\smallskip
+\resizebox{0.98\linewidth}{!}{%
+\begin{tabular}{|c|c|c|c|c|c|}
+\hline
+$x$ range & $\bar x$ & $\bar y$ & $s_x$ & $s_y$ & $r$ \\ \hline
+4--10 h & 7 h & 28 MWh & 1.5 h & 6 MWh & 0.80 \\ \hline
+\end{tabular}}
+\end{center}
+\end{minipage}
+
+\begin{firsttakebox}{FIRST TAKE --- one sentence before you work the parts}
+The two lines agree at 7 sunshine hours. Does that make them equally useful at other times? Give your first thought in one sentence.
+\end{firsttakebox}
+
+\begin{description}[leftmargin=1.15in, labelwidth=1in, itemsep=2pt, topsep=2pt]
+  \item[\dokbadge{1}~(a)] State the mean point that every least-squares regression line must contain.
+  \item[\dokbadge{2}~(b)] Calculate the regression slope and intercept, and $r^2$. Give the slope's units.
+  \item[\dokbadge{3}~(c)] Which parts of Quinn's and Rowan's claims should a report keep? Use the slope formula to choose a line, explain why their shared mean point does not make both lines correct, and interpret the correct percent of variation explained. Write 3--4 sentences.
+\end{description}
+
+\vfill
+\textbf{Self-paced bonus problem. Work (a)--(c) from this sheet; turn it in whenever you finish.}
+
+\end{document}

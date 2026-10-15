@@ -1,0 +1,44 @@
+\documentclass[14pt]{extarticle}
+\usepackage{preamble}
+\geometry{letterpaper, landscape, margin=0.5in}
+\renewcommand{\answer}[1]{}
+\setlength{\parskip}{4pt}
+
+\begin{document}
+\pagestyle{empty}
+
+\daybanner{Unit 3 \textperiodcentered\ Topic 3.15 \textperiodcentered\ THE PROBLEM}{Interpreting a Chi-Square Result}
+
+\noindent\begin{minipage}[t]{0.57\linewidth}
+\vspace{0pt}
+Suppose a city library takes an SRS of 240 of its 6,000 active adult cardholders. It records each person's chosen notification method and whether the person returned an item late in the previous six months.\par\smallskip \textbf{Nia:} ``Email/Late has the largest raw gap, 13.75; I think that cell drives the statistic and the result shows email prevents late returns.''\par \textbf{Omar:} ``Expected counts differ, so raw gaps may not settle cell influence. I would calculate contributions and examine how notification methods were obtained before interpreting.''\par
+\end{minipage}\hfill
+\begin{minipage}[t]{0.40\linewidth}
+\vspace{0pt}
+\begin{center}
+\textbf{Late returns}\par\smallskip
+\begin{tabular}{|l|c|c|c|}
+\hline
+\textbf{Method} & \textbf{Late} & \textbf{Not late} & \textbf{Total} \\ \hline
+\textbf{Email} & 15 & 85 & 100 \\ \hline
+\textbf{Text} & 24 & 56 & 80 \\ \hline
+\textbf{None} & 30 & 30 & 60 \\ \hline
+\textbf{Total} & 69 & 171 & 240 \\ \hline
+\end{tabular}
+\end{center}
+\end{minipage}
+
+\begin{firsttakebox}{FIRST TAKE --- one sentence before you work the parts}
+Can this study show that choosing email causes fewer late returns? Give one reason from how the study was done.
+\end{firsttakebox}
+
+\begin{description}[leftmargin=1.15in, labelwidth=1in, itemsep=2pt, topsep=2pt]
+  \item[\dokbadge{1}~(a)] State the degrees of freedom, excluding the totals row and column.
+  \item[\dokbadge{2}~(b)] Expected counts are 28.75 for Email/Late and 17.25 for None/Late. Calculate these two contributions using $(O-E)^2/E$.
+  \item[\dokbadge{3}~(c)] Technology gives $\chi^2=22.5172$ and $p=0.0000129$. In 3--4 sentences, judge the accounts: compare the two contributions, use $\alpha=0.05$ for a population conclusion, and explain why the study does not show prevention.
+\end{description}
+
+\vfill
+\textbf{Self-paced bonus problem. Work (a)--(c) from this sheet; turn it in whenever you finish.}
+
+\end{document}

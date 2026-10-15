@@ -1,0 +1,39 @@
+# Topic 7.6 — Confidence Intervals for the Difference of Two Means (B: 2027-01-25)
+topic: "7.6"
+ced2026: { unit: 4, topic: "4.7", label: "CI (difference of two means)" }
+title: "Two Samples of Service Times"
+essential_question: "How does the sampling design determine whether a paired or independent-means confidence interval is trustworthy?"
+worksheet: "u7_lesson6_live.html"
+
+rules_callout:
+  title: "LET THE DESIGN CHOOSE THE INTERVAL (keep on the page)"
+  body: |
+    For two independent random samples, use a two-sample $t$ interval:
+    $(\bar x_1-\bar x_2)\pm t^*\sqrt{s_1^2/n_1+s_2^2/n_2}$. Paired measurements have a link
+    in the study design, such as two measurements from the same person; they use one sample of differences.
+    Check independent random samples or assignment, each 10 percent condition for sampling without replacement,
+    and both sample shapes or both sample sizes over 30. Interpret in the stated subtraction order.
+    An interval containing 0 leaves equal population means plausible; an interval entirely on one side supports a difference.
+
+focus: aps-7.6-d3-1
+reinforcement: []
+space: { first_take: 0.9in, a: 0.8in, b: 1.4in, c: 2.0in }
+
+teacher:
+  questions_to_ask:
+  - Which specific number or study detail supports your choice?
+  - What claim would go beyond the evidence, and why?
+  watch_for:
+  - Choosing a speaker without a reason.
+  - Copying numbers without explaining what they support.
+  first_take_note: Ungraded commitment; accept any evidence-based first impression.
+visuals:
+  depot_time_summaries:
+    kind: two_way_table
+    col_label: "Service-time samples (min)"
+    row_label: "Depot"
+    cols: ["$N$", "$n$", '$\bar x$', "$s$"]
+    rows: ["North", "South"]
+    cells:
+      - ["900", "36", "42.3", "8.4"]
+      - ["1,200", "36", "40.1", "7.6"]

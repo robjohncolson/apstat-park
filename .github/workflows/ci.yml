@@ -1,0 +1,87 @@
+name: CI
+
+# TYPECHECK_HARDENING_SPEC.md — run the tests (blocking) + the typecheck (BLOCKING
+# as of P4: both allowlists are clean and annotated). Separate from pages.yml so a
+# test/type failure never blocks a deploy, and vice-versa — tsc --noEmit is never
+# on the Railway/Pages path.
+#
+# Monorepo layout (see docs/LINEAGE.md): site/ (was follow-alongs root), site/quiz/
+# (was curriculum_render root), services/roster/ (was roster-server/), services/relay/
+# (was curriculum_render/railway-server/). One checkout carries all four; the old
+# second checkout of curriculum_render is gone.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: tests (site + quiz + roster + relay)
+    runs-on: ubuntu-latest
+    steps:
+      # Full history: frq-rubric-transparency reads an older worksheet with `git show <sha>:...`.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install site deps
+        working-directory: site
+        run: npm ci
+      # Before the site tests: site/tests/doge-payout-agent imports services/roster/payout.js,
+      # which needs the roster's own @supabase/supabase-js.
+      - name: Install roster deps
+        working-directory: services/roster
+        run: npm ci
+      # The relay has no lockfile in its parent repo; install without writing one.
+      - name: Install relay deps
+        working-directory: services/relay
+        run: npm install --no-package-lock --no-audit --no-fund
+      - name: Install quiz deps
+        working-directory: site/quiz
+        run: npm ci
+      # --retry=2 absorbs the known signup-claim brute-force-lockout timeout, which is a
+      # parallel-load timing flake (passes in isolation), not a logic failure.
+      # misconception-maps reads site/quiz/data/curriculum.js by default (CURRICULUM_JS
+      # is no longer needed).
+      - name: Site tests
+        working-directory: site
+        run: npm test -- --retry=2
+      - name: Site park tests
+        working-directory: site
+        run: npm run test:park
+      - name: Quiz tests
+        working-directory: site/quiz
+        run: npm test
+      - name: Roster tests
+        working-directory: services/roster
+        run: npm test -- --retry=2
+      - name: Relay park tests
+        working-directory: services/relay
+        run: npm run test:park
+
+  typecheck:
+    name: typecheck — grade engine + mesh/receipts + feeder (blocking)
+    runs-on: ubuntu-latest
+    # BLOCKING as of P4 (was advisory in P1-P3): a type error on the allowlist now
+    # fails CI. It still never blocks a deploy — pages.yml is a separate workflow.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install roster deps
+        working-directory: services/roster
+        run: npm ci
+      - name: tsc --noEmit (P1 allowlist)
+        working-directory: services/roster
+        run: npm run typecheck
+      - name: Install site deps
+        working-directory: site
+        run: npm ci
+      - name: tsc --noEmit (P2 mesh/receipts allowlist)
+        working-directory: site
+        run: npm run typecheck

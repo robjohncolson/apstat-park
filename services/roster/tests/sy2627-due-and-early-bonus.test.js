@@ -1,0 +1,416 @@
+// sy2627-due-and-early-bonus.test.js — teacher decisions of 2026-09-03:
+//   1. "Schoology today" = category-weighted total over DUE + COMPLETED cells only.
+//   2. Early-completion bonus: +1 point per scheduled-due lesson whose worksheet
+//      work was all in by 11:59 PM school time on its due day, capped per quarter.
+//   3. A lesson is due once its lesson DAY HAS ENDED (config.dueAfterLessonDay).
+// Every rule is config-gated so the frozen SY2526 config keeps its old behavior.
+import { describe, it, expect } from 'vitest';
+import {
+  computeQuarterV3,
+  isDateDue,
+  endOfDayEpochInTz,
+  lessonCompletedAt,
+  worksheetCoverageReachedAt, addDays, lessonZeroDate, isLessonDue } from '../lesson-grade.js';
+import { buildGradebookRow, buildGradebook } from '../gradebook-grid.js';
+import { PHASE3_CONFIG } from '../grade-config.js';
+
+const CFG = {
+  C: 85,
+  lessonFeederWeights: { ws: 1, W: 2, Q: 3 },
+  v3LessonsExcludeQuiz: true,
+  useV3: true,
+  v3LessonsByDate: true,
+  v3AheadOfScheduleLessons: 'not-until-due', // production setting
+  dueAfterLessonDay: true,
+  v3EarlyBonus: { perLesson: 1, cap: 5, minComplete: 0.8 },
+  schoolTz: 'America/New_York',
+  pcTrack: { enabled: false },
+  quarters: {
+    Q1: { units: [1], start: '2026-09-02', end: '2026-11-06', pcAnchor: { p85: 40, p100: 60 } },
+    Q2: { units: [2], start: '2026-11-09', end: '2027-01-22', pcAnchor: { p85: 45, p100: 64 } },
+  },
+};
+
+function lessonMapOf(obj) {
+  return new Map(Object.entries(obj));
+}
+// A 5-blank worksheet with every blank stamped at `ts` (fully done at ts).
+function lesson(value, ts, opts = {}) {
+  const blanks = opts.blankCount !== undefined ? opts.blankCount : 5;
+  const stamps = Array.isArray(opts.stamps) ? opts.stamps : (ts ? Array(blanks).fill(ts) : []);
+  return {
+    Cws: value, W: null, Q: null, lessonGrade: value,
+    blankCount: blanks,
+    worksheetItems: stamps.map((t, i) => ({ itemId: 'b' + i, score: 1, ts: t })),
+    frqItems: [],
+  };
+}
+function q1(lessonMap, schedule, todayDateStr, config = CFG) {
+  return computeQuarterV3({
+    quarterKey: 'Q1', config, lessonMap, schedule, todayDateStr,
+    section: 'PeriodB', unitPcData: {},
+    quizLessons: [], blooketLessons: [], // isolate the Lessons track
+  });
+}
+
+describe('isDateDue — due after the lesson day ends (11:59 PM)', () => {
+  it('with dueAfterLessonDay the lesson date itself is NOT yet due; the next day is', () => {
+    expect(isDateDue('2026-09-08', '2026-09-08', CFG)).toBe(false);
+    expect(isDateDue('2026-09-08', '2026-09-09', CFG)).toBe(true);
+  });
+  it('without the flag (frozen SY2526) the lesson date is due from the start of the day', () => {
+    expect(isDateDue('2026-09-08', '2026-09-08', {})).toBe(true);
+    expect(isDateDue('2026-09-08', '2026-09-07', {})).toBe(false);
+  });
+  it('null / missing dates are never due', () => {
+    expect(isDateDue(null, '2026-09-09', CFG)).toBe(false);
+    expect(isDateDue('2026-09-08', null, CFG)).toBe(false);
+  });
+  it('the live config sets dueAfterLessonDay', () => {
+    expect(PHASE3_CONFIG.dueAfterLessonDay).toBe(true);
+  });
+});
+
+describe('lesson zero date — config.dueLagDays (teacher 2026-09-18: two weeks of grace, then one per class day)', () => {
+  const LAG = { ...CFG, dueLagDays: 13 };
+  it('addDays crosses month ends and DST', () => {
+    expect(addDays('2026-09-08', 13)).toBe('2026-09-21');
+    expect(addDays('2026-10-30', 13)).toBe('2026-11-12');
+    expect(addDays('2026-12-25', 13)).toBe('2027-01-07');
+    expect(addDays(null, 13)).toBeNull();
+  });
+  it('lessonZeroDate shifts by the lag; no lag (frozen SY2526) leaves the class date', () => {
+    expect(lessonZeroDate('2026-09-08', LAG)).toBe('2026-09-21');
+    expect(lessonZeroDate('2026-09-08', CFG)).toBe('2026-09-08');
+    expect(lessonZeroDate(null, LAG)).toBeNull();
+  });
+  it('1.1 taught Tue 9/8 is NOT due on Mon 9/21, and IS due from Tue 9/22', () => {
+    expect(isLessonDue('2026-09-08', '2026-09-21', LAG)).toBe(false);
+    expect(isLessonDue('2026-09-08', '2026-09-22', LAG)).toBe(true);
+    // the un-lagged helper is unchanged (bonus deadline + PC dates use it)
+    expect(isDateDue('2026-09-08', '2026-09-09', LAG)).toBe(true);
+  });
+  it('the live config lags lessons by 13 days', () => {
+    expect(PHASE3_CONFIG.dueLagDays).toBe(13);
+  });
+  it('computeQuarterV3: a missing worksheet is null through the zero date and 0 the day after', () => {
+    const schedule = { '1.1': { unit: 1, periods: { B: '2026-09-08', E: '2026-09-09' } } };
+    const empty = lessonMapOf({});
+    expect(q1(empty, schedule, '2026-09-21', LAG).quarterGrade).toBeNull();
+    const after = q1(empty, schedule, '2026-09-22', LAG);
+    expect(after.lessonsDue).toBe(1);
+    expect(after.quarterGrade).not.toBeNull();
+  });
+  it('the early bonus still keys off the CLASS day and is credited once the lesson is zero-due', () => {
+    const schedule = { '1.1': { unit: 1, periods: { B: '2026-09-08', E: '2026-09-09' } } };
+    const onTime = lessonMapOf({ '1.1': lesson(100, '2026-09-08T20:00:00-04:00') });
+    const late = lessonMapOf({ '1.1': lesson(100, '2026-09-10T20:00:00-04:00') });
+    expect(q1(onTime, schedule, '2026-09-22', LAG).earlyBonus).toBe(1);
+    expect(q1(late, schedule, '2026-09-22', LAG).earlyBonus).toBe(0);
+  });
+});
+
+describe('endOfDayEpochInTz — the 11:59 PM deadline instant', () => {
+  it('Sept 9 2026 23:59:59 in New York is 03:59:59Z on Sept 10 (EDT)', () => {
+    expect(new Date(endOfDayEpochInTz('2026-09-09', 'America/New_York')).toISOString())
+      .toBe('2026-09-10T03:59:59.000Z');
+  });
+  it('Jan 12 2027 23:59:59 in New York is 04:59:59Z on Jan 13 (EST)', () => {
+    expect(new Date(endOfDayEpochInTz('2027-01-12', 'America/New_York')).toISOString())
+      .toBe('2027-01-13T04:59:59.000Z');
+  });
+});
+
+describe('lessonCompletedAt — the LAST worksheet/FRQ submission stamp', () => {
+  it('returns the latest ts across worksheet + FRQ items', () => {
+    const r = {
+      worksheetItems: [{ ts: '2026-09-07T10:00:00Z' }, { ts: '2026-09-08T10:00:00Z' }],
+      frqItems: [{ ts: '2026-09-08T12:00:00Z' }],
+    };
+    expect(new Date(lessonCompletedAt(r)).toISOString()).toBe('2026-09-08T12:00:00.000Z');
+  });
+  it('null when nothing is stamped', () => {
+    expect(lessonCompletedAt({ worksheetItems: [], frqItems: [] })).toBe(null);
+    expect(lessonCompletedAt(null)).toBe(null);
+  });
+});
+
+describe('worksheetCoverageReachedAt — the instant 80% of the blanks were in', () => {
+  it('is the k-th earliest stamp, k = ceil(0.8 × blankCount)', () => {
+    const r = lesson(80, null, { stamps: ['2026-09-08T10:00:00Z', '2026-09-08T11:00:00Z', '2026-09-08T12:00:00Z', '2026-09-08T13:00:00Z', '2026-09-20T12:00:00Z'] });
+    expect(new Date(worksheetCoverageReachedAt(r, 0.8)).toISOString()).toBe('2026-09-08T13:00:00.000Z');
+  });
+  it('one answered blank of five is not coverage', () => {
+    expect(worksheetCoverageReachedAt(lesson(0, null, { stamps: ['2026-09-08T10:00:00Z'] }), 0.8)).toBe(null);
+  });
+  it('unknown blankCount → every stamped row must be in', () => {
+    const r = lesson(80, null, { blankCount: null, stamps: ['2026-09-08T10:00:00Z', '2026-09-09T10:00:00Z'] });
+    expect(new Date(worksheetCoverageReachedAt(r, 0.8)).toISOString()).toBe('2026-09-09T10:00:00.000Z');
+  });
+  it('accepts numeric stamps and ignores FRQ rows', () => {
+    const r = { blankCount: 1, worksheetItems: [{ ts: 1000 }], frqItems: [{ ts: '2099-01-01T00:00:00Z' }] };
+    expect(worksheetCoverageReachedAt(r, 0.8)).toBe(1000);
+  });
+});
+
+describe('computeQuarterV3 — due-after-day + early bonus', () => {
+  const schedule = {
+    '1.1': { unit: 1, periods: { B: '2026-09-08', E: '2026-09-09' } },
+    '1.2': { unit: 1, periods: { B: '2026-09-10', E: '2026-09-11' } },
+  };
+
+  it('on the lesson day a missing worksheet is NOT a zero yet (nothing due → grade null)', () => {
+    const r = q1(new Map(), schedule, '2026-09-08');
+    expect(r.lessonsDue).toBe(0);
+    expect(r.quarterGrade).toBe(null);
+  });
+
+  it('the day after, the missing worksheet counts as 0', () => {
+    const r = q1(new Map(), schedule, '2026-09-09');
+    expect(r.lessonsDue).toBe(1);
+    expect(r.quarterGrade).toBe(0);
+  });
+
+  it('finished by 11:59 PM on the due day → +1 early bonus once due', () => {
+    const lessonMap = lessonMapOf({ '1.1': lesson(80, '2026-09-09T03:00:00Z') }); // 11 PM EDT Sept 8
+    const r = q1(lessonMap, schedule, '2026-09-09');
+    expect(r.quarterGradeBase).toBe(80);
+    expect(r.earlyLessons).toBe(1);
+    expect(r.earlyKeys).toEqual(['1.1']);
+    expect(r.earlyBonus).toBe(1);
+    expect(r.quarterGrade).toBe(81);
+    expect(r.ceiling).toBeGreaterThanOrEqual(81); // ceiling carries the earned bonus too
+  });
+
+  it('submitted after 11:59 PM on the due day → no bonus', () => {
+    const lessonMap = lessonMapOf({ '1.1': lesson(80, '2026-09-09T04:30:00Z') }); // 12:30 AM EDT Sept 9
+    const r = q1(lessonMap, schedule, '2026-09-09');
+    expect(r.earlyLessons).toBe(0);
+    expect(r.earlyBonus).toBe(0);
+    expect(r.quarterGrade).toBe(80);
+  });
+
+  it('work on a lesson that is not yet due counts as "ahead", earns nothing yet, and does not move the grade', () => {
+    const lessonMap = lessonMapOf({
+      '1.1': lesson(80, '2026-09-08T20:00:00Z'),
+      '1.2': lesson(40, '2026-09-08T21:00:00Z'), // early AND weak — must not drag
+    });
+    const r = q1(lessonMap, schedule, '2026-09-09');
+    expect(r.aheadLessons).toBe(1);
+    expect(r.aheadKeys).toEqual(['1.2']);
+    expect(r.earlyLessons).toBe(1);
+    expect(r.quarterGradeBase).toBe(80);
+    expect(r.quarterGrade).toBe(81);
+  });
+
+  it('EXPLOIT CLOSED: one wrong character in one blank on the due day earns nothing', () => {
+    const lessonMap = lessonMapOf({ '1.1': lesson(0, null, { stamps: ['2026-09-08T20:00:00Z'] }) });
+    const r = q1(lessonMap, schedule, '2026-09-09');
+    expect(r.earlyLessons).toBe(0);
+    expect(r.quarterGrade).toBe(0);
+  });
+
+  it('a later edit or regrade of ONE row after the deadline does not revoke the bonus', () => {
+    const early = '2026-09-08T20:00:00Z';
+    const lessonMap = lessonMapOf({
+      '1.1': lesson(90, null, { stamps: [early, early, early, early, '2026-09-20T12:00:00Z'] }),
+    });
+    const r = q1(lessonMap, schedule, '2026-09-21'); // 1.2 is also due by now and missing → base 45
+    expect(r.earlyLessons).toBe(1);
+    expect(r.quarterGradeBase).toBe(45);
+    expect(r.quarterGrade).toBe(46);
+  });
+
+  it('a combined worksheet (4.1-2) earns ONE bonus, judged at the later topic date', () => {
+    const sched = {
+      '4.1': { unit: 4, worksheetKey: '1-2', combinedWith: ['4.2'], periods: { B: '2026-09-08', E: '2026-09-09' } },
+      '4.2': { unit: 4, worksheetKey: '1-2', combinedWith: ['4.1'], periods: { B: '2026-09-10', E: '2026-09-11' } },
+    };
+    const cfg = { ...CFG, quarters: { Q1: { units: [4], start: '2026-09-02', end: '2026-11-06', pcAnchor: { p85: 40, p100: 60 } } } };
+    const done = lesson(100, '2026-09-10T20:00:00Z'); // 4 PM EDT Sept 10 — after 4.1's day, on 4.2's day
+    const lessonMap = lessonMapOf({ '4.1': done, '4.2': done });
+    const r = q1(lessonMap, sched, '2026-09-11', cfg);
+    expect(r.earlyLessons).toBe(1);
+    expect(r.earlyKeys).toEqual(['4.1']);
+    expect(r.earlyBonus).toBe(1);
+  });
+
+  it('cap 0 switches the bonus off', () => {
+    const cfg = { ...CFG, v3EarlyBonus: { perLesson: 1, cap: 0 } };
+    const lessonMap = lessonMapOf({ '1.1': lesson(80, '2026-09-08T20:00:00Z') });
+    const r = q1(lessonMap, schedule, '2026-09-09', cfg);
+    expect(r.earlyBonus).toBe(0);
+    expect(r.quarterGrade).toBe(80);
+  });
+
+  it('the bonus is capped per quarter and the grade never exceeds 100', () => {
+    const sched = {};
+    const map = {};
+    for (let i = 1; i <= 7; i++) {
+      const d = `2026-09-${String(7 + i).padStart(2, '0')}`;
+      sched[`1.${i}`] = { unit: 1, periods: { B: d, E: d } };
+      map[`1.${i}`] = lesson(100, `${d}T12:00:00Z`);
+    }
+    const r = q1(lessonMapOf(map), sched, '2026-09-30');
+    expect(r.earlyLessons).toBe(7);
+    expect(r.earlyBonus).toBe(5);
+    expect(r.quarterGrade).toBe(100);
+  });
+
+  it('WITHOUT v3EarlyBonus / dueAfterLessonDay (frozen SY2526 config) nothing changes', () => {
+    const frozen = { ...CFG };
+    delete frozen.v3EarlyBonus;
+    delete frozen.dueAfterLessonDay;
+    const lessonMap = lessonMapOf({ '1.1': lesson(80, '2026-09-08T03:00:00Z') });
+    const r = q1(lessonMap, schedule, '2026-09-08', frozen);
+    expect(r.lessonsDue).toBe(1); // due from the start of the lesson day
+    expect(r.earlyBonus).toBe(0);
+    expect(r.quarterGrade).toBe(80);
+  });
+});
+
+describe('buildGradebookRow — "Schoology today" counts only DUE + COMPLETED cells', () => {
+  const columns = [
+    { key: 'FA:1.1', kind: 'followalong', category: 'Lesson', topicKeys: ['1.1'], due: true },
+    { key: 'FA:1.2', kind: 'followalong', category: 'Lesson', topicKeys: ['1.2'], due: false },
+    { key: 'BL:1.1', kind: 'blooket', category: 'Blooket', topicKeys: ['1.1'], due: true },
+  ];
+  const gradeObj = {
+    lessons: [
+      { lessonKey: '1.1', lessonGradeNoQuiz: 80, blooket: null },
+      { lessonKey: '1.2', lessonGradeNoQuiz: 20 },   // done ahead of schedule
+    ],
+    units: {},
+  };
+
+  it('ahead work is visible in cells but excluded from the total; blanks are not zeros', () => {
+    const row = buildGradebookRow(gradeObj, columns);
+    expect(row.cells['FA:1.2']).toBe(20);
+    expect(row.categoryAverages).toEqual({ Lesson: 80 });
+    expect(row.schoologyTotal).toBe(80);
+  });
+
+  it('a column with no due stamp (no schedule) still counts — degrade to "show everything"', () => {
+    const cols = columns.map(({ due, ...c }) => c);
+    const row = buildGradebookRow(gradeObj, cols);
+    expect(row.categoryAverages.Lesson).toBe(50);
+  });
+});
+
+// ── Progress Checks keyed by NEW CED unit (teacher decision 2026-09-03 #7) ──────
+import { pcDatesFor, pcUnitsInQuarter } from '../lesson-grade.js';
+import { computeGrade } from '../grade.js';
+
+describe('PC track placed and dated by the event schedule (NEW units), not the old-unit band', () => {
+  const eventSchedule = {
+    progressChecks: {
+      '1': { unit: 1, periods: { B: '2026-10-09', E: '2026-10-23' }, adminDay2: { B: '2026-10-13', E: '2026-10-26' } },
+      '2': { unit: 2, periods: { B: '2026-11-19', E: '2026-12-16' }, adminDay2: { B: '2026-11-20', E: '2026-12-18' } },
+      '3': { unit: 3, periods: { B: '2027-01-08', E: '2027-02-22' }, adminDay2: { B: '2027-01-11', E: '2027-02-24' } },
+    },
+    posters: { '1': { unit: 1, periods: { B: '2026-10-08', E: '2026-10-21' } } },
+  };
+  // Old-unit lessons: old U3 finishes in Q1 (the collision case), old U1 in Q2.
+  const schedule = {
+    '3.6': { unit: 3, periods: { B: '2026-10-06', E: '2026-10-19' } },
+    '1.10': { unit: 1, periods: { B: '2026-11-10', E: '2026-11-20' } },
+  };
+  const cfg = { ...CFG, pcTrack: { enabled: true }, v3EarlyBonus: null };
+
+  it('a PC straddling a quarter line (E U5: Day 1 04-14 = Q3 end, Day 2 04-16 = Q4) bands where it becomes due', () => {
+    const ev = { progressChecks: { '5': { unit: 5, periods: { B: '2027-02-25', E: '2027-04-14' }, adminDay2: { B: '2027-02-26', E: '2027-04-16' } } } };
+    const full = { ...cfg, quarters: PHASE3_CONFIG.quarters };
+    expect(pcUnitsInQuarter(ev, 'E', full, 'Q3')).toEqual([]);
+    expect(pcUnitsInQuarter(ev, 'E', full, 'Q4')).toEqual([5]);
+    expect(pcUnitsInQuarter(ev, 'B', full, 'Q3')).toEqual([5]);
+  });
+
+  it('pcDatesFor reads Day 1 / Day 2 per period; pcUnitsInQuarter bands by the due instant (Day 2)', () => {
+    expect(pcDatesFor(eventSchedule, 'B')[1]).toEqual({ day1: '2026-10-09', day2: '2026-10-13' });
+    expect(pcDatesFor(eventSchedule, 'E')[3]).toEqual({ day1: '2027-02-22', day2: '2027-02-24' });
+    expect(pcUnitsInQuarter(eventSchedule, 'B', cfg, 'Q1')).toEqual([1]);
+    expect(pcUnitsInQuarter(eventSchedule, 'B', cfg, 'Q2')).toEqual([2, 3]);
+    expect(pcUnitsInQuarter(eventSchedule, 'E', cfg, 'Q1')).toEqual([1]);
+    expect(pcDatesFor(null, 'B')).toBe(null);
+    expect(pcDatesFor({ progressChecks: {} }, 'B')).toBe(null);
+  });
+
+  it('Q1 PC band = NEW unit 1 (not old unit 3); not due until Day 2 has ended', () => {
+    const onDay2 = computeQuarterV3({
+      quarterKey: 'Q1', config: cfg, lessonMap: new Map(), schedule, todayDateStr: '2026-10-13',
+      section: 'PeriodB', unitPcData: { 1: 80, 3: 20 }, eventSchedule, quizLessons: [], blooketLessons: [],
+    });
+    expect(onDay2.pcUnits).toEqual([1]);
+    expect(onDay2.pcDue).toBe(false);
+    expect(onDay2.pcAvg).toBe(null);
+
+    const after = computeQuarterV3({
+      quarterKey: 'Q1', config: cfg, lessonMap: new Map(), schedule, todayDateStr: '2026-10-14',
+      section: 'PeriodB', unitPcData: { 1: 80, 3: 20 }, eventSchedule, quizLessons: [], blooketLessons: [],
+    });
+    expect(after.pcDue).toBe(true);
+    expect(after.pcAvg).toBe(80);          // new-unit-1 score, NOT old-unit-3's 20
+  });
+
+  it('a due PC with no attempt counts as 0 (unchanged rule) on the NEW band', () => {
+    const r = computeQuarterV3({
+      quarterKey: 'Q1', config: cfg, lessonMap: new Map(), schedule, todayDateStr: '2026-10-14',
+      section: 'PeriodB', unitPcData: {}, eventSchedule, quizLessons: [], blooketLessons: [],
+    });
+    expect(r.pcAvg).toBe(0);
+  });
+
+  it('WITHOUT an event schedule the legacy old-unit proxy still applies (frozen SY2526)', () => {
+    const r = computeQuarterV3({
+      quarterKey: 'Q1', config: cfg, lessonMap: new Map(), schedule, todayDateStr: '2026-10-14',
+      section: 'PeriodB', unitPcData: { 1: 80, 3: 20 }, quizLessons: [], blooketLessons: [],
+    });
+    expect(r.pcUnits).toEqual([3]);       // deriveQuarterBands: old U3 finishes in Q1
+    expect(r.pcAvg).toBe(20);
+  });
+
+  it('computeGrade threads eventSchedule: quarters[q].pcUnits and the PC quarter/curve follow Day 1', () => {
+    const rows = [
+      { source: 'pc', item_id: 'U3-PC-MCQ-A-Q1', response: 'a', score: 1, recorded_at: '2027-01-08T15:00:00Z' },
+    ];
+    const answerKey = { 'U3-PC-MCQ-A-Q1': { unit: 3, answerKey: 'a' } };
+    const out = computeGrade(rows, answerKey, { ...PHASE3_CONFIG, useV3: true, pcTrack: { enabled: true }, v3EarlyBonus: null },
+      { lessonSchedule: schedule, eventSchedule, section: 'PeriodB', asOf: Date.parse('2027-01-20T16:00:00Z') });
+    expect(out.quarters.Q1.pcUnits).toEqual([1]);
+    expect(out.quarters.Q2.pcUnits).toEqual([2, 3]);
+    expect(out.units.U3.pcRawPct).toBe(100);
+    // The gradebook grid (built by the route) keys PC/Poster columns off pcUnits
+    // and dates them from the event schedule.
+    const gb = buildGradebook(out, { lessonSchedule: schedule, eventSchedule, section: 'PeriodB', todayStr: '2027-01-20' });
+    expect(gb.quarters.Q2.columns.some((c) => c.key === 'PC:U3')).toBe(true);
+    expect(gb.quarters.Q1.columns.some((c) => c.key === 'PC:U3')).toBe(false);
+    const pc3 = gb.quarters.Q2.columns.find((c) => c.key === 'PC:U3');
+    expect(pc3.due).toBe(true);   // Day 1 2027-01-08 <= 2027-01-20
+    const pc2 = gb.quarters.Q2.columns.find((c) => c.key === 'PC:U2');
+    expect(pc2.due).toBe(true);
+    expect(gb.quarters.Q2.cells['PC:U3']).toBe(100);
+  });
+});
+
+// ── Production wiring: the live SY2627 context carries the event schedule ─────
+import { resolveProductionGradeInputs, loadEventScheduleWithPriority } from '../grade-contexts.js';
+
+describe('event schedule reaches the production grade inputs', () => {
+  it('loadEventScheduleWithPriority reads progressChecks/posters keyed by NEW units 1-5 from the bundled file', () => {
+    const ev = loadEventScheduleWithPriority();
+    expect(ev).toBeTruthy();
+    expect(Object.keys(ev.progressChecks)).toEqual(['1', '2', '3', '4', '5']);
+    expect(Object.keys(ev.posters)).toEqual(['1']); // sparse: one poster per quarter (POSTER_BONUS_SPEC.md section 4)
+    expect(ev.progressChecks['1'].periods.B).toMatch(/^2026-10-/);
+    expect(ev.progressChecks['1'].adminDay2.B > ev.progressChecks['1'].periods.B).toBe(true);
+  });
+  it('resolveProductionGradeInputs(SY2627) clones it; every NEW unit lands in exactly one quarter per period', () => {
+    const prod = resolveProductionGradeInputs('SY2627');
+    expect(prod.eventSchedule && Object.keys(prod.eventSchedule.progressChecks)).toEqual(['1', '2', '3', '4', '5']);
+    for (const period of ['B', 'E']) {
+      const placed = [];
+      for (const q of ['Q1', 'Q2', 'Q3', 'Q4']) placed.push(...pcUnitsInQuarter(prod.eventSchedule, period, prod.config, q));
+      expect(placed.sort()).toEqual([1, 2, 3, 4, 5]);
+    }
+  });
+});

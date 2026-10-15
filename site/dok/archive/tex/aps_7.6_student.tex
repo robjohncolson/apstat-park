@@ -1,0 +1,53 @@
+\documentclass[11pt]{article}
+\usepackage{preamble}
+\renewcommand{\answer}[1]{}
+
+\begin{document}
+
+\ladderheading{AP Statistics \textperiodcentered\ Unit 4 \textperiodcentered\ Topic 4.7}{Two Samples of Service Times}
+
+\focusbanner{THE PROBLEM}
+
+Suppose two depots independently take SRSs of 36 weekday service-time records from monthly populations of 900 North and 1,200 South records. Technology gives $df=69.31$ and $t^*=1.995$ for a 95\% two-sample interval.\par\smallskip \textbf{Tariq:} ``I sorted both samples and paired equal ranks. The resulting differences have $\bar d=2.2$ and $s_d=3.0$, giving $(1.18,3.22)$. Pairing makes the estimate more precise.''\par \textbf{Mei:} ``The records were sampled separately, so I would use a two-sample interval. Sorting observed responses may change the uncertainty rather than reveal design-based pairs.''\par
+\begin{center}
+\textbf{Service-time samples (min)}\par\smallskip
+\begin{tabular}{|l|c|c|c|c|}
+\hline
+\textbf{Depot} & \textbf{$N$} & \textbf{$n$} & \textbf{$\bar x$} & \textbf{$s$} \\ \hline
+\textbf{North} & 900 & 36 & 42.3 & 8.4 \\ \hline
+\textbf{South} & 1,200 & 36 & 40.1 & 7.6 \\ \hline
+\end{tabular}
+\end{center}
+\begin{firsttakebox}{FIRST TAKE --- one sentence before you work the parts}
+Does sorting the times make the North and South records real pairs? Explain in one sentence.
+\workspace{0.9in}
+\end{firsttakebox}
+
+\begin{callout}{\IconBook\ LET THE DESIGN CHOOSE THE INTERVAL (keep on the page)}{calloutgreen}
+For two independent random samples, use a two-sample $t$ interval:
+$(\bar x_1-\bar x_2)\pm t^*\sqrt{s_1^2/n_1+s_2^2/n_2}$. Paired measurements have a link
+in the study design, such as two measurements from the same person; they use one sample of differences.
+Check independent random samples or assignment, each 10 percent condition for sampling without replacement,
+and both sample shapes or both sample sizes over 30. Interpret in the stated subtraction order.
+An interval containing 0 leaves equal population means plausible; an interval entirely on one side supports a difference.
+\end{callout}
+
+\newpage
+\textbf{Work (a)--(c).}\par\smallskip
+
+\dokbadge{1}~\textbf{(a)} Find the North-minus-South difference in sample mean service times.\par
+\workspace{0.8in}
+
+\dokbadge{2}~\textbf{(b)} The independent-sample standard error is 1.88797 minutes. Use $t^*=1.995$ to calculate the 95\% interval.\par
+\workspace{1.4in}
+
+\dokbadge{3}~\textbf{(c)} In 3--4 sentences, choose a procedure using the original sampling design. Compare the two intervals and explain how sorting the times could mislead a reader about whether the population means differ.\par
+\workspace{2.0in}
+
+\begin{sentenceframebox}\raggedright\textbf{Frame:} The design supports a \blank[1.6in] interval because \blank[2.2in]; sorting ranks instead \blank[2.0in].\end{sentenceframebox}
+
+\begin{sentenceframebox}\raggedright\textbf{Frame:} The two uncertainty estimates are \blank[1.6in] and \blank[1.6in], which changes \blank[2.0in].\end{sentenceframebox}
+
+\textbf{Turn this sheet in whenever you finish --- bonus credit. Part (c) is scored E / P / I.}\par
+
+\end{document}

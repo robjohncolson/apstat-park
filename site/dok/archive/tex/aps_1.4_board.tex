@@ -1,0 +1,99 @@
+\documentclass[14pt]{extarticle}
+\usepackage{preamble}
+\geometry{letterpaper, landscape, margin=0.5in}
+\renewcommand{\answer}[1]{}
+\setlength{\parskip}{4pt}
+
+\begin{document}
+\pagestyle{empty}
+
+\daybanner{Unit 1 \textperiodcentered\ Topic 1.4 \textperiodcentered\ THE PROBLEM}{Same Counts, Different Message}
+
+\noindent\begin{minipage}[t]{0.57\linewidth}
+\vspace{0pt}
+Suppose 184 students chose a favorite lunch option. A newsletter printed \textbf{Graph A} with the headline ``\textbf{Pizza wins by a landslide.}'' A council member redrew the data as \textbf{Graph B} and said, ``It is basically a tie.''\par
+\end{minipage}\hfill
+\begin{minipage}[t]{0.40\linewidth}
+\vspace{0pt}
+\begin{center}
+\def\auditplotheight{1.4in}\ifdim\linewidth<5in\def\auditplotheight{1.15in}\fi
+\def\auditplotwidth{0.48\linewidth}\ifdim\linewidth<5in\def\auditplotwidth{0.98\linewidth}\fi
+\begin{minipage}{\auditplotwidth}
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+  width=0.95\linewidth,
+  height=\auditplotheight,
+  ybar=2pt,
+  bar width=10pt,
+  ymin=40,
+  ymax=55,
+  ytick={40,44,48,52},
+  symbolic x coords={Pizza,Tacos,Salad,Pasta},
+  xtick=data,
+  enlarge x limits=0.18,
+  title={\textbf{Graph A}},
+  xlabel={Favorite lunch option},
+  ylabel={Number of students},
+  x tick label style={rotate=30,anchor=east,font=\scriptsize},
+  tick label style={font=\scriptsize},
+  label style={font=\scriptsize},
+  title style={font=\small},
+  ymajorgrids,
+  nodes near coords,
+  every node near coord/.append style={font=\scriptsize},
+  axis on top
+]
+\addplot[fill=calloutblue,draw=dayblue] coordinates
+  {(Pizza,52) (Tacos,47) (Salad,44) (Pasta,41)};
+\end{axis}
+\end{tikzpicture}
+\end{minipage}\ifdim\linewidth<5in\par\smallskip\else\hfill\fi
+\begin{minipage}{\auditplotwidth}
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+  width=0.95\linewidth,
+  height=\auditplotheight,
+  ybar=2pt,
+  bar width=10pt,
+  ymin=0,
+  ymax=58,
+  ytick={0,20,40},
+  symbolic x coords={Pizza,Tacos,Salad,Pasta},
+  xtick=data,
+  enlarge x limits=0.18,
+  title={\textbf{Graph B}},
+  xlabel={Favorite lunch option},
+  ylabel={Number of students},
+  x tick label style={rotate=30,anchor=east,font=\scriptsize},
+  tick label style={font=\scriptsize},
+  label style={font=\scriptsize},
+  title style={font=\small},
+  ymajorgrids,
+  nodes near coords,
+  every node near coord/.append style={font=\scriptsize},
+  axis on top
+]
+\addplot[fill=calloutblue,draw=dayblue] coordinates
+  {(Pizza,52) (Tacos,47) (Salad,44) (Pasta,41)};
+\end{axis}
+\end{tikzpicture}
+\end{minipage}
+\end{center}
+\end{minipage}
+
+\begin{firsttakebox}{FIRST TAKE --- one sentence before you work the parts}
+Is pizza clearly the favorite? Name the graph that most influenced you.
+\end{firsttakebox}
+
+\begin{description}[leftmargin=1.15in, labelwidth=1in, itemsep=2pt, topsep=2pt]
+  \item[\dokbadge{1}~(a)] Read the Pizza and Pasta counts. How many more students chose Pizza?
+  \item[\dokbadge{2}~(b)] Graph A starts at 40. Find the visible heights above 40 for Pizza and Pasta. Compare those heights with the actual counts.
+  \item[\dokbadge{3}~(c)] Which graph gives a fairer picture of the lunch votes? Explain how its scale affects the comparison. Use your counts to judge both `landslide' and `basically a tie,' then write a more accurate headline.
+\end{description}
+
+\vfill
+\textbf{Self-paced bonus problem. Work (a)--(c) from this sheet; turn it in whenever you finish.}
+
+\end{document}

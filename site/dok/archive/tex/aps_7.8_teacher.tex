@@ -1,0 +1,106 @@
+\documentclass[11pt]{article}
+\usepackage{preamble}
+\setlength{\parskip}{4pt}
+
+\begin{document}
+
+\daybanner{AP Statistics \textperiodcentered\ Unit 4 \textperiodcentered\ Topic 4.9 \textperiodcentered\ TEACHER KEY}{Two Test Plans for Cure Time}
+
+\sectionbanner{CED TETHER}
+
+{\small
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item \textbf{Skill 1.E} --- Identify an appropriate inference method for significance tests.
+  \item \textbf{Skill 1.F} --- Identify null and alternative hypotheses.
+  \item \textbf{Skill 4.C} --- Verify that inference procedures apply in a given situation.
+  \item \textbf{EU VAR-7} --- The t-distribution may be used to model variation.
+  \item \textbf{LO VAR-7.F} --- Identify an appropriate selection of a testing method for a difference of two population means. [Skill 1.E]
+  \item \textbf{EK VAR-7.F.1} --- For a quantitative variable, the appropriate test for a difference of two population means is a two-sample t-test for a difference of two population means.
+  \item \textbf{LO VAR-7.G} --- Identify the null and alternative hypotheses for a difference of two population means. [Skill 1.F]
+  \item \textbf{EK VAR-7.G.1} --- The null hypothesis for a two-sample t-test for a difference of two population means, $\mu_1$ and $\mu_2$, is: $H_0$: $\mu_1$ - $\mu_2$ = 0, or $H_0$: $\mu_1$ = $\mu_2$. The alternative hypothesis is $H_a$: $\mu_1$ - $\mu_2$ < 0, or $H_a$: $\mu_1$ - $\mu_2$ > 0, or $H_a$: $\mu_1$ - $\mu_2$ $\neq$ 0, or $H_a$: $\mu_1$ > $\mu_2$, or $H_a$: $\mu_1$ < $\mu_2$, or $H_a$: $\mu_1$ $\neq$ $\mu_2$.
+  \item \textbf{LO VAR-7.H} --- Verify the conditions for the significance test for the difference of two population means. [Skill 4.C]
+  \item \textbf{EK VAR-7.H.1} --- In order to make statistical inferences when testing a difference between population means, we must check for independence and that the sampling distribution is approximately normal:
+  \item a. Individual observations should be independent: (i) Data should be collected using simple random samples or a randomized experiment; (ii) When sampling without replacement, check that $n_1$ $\leq$ 10\% $N_1$ and $n_2$ $\leq$ 10\% $N_2$.
+  \item \textbf{b. The sampling distribution of $\bar{x}_1$ - $\bar{x}_2$ should be approximately normal (shape): (i) If the observed distribution is skewed, both $n_1$ and $n_2$ should be greater than 30; (ii) If the sample size is less than 30, the distribution of the sample data should be free from strong skewness and outliers} --- checked for BOTH samples.
+\end{itemize}
+}
+\textbf{Essential question:} How do the original question and study design control a defensible two-mean test plan?\par
+\textbf{DOK-3 skill:} 4.C \textperiodcentered\ \textbf{FRQ pattern:} {\small\texttt{predata-\allowbreak{}tail-\allowbreak{}parameter-\allowbreak{}and-\allowbreak{}scope}}\par
+\textbf{DOK rationale:} Part (c) coordinates the pre-data question, parameter order, sample structure, distribution evidence, and assignment limits to adjudicate two test plans and trace three misleading conclusions.\par
+
+\textbf{Self-paced bonus sheet.} Students take it when they choose and turn it in when they finish. Everything they need is printed on the sheet. Score part (c) only, E / P / I, by hand --- never AI-graded or auto-scored. (a) and (b) are the ladder up; use them to see where a thin (c) came from.\par
+
+\textbf{Questions to ask}
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item Which specific number or study detail supports your choice?
+  \item What claim would go beyond the evidence, and why?
+\end{itemize}
+
+\begin{callout}{\IconWarn\ LOOK FOR}{calloutred}
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item Choosing a speaker without a reason.
+  \item Copying numbers without explaining what they support.
+\end{itemize}
+\end{callout}
+
+\sectionbanner{SCORING PART (c) --- E / P / I}
+
+\textbf{Expected elements}
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item \textbf{predata-tail} (required) --- Uses the nondirectional original question to justify a two-sided alternative
+  \item \textbf{parameters} (required) --- Explains why unknown population means belong in the hypotheses
+  \item \textbf{cause} (required) --- Explains that formula and line differences cannot be separated without random assignment
+\end{itemize}
+
+{\small\renewcommand{\arraystretch}{1.25}
+\noindent\begin{tabular}{|p{0.5in}|p{5.9in}|}
+\hline
+\textbf{E} & Justifies the original two-sided question, population notation, and causal limit. \\ \hline
+\textbf{P} & Shows substantive valid reasoning for at least one required element, but does not meet all E requirements. Credit correct reasoning even when another claim is wrong. \\ \hline
+\textbf{I} & Shows no substantive valid reasoning for any required element; a name, unsupported choice, or copied number alone does not count. \\ \hline
+\end{tabular}}
+
+\clearpage
+\focusbanner{THE PROBLEM --- annotated}
+
+Suppose line N uses a new formula for sealant, a material that closes gaps. Line S uses the standard formula. A team takes independent simple random samples of 18 of 600 recent N batches and 18 of 540 recent S batches. Mean cure times are 41.2 and 44.0 minutes; the boxplots are shown. Before sampling, the team asked, ``Do the two populations differ in mean cure time?'' Formula was not randomly assigned to lines.\par\smallskip \textbf{Rhea:} ``Keep the original question and use population means. A difference between lines may have other causes.''\par \textbf{Sol:} ``Since $41.2<44.0$, use a lower tail with sample means. A significant result proves the formula caused faster curing.''\par
+\begin{center}
+\begin{tikzpicture}
+\begin{axis}[
+  width=0.49\linewidth,
+  height=1.15in,
+  ytick={2,1}, yticklabels={{Line N},{Line S}}, ymin=0.4, ymax=2.6,
+  axis x line=bottom, axis y line*=left, y axis line style={draw=none}, boxplot/box extend=0.5, xmajorgrids, enlarge x limits=0.06,
+  xlabel={Cure time (min)}, tick label style={font=\small}, label style={font=\small},
+  ytick style={draw=none}, yticklabel style={font=\small\bfseries}
+]
+\addplot[boxplot prepared={lower whisker=34, lower quartile=38.5, median=41, upper quartile=44, upper whisker=48.5, draw position=2}, fill=calloutblue, draw=dayblue] coordinates {};
+\addplot[boxplot prepared={lower whisker=35.5, lower quartile=40, median=44, upper quartile=48, upper whisker=52.5, draw position=1}, fill=calloutblue, draw=dayblue] coordinates {};
+\end{axis}
+\end{tikzpicture}
+\end{center}
+\begin{firsttakebox}{FIRST TAKE --- one sentence before you work the parts}
+Did the team originally ask whether N was faster or whether the lines differed in either direction? Explain in one sentence.\par
+\answer{Ungraded commitment; accept any evidence-based first impression.}
+\end{firsttakebox}
+
+\begin{callout}{\IconBook\ HYPOTHESES FOR TWO MEANS (keep on the page)}{calloutgreen}
+For two independent groups with a quantitative response, use a two-sample $t$ test for
+$\mu_1-\mu_2$. The null states no population difference: $H_0:\mu_1-\mu_2=0$.
+Choose $<$ or $>$ only when the research question specified that direction before seeing
+the data; otherwise use $\neq$. Hypotheses use population parameters, never observed sample
+means. Check independent random samples or random assignment, both 10 percent conditions
+when sampling without replacement, and both sample shapes when either $n<30$. Random sampling
+supports population scope; random assignment is needed to isolate a causal treatment effect.
+\end{callout}
+
+\dokbadge{1}~\textbf{(a)} Define $\mu_N$ and $\mu_S$ in context.\par
+\answer{$\mu_N$ and $\mu_S$ are the mean cure times, in minutes, for the 600 recent N batches and 540 recent S batches.}
+
+\dokbadge{2}~\textbf{(b)} State $H_0$ and $H_a$ in N-minus-S order to match the question asked before sampling.\par
+\answer{$H_0:\mu_N-\mu_S=0$; $H_a:\mu_N-\mu_S\neq0$.}
+
+\dokbadge{3}~\textbf{(c)} In 3--4 sentences, judge the two plans. Explain why the original question sets the tail, why hypotheses use population means, and why these two lines cannot isolate the formula as the cause.\par
+\answer{Rhea is justified because the original question asked about a difference in either direction, so the alternative is two-sided. Choosing a lower tail only after seeing $41.2<44.0$ changes that question to favor the observed result. Hypotheses concern unknown population means; the sample means are already known. Because formula was not randomly assigned to lines, other line differences could explain the gap, so a significant result would not establish formula causation.}
+
+\end{document}

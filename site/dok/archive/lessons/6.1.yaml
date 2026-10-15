@@ -1,0 +1,54 @@
+# Topic 6.1 — Introducing Statistics: Why Be Normal?
+topic: "6.1"
+ced2026: { unit: 3, topic: "3.3", label: "Constructing a CI for a Proportion" }
+title: "Six Activations in Twelve Users"
+essential_question: "When should a simulated sampling distribution be trusted more than a normal approximation?"
+worksheet: "u6_lesson1-2_live.html"
+
+rules_callout:
+  title: "CHECK THE SHAPE BEFORE USING NORMAL (keep on the page)"
+  body: |
+    Under a proposed proportion $p_0$, check expected counts $np_0\geq10$ and $n(1-p_0)\geq10$ before using a normal approximation.
+    A matched simulation estimates the chance probability by the number of simulated results at least as large as the observed result, divided by the total simulations.
+    For this task, a chance probability below $5\%$ counts as convincing evidence against the proposed model.
+    Evidence against a model does not prove a particular cause.
+
+focus: aps-6.1-d3-1
+reinforcement: []
+space: { first_take: 0.9in, a: 0.7in, b: 1.4in, c: 2.0in }
+
+teacher:
+  questions_to_ask:
+    - "What does one bar in this simulated distribution count?"
+    - "Which expected count warns you that a symmetric curve may miss the tail?"
+    - "Why do simulated samples with more than six activations still count?"
+    - "Can the two methods disagree in size yet lead to the same 5 percent decision?"
+  watch_for:
+    - "Treating every sampling distribution as normal regardless of expected counts."
+    - "Counting exactly six activations instead of six or more."
+    - "Saying a small chance probability proves why the activation rate differs."
+  first_take_note: "Not graded. Preserve the normal-model versus matched-simulation tension."
+
+# Topic 6.1 has no tutor artifact. These lines are copied from apstat_6_framework.md.
+tether:
+  - '\textbf{VAR-1.H} Identify questions suggested by variation in the shapes of distributions of samples taken from the same population. \textbf{[Skill 1.A]}'
+  - '\textbf{VAR-1.H.1} Variation in shapes of data distributions may be random or not.'
+
+visuals:
+  activation_hist:
+    kind: raw_tikz
+    body: |
+      \begin{tikzpicture}
+      \begin{axis}[
+        width=0.98\linewidth,height=1.75in,
+        ybar,bar width=10pt,xmin=-0.6,xmax=6.6,ymin=0,ymax=70,
+        xtick={0,1,2,3,4,5,6},ytick={0,20,40,60},
+        xlabel={Activations in a sample of 12},ylabel={Simulated samples},
+        tick label style={font=\small},label style={font=\small},
+        nodes near coords,nodes near coords style={font=\scriptsize},
+        axis lines*=left
+      ]
+      \addplot[draw=dayblue,fill=dayblue!20] coordinates {(0,14) (1,40) (2,58) (3,47) (4,25) (5,12) (6,4)};
+      \end{axis}
+      \end{tikzpicture}
+    wrap_center: true

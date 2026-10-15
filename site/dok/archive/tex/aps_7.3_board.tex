@@ -1,0 +1,45 @@
+\documentclass[14pt]{extarticle}
+\usepackage{preamble}
+\geometry{letterpaper, landscape, margin=0.5in}
+\renewcommand{\answer}[1]{}
+\setlength{\parskip}{4pt}
+
+\begin{document}
+\pagestyle{empty}
+
+\daybanner{Unit 4 \textperiodcentered\ Topic 4.3 \textperiodcentered\ THE PROBLEM}{One Interval, Two Cutoffs}
+
+\noindent\begin{minipage}[t]{0.57\linewidth}
+\vspace{0pt}
+Suppose a library wants the mean setup time for all 800 kiosk transactions in a month below 45 seconds and hopes to advertise a mean below 42 seconds. An SRS of 25 has the shown summary. A 95\% one-sample $t$-interval is $(39.923,44.877)$ seconds.\par\smallskip \textbf{Mina:} ``I would compare each cutoff with the full interval and keep the conclusion about the population mean.''\par \textbf{Gabe:} ``Because the interval contains times below both cutoffs, I think it supports both claims; I also read 95\% as the share of transaction times inside it.''\par
+\end{minipage}\hfill
+\begin{minipage}[t]{0.40\linewidth}
+\vspace{0pt}
+\begin{center}
+\textbf{Kiosk sample}\par\smallskip
+\begin{tabular}{|l|c|}
+\hline
+\textbf{Summary} & \textbf{Value} \\ \hline
+\textbf{Population} & 800 \\ \hline
+\textbf{$n$} & 25 \\ \hline
+\textbf{Mean (s)} & 42.4 \\ \hline
+\textbf{SD (s)} & 6.0 \\ \hline
+\textbf{Shape} & Symmetric; no outliers \\ \hline
+\end{tabular}
+\end{center}
+\end{minipage}
+
+\begin{firsttakebox}{FIRST TAKE --- one sentence before you work the parts}
+Does the range 39.923 to 44.877 make both time claims believable? Give one reason.
+\end{firsttakebox}
+
+\begin{description}[leftmargin=1.15in, labelwidth=1in, itemsep=2pt, topsep=2pt]
+  \item[\dokbadge{1}~(a)] Locate 42 and 45 relative to the interval.
+  \item[\dokbadge{2}~(b)] Interpret the supplied 95\% interval in one sentence about the mean setup time for all 800 transactions.
+  \item[\dokbadge{3}~(c)] In 3--4 sentences, decide whose approach is justified. Use the interval to judge each cutoff, then explain what Gabe gets wrong about individual transaction times.
+\end{description}
+
+\vfill
+\textbf{Self-paced bonus problem. Work (a)--(c) from this sheet; turn it in whenever you finish.}
+
+\end{document}

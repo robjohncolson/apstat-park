@@ -1,0 +1,45 @@
+\documentclass[14pt]{extarticle}
+\usepackage{preamble}
+\geometry{letterpaper, landscape, margin=0.5in}
+\renewcommand{\answer}[1]{}
+\setlength{\parskip}{4pt}
+
+\begin{document}
+\pagestyle{empty}
+
+\daybanner{Unit 4 \textperiodcentered\ Topic 4.5 \textperiodcentered\ THE PROBLEM}{A Test of Mean Resolution Time}
+
+\noindent\begin{minipage}[t]{0.57\linewidth}
+\vspace{0pt}
+Suppose a help desk closed 1,200 tickets in a quarter. To investigate whether their population mean resolution time was below 12 hours, an analyst took an SRS of 24 and used $\alpha=0.05$.\par\smallskip \textbf{Leah:} ``The lower-tail test gives $t=-1.5747$, $df=23$, and $p\approx0.0645$. I would state what evidence this does and does not provide.''\par \textbf{Damon:} ``Because $p>0.05$, accept $H_0$. The test proves the population mean was exactly 12 hours and the observed difference was only chance.''\par
+\end{minipage}\hfill
+\begin{minipage}[t]{0.40\linewidth}
+\vspace{0pt}
+\begin{center}
+\textbf{Ticket sample}\par\smallskip
+\begin{tabular}{|l|c|}
+\hline
+\textbf{Summary} & \textbf{Value} \\ \hline
+\textbf{Population} & 1200 \\ \hline
+\textbf{$n$} & 24 \\ \hline
+\textbf{Mean (h)} & 11.1 \\ \hline
+\textbf{SD (h)} & 2.8 \\ \hline
+\textbf{Shape} & Symmetric; no outliers \\ \hline
+\end{tabular}
+\end{center}
+\end{minipage}
+
+\begin{firsttakebox}{FIRST TAKE --- one sentence before you work the parts}
+Does this small study seem able to prove that the average was exactly 12 hours? Explain in one sentence.
+\end{firsttakebox}
+
+\begin{description}[leftmargin=1.15in, labelwidth=1in, itemsep=2pt, topsep=2pt]
+  \item[\dokbadge{1}~(a)] State $H_0$ and $H_a$ for the population mean resolution time.
+  \item[\dokbadge{2}~(b)] Using $\bar x=11.1$, $s=2.8$, and $n=24$, calculate $t$. Use the supplied $p=0.0645$; you do not need to find it again.
+  \item[\dokbadge{3}~(c)] In 3--4 sentences, decide whose account is justified. Compare the p-value with 0.05, state the conclusion for all 1,200 tickets, and explain why failure to reject does not prove equality or that chance was the only explanation.
+\end{description}
+
+\vfill
+\textbf{Self-paced bonus problem. Work (a)--(c) from this sheet; turn it in whenever you finish.}
+
+\end{document}

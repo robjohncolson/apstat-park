@@ -1,0 +1,133 @@
+\documentclass[11pt]{article}
+\usepackage{preamble}
+\setlength{\parskip}{4pt}
+
+\begin{document}
+
+\daybanner{AP Statistics \textperiodcentered\ Unit 1 \textperiodcentered\ Topic 1.8 \textperiodcentered\ TEACHER KEY}{Two Displays, One Data Set}
+
+\sectionbanner{CED TETHER}
+
+{\small
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item Enduring Understanding: UNC-1 Graphical representations and statistics allow us to identify and represent key features of data.
+  \item Skills:
+  \item \textbf{Skill 2.B} --- Construct numerical or graphical representations of distributions.
+  \item \textbf{Skill 2.A} --- Describe data presented numerically or graphically.
+  \item Learning Objectives and Essential Knowledge:
+  \item UNC-1.L Represent summary statistics for quantitative data graphically. [Skill 2.B]
+  \item \textbf{UNC-1.L.1} --- Taken together, the minimum data value, the first quartile (Q1), the median, the third quartile (Q3), and the maximum data value make up the five-number summary.
+  \item \textbf{UNC-1.L.2} --- A boxplot is a graphical representation of the five-number summary (minimum, first quartile, median, third quartile, maximum). The box represents the middle 50\% of data, with a line at the median and the ends of the box corresponding to the quartiles. Lines ("whiskers") extend from the quartiles to the most extreme point that is not an outlier, and outliers are indicated by their own symbol beyond this.
+  \item UNC-1.M Describe summary statistics of quantitative data represented graphically. [Skill 2.A]
+  \item \textbf{UNC-1.M.1} --- Summary statistics of quantitative data, or of sets of quantitative data, can be used to justify claims about the data in context.
+  \item \textbf{UNC-1.M.2} --- If a distribution is relatively symmetric, then the mean and median are relatively close to one another. If a distribution is skewed right, then the mean is usually to the right of the median. If the distribution is skewed left, then the mean is usually to the left of the median.
+\end{itemize}
+}
+\textbf{Essential question:} What information survives when individual observations are compressed into a boxplot?\par
+\textbf{DOK-3 skill:} 4.B \textperiodcentered\ \textbf{FRQ pattern:} {\small\texttt{what-\allowbreak{}a-\allowbreak{}boxplot-\allowbreak{}can-\allowbreak{}and-\allowbreak{}cannot-\allowbreak{}show-\allowbreak{}adjudicate}}\par
+\textbf{DOK rationale:} Part (c) requires adjudicating two interpretations by coordinating the boxplot with the dotplot, distinguishing summaries from distribution features, and defending which display answers a decision question; no single calculation determines the response.\par
+
+\textbf{Self-paced bonus sheet.} Students take it when they choose and turn it in when they finish. Everything they need is printed on the sheet. Score part (c) only, E / P / I, by hand --- never AI-graded or auto-scored. (a) and (b) are the ladder up; use them to see where a thin (c) came from.\par
+
+\textbf{Questions to ask}
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item Point to 32 minutes on the dotplot. How many dots are nearby?
+  \item Could a different data set have this same five-number summary but no gap?
+  \item Which features disappeared when the 24 dots became five numbers?
+  \item For the coach's decision, do you need a center or the number of students above 30?
+\end{itemize}
+
+\begin{callout}{\IconWarn\ LOOK FOR}{calloutred}
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item Treating the median as a mode or as a value an observation must equal.
+  \item Claiming the boxplot displays the two clusters because its box is wide.
+  \item Calling 55 an outlier without checking the $1.5\,\mathrm{IQR}$ fence.
+\end{itemize}
+\end{callout}
+
+\sectionbanner{SCORING PART (c) --- E / P / I}
+
+\textbf{Expected elements}
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item \textbf{nia-and-gap} (required) --- Chooses Nia using the empty interval around 32
+  \item \textbf{boxplot-limit} (required) --- Explains that quartiles do not reveal the gap or concentration of individual observations
+  \item \textbf{coach-decision} (required) --- Chooses dotplot and uses 12 of 24 to reject more-than-half over 30
+\end{itemize}
+
+{\small\renewcommand{\arraystretch}{1.25}
+\noindent\begin{tabular}{|p{0.5in}|p{5.9in}|}
+\hline
+\textbf{E} & All three elements are correct and linked to this problem. Accept equivalent plain-language reasoning. \\ \hline
+\textbf{P} & At least one element includes a correct evidence-to-reason link, but another is missing or incorrect. \\ \hline
+\textbf{I} & No correct evidence-to-reason link; only a choice, copied numbers, or unsupported statements. \\ \hline
+\end{tabular}}
+
+\textbf{Common mistakes}
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item Treating the median as the most common value; no student took 32 minutes
+  \item Calling the empty 27--37 interval a short bar even though the display is a dotplot
+  \item Saying a boxplot shows every observation because it shows the minimum and maximum
+  \item Calling 55 a formal $1.5\,\mathrm{IQR}$ outlier; the upper fence is $65.25$
+  \item Choosing the boxplot for the coach merely because it is more compact
+\end{itemize}
+
+\clearpage
+\focusbanner{THE PROBLEM --- annotated}
+
+The displays show practice-test times, in minutes, for 24 students. Two students interpret the boxplot.\par\smallskip \textbf{Omar:} ``Most students took about 32 minutes---the middle of the box.''\par \textbf{Nia:} ``A boxplot cannot tell us whether most students took about 32 minutes.''\par
+\begin{center}
+\begin{tikzpicture}
+\begin{axis}[
+  width=0.92\linewidth,
+  height=1.85in,
+  xmin=20, xmax=58,
+  ymin=-1.6, ymax=3.8,
+  ytick=\empty,
+  axis y line=none,
+  axis x line=bottom,
+  xtick={22,24,32,40.5,55},
+  xticklabels={22,24,32,40.5,55},
+  tick label style={font=\scriptsize},
+  xlabel={Practice-test time (minutes)},
+  label style={font=\small},
+  clip=false
+]
+\node[anchor=west,font=\scriptsize\bfseries] at (axis cs:20.4,3.35) {Dotplot};
+\addplot[only marks, mark=*, mark size=2.4pt, color=dayblue] coordinates {
+  (22,1) (22,2) (23,1) (23,2) (24,1) (24,2) (24,3)
+  (25,1) (25,2) (25,3) (26,1) (26,2)
+  (38,1) (38,2) (39,1) (39,2) (40,1) (40,2)
+  (41,1) (41,2) (42,1) (43,1) (44,1) (55,1)
+};
+\node[anchor=west,font=\scriptsize\bfseries] at (axis cs:20.4,-0.15) {Boxplot};
+\draw[dayblue,thick] (axis cs:22,-0.85) -- (axis cs:55,-0.85);
+\draw[dayblue,thick] (axis cs:22,-1.15) -- (axis cs:22,-0.55);
+\draw[dayblue,thick] (axis cs:55,-1.15) -- (axis cs:55,-0.55);
+\filldraw[fill=calloutblue,draw=dayblue,thick]
+  (axis cs:24,-1.25) rectangle (axis cs:40.5,-0.45);
+\draw[dayblue,very thick] (axis cs:32,-1.25) -- (axis cs:32,-0.45);
+\end{axis}
+\end{tikzpicture}
+\end{center}
+\begin{firsttakebox}{FIRST TAKE --- one sentence before you work the parts}
+Who do you trust more, Omar or Nia? Point to one feature in either display.\par
+\answer{Not graded. Expect Omar; the empty interval around 32 is the reveal.}
+\end{firsttakebox}
+
+\begin{callout}{\IconBook\ DOTPLOTS AND BOXPLOTS (keep on the page)}{calloutgreen}
+A \textbf{dotplot} keeps every observation, so it can show clusters, gaps, peaks, and isolated values.\
+A \textbf{boxplot} compresses the data to the five-number summary: minimum, Q1, median, Q3, maximum
+(with separately marked outliers). The box contains the middle $50\%$ of observations.\
+A boxplot shows center and spread efficiently, but it may hide modality, clusters, and gaps.
+\end{callout}
+
+\dokbadge{1}~\textbf{(a)} Read the median and the two quartiles from the boxplot.\par
+\answer{Median $=32$, $Q_1=24$, $Q_3=40.5$ minutes.}
+
+\dokbadge{2}~\textbf{(b)} In two sentences, describe the dotplot's groups and empty interval. Count how many students took more than 30 minutes.\par
+\answer{There are 12 times from 22--26 minutes and 11 from 38--44, plus one at 55. No values lie between 26 and 38; exactly 12 of 24 students took more than 30 minutes.}
+
+\dokbadge{3}~\textbf{(c)} Whose interpretation is better supported? Use a dotplot feature to explain what the boxplot hides. Choose a display for deciding whether more than half the students need over 30 minutes, and defend your choice.\par
+\answer{Nia: no observations are near 32, which lies between the two groups. The boxplot preserves quartiles but hides that gap; treating its median as where most observations gather is a misreading. Choose the dotplot for the coach: 12 of 24, exactly half, took over 30 minutes, so not more than half.}
+
+\end{document}

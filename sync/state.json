@@ -1,0 +1,17 @@
+{
+  "synced_at": "2026-10-15T01:28:24.136Z",
+  "parents": {
+    "fa": {
+      "path": "../follow-alongs",
+      "head": "8f395e818a4fc177eeef32a496ea0f8774cbfcc6",
+      "branch": "master",
+      "dirty": true
+    },
+    "cr": {
+      "path": "../curriculum_render",
+      "head": "a705abe8012fa2ddb015319a060e9573f7bdebad",
+      "branch": "main",
+      "dirty": false
+    }
+  }
+}

@@ -1,0 +1,198 @@
+import { requireTeacher } from './teacher-auth.js';
+import { quarterOfDate } from './grade-config.js';
+import { todayInTz } from './lesson-grade.js';
+import { cedAssignmentTitle } from './ced-titles.js';
+
+export function fiveNumberSummary(values) {
+  if (!values.length) return null;
+  const sorted = values.slice().sort((a, b) => a - b);
+  const median = (half) => {
+    const middle = Math.floor(half.length / 2);
+    return half.length % 2 ? half[middle] : (half[middle - 1] + half[middle]) / 2;
+  };
+  const middle = Math.floor(sorted.length / 2);
+  // AP / TI-84 method: median of each half, excluding the overall odd median.
+  const lower = sorted.length === 1 ? sorted : sorted.slice(0, middle);
+  const upper = sorted.length === 1 ? sorted : sorted.slice(Math.ceil(sorted.length / 2));
+  return {
+    min: sorted[0], q1: median(lower), median: median(sorted),
+    q3: median(upper), max: sorted[sorted.length - 1],
+  };
+}
+
+// `tentativeZeros` (pooled assignments only) join the privacy floor count: a pool of
+// 2 scores + 3 tentative zeros shows 5 people, so the 2 scores can be published.
+function summarizeValues(values, tentativeZeros = 0) {
+  const n = values.length;
+  if (n + tentativeZeros < 5) {
+    return { n, values: [], fiveNumber: null, iqr: null, fences: null, outliers: [] };
+  }
+  // Published, but every person is a tentative 0: no real scores to summarize.
+  if (n === 0) return { n, values: [], fiveNumber: null, iqr: null, fences: null, outliers: [] };
+  const fiveNumber = fiveNumberSummary(values);
+  const iqr = fiveNumber.q3 - fiveNumber.q1;
+  const fences = { low: fiveNumber.q1 - 1.5 * iqr, high: fiveNumber.q3 + 1.5 * iqr };
+  const outliers = values.filter(value => value < fences.low || value > fences.high);
+  return { n, values, fiveNumber, iqr, fences, outliers };
+}
+
+// `section=all` merges these sections into one picture (teacher 2026-09-26: "how it ranks
+// among ALL students, for more datapoints"). Any signed-in student may read it.
+export const COURSE_SECTIONS = ['PeriodB', 'PeriodE'];
+
+// Merge per-section snapshots: values pooled, the earliest zero date kept, zeros summed.
+// A section past its zero date contributes everyone (missing = 0); a section that has taught
+// the lesson but is not yet past its date contributes recorded scores only. An item that is
+// pending everywhere stays in the pool as `pending: true` (its zero date is the soonest).
+export function mergeSnapshots(snapshots, sections) {
+  const values = snapshots.flatMap(s => s.values || []).sort((a, b) => a - b);
+  const first = snapshots[0] || {};
+  const merged = { ok: true, section: 'all', sections, quarter: first.quarter, asOf: first.asOf, ...summarizeValues(values) };
+  if (!snapshots.some(s => Array.isArray(s.assignments))) return merged;
+  const byKey = new Map();
+  for (const snapshot of snapshots) {
+    for (const item of snapshot.assignments || []) {
+      const have = byKey.get(item.key);
+      // Per-section zero dates let a viewer keep only what their own section has been taught.
+      if (!have) { byKey.set(item.key, { ...item, values: item.values.slice(), zeros: item.zeros, tentativeZeros: item.tentativeZeros || 0, zeroDates: { [snapshot.section]: item.zeroDate } }); continue; }
+      have.zeroDates[snapshot.section] = item.zeroDate;
+      have.values = have.values.concat(item.values);
+      have.tentativeZeros += item.tentativeZeros || 0;
+      // The pooled zero date is the earliest date it is actually counting somewhere.
+      if ((!item.pending && have.pending) || (Boolean(item.pending) === Boolean(have.pending) && item.zeroDate < have.zeroDate)) have.zeroDate = item.zeroDate;
+      have.pending = Boolean(have.pending && item.pending);
+      have.zeros = have.zeros == null || item.zeros == null ? null : have.zeros + item.zeros;
+    }
+  }
+  merged.assignments = [...byKey.values()].map(item => {
+    const pooled = item.values.slice().sort((a, b) => a - b);
+    const summary = summarizeValues(pooled, item.tentativeZeros);
+    // `values` stay REAL scores only; tentative zeros are a count (a count identifies nobody).
+    const published = pooled.length + item.tentativeZeros >= 5;
+    const zeros = published ? pooled.filter(v => v === 0).length : null;
+    return { ...item, pending: Boolean(item.pending), ...summary, zeros, tentativeZeros: item.tentativeZeros };
+  });
+  return merged;
+}
+
+export function mountClassSnapshot(app, { db, verifyToken, computeClassGrades, config }) {
+  // Memory belongs to this app instance; cache only anonymous payloads.
+  const cache = new Map();
+  const ttl = 5 * 60 * 1000;
+
+  async function computeSnapshot(section, by) {
+    if (section !== 'all') return computeSectionSnapshot(section, by);
+    // Pooled: a section not yet past its zero date still lends the scores it already has
+    // (nobody there is counted as a 0 before their date), so the pool is as big as the data.
+    const parts = await Promise.all(COURSE_SECTIONS.map(s => computeSectionSnapshot(s, by, { pendingScores: true })));
+    return mergeSnapshots(parts, COURSE_SECTIONS);
+  }
+
+  async function computeSectionSnapshot(section, by, { pendingScores = false } = {}) {
+    const grades = await computeClassGrades({ section }, { requireComplete: true });
+    if (!grades.ok) throw new Error('gradebook unavailable');
+    const asOf = todayInTz('America/New_York');
+    const quarter = quarterOfDate(asOf, config) || Object.keys(config.quarters)[0] || 'Q1';
+    const values = grades.students
+      .map(student => student.quarters?.[quarter]?.quarterGrade)
+      .filter(Number.isFinite)
+      .map(Math.round)
+      .sort((a, b) => a - b);
+    const snapshot = { ok: true, section, quarter, asOf, ...summarizeValues(values) };
+    if (by !== 'assignment') return snapshot;
+
+    const period = section.slice(-1);
+    snapshot.assignments = [];
+    // Each student's lessons include the full schedule, even untouched lessons.
+    const lessons = grades.students[0]?.lessons || [];
+    const seenTracks = new Set();
+    for (const lesson of lessons) {
+      const zeroDate = lesson.zeroDate?.[period];
+      if (!zeroDate) continue;
+      const pending = zeroDate >= asOf;
+      // Pooled call: a lesson already TAUGHT in this section (class day passed) but not yet
+      // counting still appears — that is exactly the "becomes a 0 soon" list on the Desk.
+      const taught = lesson.due?.[period] != null && lesson.due[period] <= asOf;
+      if (pending && !(pendingScores && taught)) continue;
+
+      const tracks = [];
+      if (lesson.worksheetKey) tracks.push(['worksheet', 'Follow-Along']);
+      if (lesson.quizTotal > 0) tracks.push(['quiz', 'Quiz']);
+      if (lesson.hasBlooket && !lesson.blooketBonus) tracks.push(['blooket', 'Blooket']);
+      for (const [track, label] of tracks) {
+        const groupKey = track !== 'quiz' && lesson.worksheetKey
+          ? `${lesson.unit}|${lesson.worksheetKey}:${track}`
+          : `${lesson.lessonKey}:${track}`;
+        if (seenTracks.has(groupKey)) continue;
+        seenTracks.add(groupKey);
+        // Assignment n counts every non-staff roster row, including missing scores;
+        // top-level n counts only finite quarter grades. Due lessons span quarters.
+        const scores = grades.students.map(student => {
+          const score = student.lessons?.find(item => item.lessonKey === lesson.lessonKey);
+          const value = track === 'worksheet' ? score?.lessonGradeNoQuiz ?? score?.Cws
+            : track === 'quiz' ? score?.Q : score?.blooket;
+          return Number.isFinite(value) ? Math.round(value) : null;
+        });
+        const missing = scores.filter(value => value === null).length;
+        // Before the zero date, missing work is not a 0 yet: it is left out (a tentative 0).
+        const values = scores
+          .map(value => (value === null && !pending ? 0 : value))
+          .filter(value => value !== null)
+          .sort((a, b) => a - b);
+        const summary = summarizeValues(values);
+        snapshot.assignments.push({
+          key: `${lesson.lessonKey}:${track}`, lessonKey: lesson.lessonKey, track,
+          title: cedAssignmentTitle(lesson, track), zeroDate, ...summary,
+          // Internal pooled call: keep the raw values so the n<5 floor applies to the POOL,
+          // not to each section's slice (mergeSnapshots re-summarizes and re-applies it).
+          // Tentative zeros: taught here, not yet past the zero date, no score yet.
+          ...(pendingScores ? { pending, values, tentativeZeros: pending ? missing : 0 } : {}),
+          // Counts also disclose scores in small sections.
+          zeros: summary.n < 5 ? null : values.filter(value => value === 0).length,
+        });
+      }
+    }
+    return snapshot;
+  }
+
+  app.get('/class/snapshot', async (req, res) => {
+    const section = req.query.section;
+    if (typeof section !== 'string' || !/^[A-Za-z0-9_-]{1,60}$/.test(section)) {
+      return res.status(400).json({ ok: false, error: 'invalid-section' });
+    }
+
+    if (!await requireTeacher(req, db)) {
+      try {
+        const authorization = req.headers.authorization;
+        const token = typeof authorization === 'string' && /^Bearer\s+/i.test(authorization)
+          ? authorization.replace(/^Bearer\s+/i, '').trim() : null;
+        const studentId = token ? verifyToken(token) : null;
+        if (!studentId) return res.status(401).json({ ok: false, error: 'forbidden' });
+        const roster = await db.findByStudentId(studentId);
+        if (roster?.error || (section !== 'all' && roster?.data?.section !== section)) {
+          return res.status(401).json({ ok: false, error: 'forbidden' });
+        }
+      } catch (_) {
+        return res.status(401).json({ ok: false, error: 'forbidden' });
+      }
+    }
+
+    const by = req.query.by === 'assignment' ? 'assignment' : 'quarter';
+    const cacheKey = `${section}:${by}`;
+    try {
+      if (process.env.NODE_ENV === 'test') return res.json(await computeSnapshot(section, by));
+      const cached = cache.get(cacheKey);
+      if (cached && Date.now() < cached.expires) return res.json(await cached.payload);
+
+      // Share in-flight work too, so simultaneous refreshes compute once.
+      const entry = { expires: Infinity, payload: computeSnapshot(section, by) };
+      cache.set(cacheKey, entry);
+      const payload = await entry.payload;
+      entry.expires = Date.now() + ttl;
+      return res.json(payload);
+    } catch (_) {
+      cache.delete(cacheKey);
+      return res.status(503).json({ ok: false, error: 'gradebook unavailable' });
+    }
+  });
+}

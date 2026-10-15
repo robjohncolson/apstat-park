@@ -1,0 +1,43 @@
+\documentclass[14pt]{extarticle}
+\usepackage{preamble}
+\geometry{letterpaper, landscape, margin=0.5in}
+\renewcommand{\answer}[1]{}
+\setlength{\parskip}{4pt}
+
+\begin{document}
+\pagestyle{empty}
+
+\daybanner{Unit 3 \textperiodcentered\ Topic 3.14 \textperiodcentered\ THE PROBLEM}{A Two-Way Table Before Inference}
+
+\noindent\begin{minipage}[t]{0.57\linewidth}
+\vspace{0pt}
+Suppose a membership association has 5,000 new members and takes an SRS of 120. Each member is classified by orientation status and preferred support channel. The association may test whether the variables are associated.\par\smallskip \textbf{Nico:} ``Every observed cell is at least 6, and the data came from an SRS, so the usual chi-square setup is ready.''\par \textbf{Priya:} ``The margins may produce a different boundary check; I would calculate that table before deciding.''\par
+\end{minipage}\hfill
+\begin{minipage}[t]{0.40\linewidth}
+\vspace{0pt}
+\begin{center}
+\textbf{Support channel}\par\smallskip
+\begin{tabular}{|l|c|c|c|c|}
+\hline
+\textbf{Status} & \textbf{Chat} & \textbf{Email} & \textbf{Phone} & \textbf{Total} \\ \hline
+\textbf{Done} & 42 & 34 & 24 & 100 \\ \hline
+\textbf{Not done} & 8 & 6 & 6 & 20 \\ \hline
+\textbf{Total} & 50 & 40 & 30 & 120 \\ \hline
+\end{tabular}
+\end{center}
+\end{minipage}
+
+\begin{firsttakebox}{FIRST TAKE --- one sentence before you work the parts}
+Would you decide from the recorded counts alone or also work out what the totals predict? Explain in one sentence.
+\end{firsttakebox}
+
+\begin{description}[leftmargin=1.15in, labelwidth=1in, itemsep=2pt, topsep=2pt]
+  \item[\dokbadge{1}~(a)] Which row total, column total, and table total are needed for Not done/Phone?
+  \item[\dokbadge{2}~(b)] Calculate the expected counts for Done/Chat and Not done/Phone. The other four expected counts are all greater than 5.
+  \item[\dokbadge{3}~(c)] In 3--4 sentences, decide whose claim follows the printed rule. Compare observed 6 with the expected Phone count, explain why the kind of count matters, and suggest one next step that keeps the same support-channel categories.
+\end{description}
+
+\vfill
+\textbf{Self-paced bonus problem. Work (a)--(c) from this sheet; turn it in whenever you finish.}
+
+\end{document}

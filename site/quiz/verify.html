@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Receipt Verifier — AP Stats</title>
+<style>
+    :root {
+        --bg: #0f172a;
+        --panel: #1e293b;
+        --ink: #e2e8f0;
+        --muted: #64748b;
+        --good: #34d399;
+        --good-deep: #065f46;
+        --bad: #f87171;
+        --bad-deep: #7f1d1d;
+        --accent: #818cf8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+        background: var(--bg);
+        color: var(--ink);
+        font-family: ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
+        display: flex; flex-direction: column; align-items: center;
+        padding: 6vh 20px 40px;
+        overflow-x: hidden;
+        position: relative;
+    }
+    /* aurora backdrop */
+    body::before {
+        content: ""; position: fixed; inset: -40%;
+        background:
+            radial-gradient(40% 35% at 30% 30%, rgba(129,140,248,.14), transparent 70%),
+            radial-gradient(35% 30% at 70% 60%, rgba(52,211,153,.10), transparent 70%),
+            radial-gradient(30% 30% at 55% 20%, rgba(244,114,182,.07), transparent 70%);
+        animation: drift 24s ease-in-out infinite alternate;
+        pointer-events: none; z-index: 0;
+    }
+    @keyframes drift {
+        from { transform: translate3d(-2%, -1%, 0) scale(1); }
+        to   { transform: translate3d(2%, 2%, 0) scale(1.06); }
+    }
+    main { position: relative; z-index: 1; width: min(680px, 100%); }
+
+    h1 {
+        font-size: clamp(1.6rem, 4vw, 2.4rem);
+        letter-spacing: -0.02em;
+        text-align: center;
+    }
+    .sub { color: var(--muted); text-align: center; margin: 8px 0 32px; font-size: .95rem; }
+
+    .panel {
+        background: color-mix(in srgb, var(--panel) 80%, transparent);
+        border: 1px solid #334155;
+        border-radius: 16px;
+        padding: 22px;
+        backdrop-filter: blur(6px);
+    }
+    textarea {
+        width: 100%; min-height: 110px; resize: vertical;
+        background: #0b1220; color: var(--ink);
+        border: 1px solid #334155; border-radius: 10px;
+        font: 13px/1.5 ui-monospace, Consolas, monospace;
+        padding: 12px; outline: none; transition: border-color .2s;
+    }
+    textarea:focus { border-color: var(--accent); }
+    .row { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+    .mode-toggle {
+        display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+        background: #0b1220; border: 1px solid #334155; border-radius: 12px;
+        padding: 5px; margin-bottom: 14px;
+    }
+    .mode-toggle button {
+        border-radius: 8px; padding: 10px 12px; font-size: .92rem;
+        background: transparent; color: var(--muted); border: 0;
+    }
+    .mode-toggle button.active {
+        background: var(--accent); color: #0b1220; font-weight: 800;
+    }
+    .transcript-tools { display: none; margin-bottom: 12px; }
+    .transcript-tools.show { display: block; }
+    .dropzone {
+        border: 1px dashed #475569; border-radius: 12px; padding: 18px;
+        background: rgba(11,18,32,.7); color: var(--muted); text-align: center;
+        cursor: pointer; transition: border-color .2s, color .2s, background .2s;
+    }
+    .dropzone.drag {
+        border-color: var(--accent); color: var(--ink); background: rgba(129,140,248,.08);
+    }
+    .dropzone input { display: none; }
+    .dropzone strong { color: var(--ink); }
+    button {
+        background: var(--accent); color: #0b1220; font-weight: 700;
+        border: 0; border-radius: 10px; padding: 12px 22px;
+        font-size: 1rem; cursor: pointer;
+        transition: transform .12s cubic-bezier(.34,1.56,.64,1), filter .2s;
+    }
+    button:hover { filter: brightness(1.12); transform: translateY(-1px); }
+    button:active { transform: translateY(1px) scale(.98); }
+    button.ghost { background: transparent; color: var(--muted); border: 1px solid #334155; font-weight: 500; }
+
+    /* result stage */
+    #stage { min-height: 320px; display: none; flex-direction: column; align-items: center; margin-top: 30px; }
+    #stage.show { display: flex; }
+
+    .seal {
+        width: 168px; height: 168px; border-radius: 50%;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        font-weight: 800; letter-spacing: .14em; user-select: none; cursor: pointer;
+        transform: scale(3.2) rotate(-18deg); opacity: 0;
+    }
+    .seal .big { font-size: 1.15rem; }
+    .seal .small { font-size: .6rem; letter-spacing: .3em; opacity: .75; margin-top: 4px; }
+    .seal.ok {
+        color: var(--good);
+        border: 5px double var(--good);
+        background: radial-gradient(circle at 50% 35%, rgba(52,211,153,.16), rgba(6,95,70,.25));
+        box-shadow: 0 0 50px rgba(52,211,153,.25), inset 0 0 24px rgba(52,211,153,.12);
+    }
+    .seal.fail {
+        color: var(--bad);
+        border: 5px double var(--bad);
+        background: radial-gradient(circle at 50% 35%, rgba(248,113,113,.14), rgba(127,29,29,.3));
+        box-shadow: 0 0 50px rgba(248,113,113,.2), inset 0 0 24px rgba(248,113,113,.1);
+    }
+    .seal.stamp { animation: stamp .55s cubic-bezier(.22,1.4,.36,1) forwards; }
+    @keyframes stamp {
+        0%   { transform: scale(3.2) rotate(-18deg); opacity: 0; }
+        60%  { transform: scale(.92) rotate(2deg);  opacity: 1; }
+        80%  { transform: scale(1.05) rotate(-1deg); }
+        100% { transform: scale(1) rotate(0deg); opacity: 1; }
+    }
+    .shake { animation: shake .4s linear; }
+    @keyframes shake {
+        0%,100% { transform: translateX(0); }
+        20% { transform: translateX(-9px); } 40% { transform: translateX(8px); }
+        60% { transform: translateX(-5px); } 80% { transform: translateX(4px); }
+    }
+
+    .facts {
+        margin-top: 26px; width: 100%; max-width: 520px;
+        display: grid; grid-template-columns: 130px 1fr; gap: 8px 16px;
+        font-size: .95rem;
+        opacity: 0; transform: translateY(12px);
+        transition: opacity .5s .25s, transform .5s .25s;
+    }
+    .facts.show { opacity: 1; transform: none; }
+    .facts dt { color: var(--muted); text-align: right; }
+    .facts dd { font-family: ui-monospace, Consolas, monospace; word-break: break-all; }
+    .facts .score-E { color: var(--good); font-weight: 700; }
+    .facts .score-P { color: #fbbf24; font-weight: 700; }
+    .facts .score-I { color: var(--bad); font-weight: 700; }
+    .facts .advisory {
+        color: #fbbf24;
+        font-family: ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
+        font-weight: 700;
+        word-break: normal;
+    }
+    .breakdown, .receipt-list {
+        margin-top: 18px; width: 100%; max-width: 520px;
+        border: 1px solid #334155; border-radius: 10px; overflow: hidden;
+        background: rgba(11,18,32,.45);
+    }
+    .breakdown-row, .receipt-row {
+        display: grid; grid-template-columns: 44px 1fr auto; gap: 10px;
+        align-items: center; padding: 10px 12px; border-top: 1px solid #334155;
+        font-size: .92rem;
+    }
+    .breakdown-row:first-child, .receipt-row:first-child { border-top: 0; }
+    .component-icon { text-align: center; font-weight: 800; color: var(--accent); }
+    .component-count { color: var(--muted); font-family: ui-monospace, Consolas, monospace; }
+    details.receipt-list summary { cursor: pointer; padding: 12px; color: var(--ink); font-weight: 700; }
+    .receipt-row { grid-template-columns: 1fr auto; font-family: ui-monospace, Consolas, monospace; }
+    .receipt-row .bad { color: var(--bad); }
+    #reason { margin-top: 18px; color: var(--bad); font-size: .95rem; max-width: 520px; text-align: center; }
+
+    footer { margin-top: auto; padding-top: 36px; color: #475569; font-size: .78rem; text-align: center; z-index: 1; }
+    footer code { color: #64748b; }
+    #rain { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
+
+    /* ───────── UI polish ───────── */
+    h1 {
+        background: linear-gradient(92deg, #c7d2fe, #a7f3d0 58%, #fbcfe8);
+        -webkit-background-clip: text; background-clip: text; color: transparent;
+        font-weight: 800;
+    }
+    .sub { line-height: 1.5; }
+    .panel { box-shadow: 0 20px 55px rgba(0,0,0,.38); }
+
+    /* a verdict glyph stamped inside the seal + a crisper embossed ring */
+    .seal { gap: 0; position: relative; }
+    .seal::before { font-size: 2.5rem; line-height: 1; margin-bottom: 2px; font-weight: 400; opacity: .92; }
+    .seal.ok::before  { content: '✓'; }
+    .seal.fail::before { content: '✕'; }
+    .seal.ok  { box-shadow: 0 0 55px rgba(52,211,153,.28), inset 0 0 0 2px rgba(52,211,153,.18), inset 0 0 26px rgba(52,211,153,.14); }
+    .seal.fail { box-shadow: 0 0 55px rgba(248,113,113,.24), inset 0 0 0 2px rgba(248,113,113,.18), inset 0 0 26px rgba(248,113,113,.12); }
+    .seal .big { font-size: 1.05rem; }
+    .seal .small { margin-top: 5px; }
+
+    /* facts: scannable rows with quiet dividers + uppercase labels */
+    .facts { grid-template-columns: 144px 1fr; gap: 0; max-width: 540px; }
+    .facts dt, .facts dd { padding: 9px 6px; border-bottom: 1px solid rgba(148,163,184,.14); align-self: start; }
+    .facts dt {
+        text-transform: uppercase; letter-spacing: .06em; font-size: .72rem;
+        font-family: ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif; padding-top: 11px;
+    }
+    .facts dd { font-size: .9rem; }
+    /* the first row is the verdict — read it as a banner, not monospace data */
+    .facts dt:first-of-type, .facts dd:first-of-type { border-bottom: 1px solid rgba(148,163,184,.3); }
+    .facts dd:first-of-type {
+        color: var(--ink); font-weight: 600;
+        font-family: ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
+    }
+
+    /* failure reason reads as a soft alert pill (hidden when empty) */
+    #reason {
+        background: rgba(248,113,113,.10); border: 1px solid rgba(248,113,113,.34);
+        border-radius: 10px; padding: 10px 14px;
+    }
+    #reason:empty { display: none; }
+
+    details.receipt-list summary { transition: color .15s; }
+    details.receipt-list summary:hover { color: var(--accent); }
+
+    @media (max-width: 540px) {
+        .facts { grid-template-columns: 1fr; }
+        .facts dt { text-align: left; border-bottom: 0; padding: 8px 6px 0; }
+        .facts dd { padding-top: 2px; }
+        .facts dt:first-of-type { border-bottom: 0; }
+        .seal { width: 140px; height: 140px; }
+        .seal::before { font-size: 2.1rem; }
+    }
+</style>
+</head>
+<body>
+<canvas id="rain"></canvas>
+<main>
+    <h1>🧾 Receipt Verifier</h1>
+    <p class="sub">Cryptographic proof of recorded work — verified entirely in your browser.<br>
+    No account. No database. Just math.</p>
+
+    <div class="panel" id="inputPanel">
+        <div class="mode-toggle" aria-label="Verifier mode">
+            <button id="receiptModeBtn" class="active" type="button">Verify receipt</button>
+            <button id="transcriptModeBtn" type="button">Verify transcript</button>
+        </div>
+        <div class="transcript-tools" id="transcriptTools">
+            <label class="dropzone" id="dropzone">
+                <input id="transcriptFile" type="file" accept=".json,application/json">
+                <strong>Choose a transcript JSON file</strong><br>
+                or drop it here
+            </label>
+        </div>
+        <textarea id="receiptIn" placeholder="Paste a receipt here (the long code under the QR), or open a receipt QR link…" spellcheck="false"></textarea>
+        <div class="row">
+            <button id="verifyBtn">Verify</button>
+            <button class="ghost" id="selfTestBtn" title="Verify the frozen test vector from the spec">Self-test</button>
+        </div>
+    </div>
+
+    <section id="stage">
+        <div class="seal" id="seal">
+            <div class="big" id="sealWord"></div>
+            <div class="small" id="sealSub"></div>
+        </div>
+        <dl class="facts" id="facts"></dl>
+        <div id="reason"></div>
+    </section>
+</main>
+<footer>
+    Signed Receipt System v1.1 · Ed25519 · issuers: <code id="keyTag"></code><br>
+    Contract: docs/receipt-system-spec.md · A receipt proves the class server recorded this event — nothing more, nothing less.
+</footer>
+
+<!-- Shared Ed25519 verification core — also loaded by teacher-verify.html so the
+     security-critical crypto lives in exactly one file. -->
+<script src="receipt-verify.js"></script>
+<script>
+// ISSUERS + the Ed25519 verify core (b64urlToBytes/hex/importIssuerKey/
+// hasTestModeFlag/issuersForRun/verifyReceipt/sha256HexText) now live in
+// receipt-verify.js, loaded above, and are referenced here as globals. The
+// TEST_VECTORs below stay — they drive this page's self-test button.
+
+const TEST_VECTOR = 'eyJhaCI6IjNhMWYwYzliMmQ0ZTVmNjAiLCJuIjoiYTFiMmMzZDQiLCJxIjoiVTQtTDMtUTAxIiwicyI6IkUiLCJ0IjoidmVyZGljdCIsInRzIjoxNzgxMjM0NTY3ODkwLCJ1IjoiQXBwbGVfTW9ua2V5IiwidiI6MX0.fxr2OUgg98CHgo8zrNkqT5DAdxa7emYOlN82z1elKBorO8HqUH0K4Z7AH-FDr7EeLPGF6Xeg2FT-dEOMlxuPCw';
+const TEST_VECTOR_LEDGER = 'eyJhIjoxLCJhaCI6IjNhMWYwYzliMmQ0ZTVmNjAiLCJlIjoicHJhY3RpY2UiLCJpIjoiV1MtVTRMMy1RMiIsIm4iOiJhMWIyYzNkNCIsInNjIjowLjUsInNpZCI6IjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMCIsInNyYyI6IndvcmtzaGVldCIsInQiOiJsZWRnZXIiLCJ0cyI6MTc4MTIzNDU2Nzg5MCwidSI6IkFwcGxlX01vbmtleSIsInYiOjF9.h2UL76wqlGpAOtUKLrCT0_XZidjYYf_ToVEujCB4ge9WrEaXgUUs4mNhHUf6JPJxorOhVw03DDaTVYZE2k7WCw';
+
+// (verify core moved to receipt-verify.js)
+
+// ===== UI =====
+const stage = document.getElementById('stage');
+const seal = document.getElementById('seal');
+const facts = document.getElementById('facts');
+const reasonEl = document.getElementById('reason');
+const inputPanel = document.getElementById('inputPanel');
+const receiptIn = document.getElementById('receiptIn');
+const receiptModeBtn = document.getElementById('receiptModeBtn');
+const transcriptModeBtn = document.getElementById('transcriptModeBtn');
+const transcriptTools = document.getElementById('transcriptTools');
+const transcriptFile = document.getElementById('transcriptFile');
+const dropzone = document.getElementById('dropzone');
+let verifyMode = 'receipt';
+
+function fmtTime(ms) {
+    return new Date(ms).toLocaleString(undefined, {
+        weekday: 'short', year: 'numeric', month: 'short', day: 'numeric',
+        hour: 'numeric', minute: '2-digit', second: '2-digit'
+    });
+}
+
+function fmtDate(ms) {
+    return new Date(ms).toLocaleDateString(undefined, {
+        year: 'numeric', month: 'short', day: 'numeric'
+    });
+}
+
+function esc(s) {
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function parseTranscriptText(text) {
+    let doc;
+    try { doc = JSON.parse(text); }
+    catch { throw new Error('Transcript file is not valid JSON.'); }
+    if (!doc || doc.format !== 'ap-stats-sealed-transcript') {
+        throw new Error('Not a sealed transcript JSON file.');
+    }
+    return doc;
+}
+
+function receiptLabel(payload) {
+    if (payload.t === 'ledger') return 'GRADEBOOK RECORD';
+    if (payload.t === 'verdict') return 'QUIZ VERDICT';
+    if (payload.t === 'answer') return 'QUIZ ANSWER';
+    return String(payload.t || 'UNKNOWN').toUpperCase();
+}
+
+function receiptExplainer(payload) {
+    if (payload.t === 'answer') {
+        return 'Proves the class server received and recorded this submission at the time shown.';
+    }
+    if (payload.t === 'verdict') {
+        return 'Proves the server recorded this E/P/I result. The score may be AI- or self-reported &mdash; see your gradebook for the official grade.';
+    }
+    if (payload.t === 'ledger') {
+        const base = 'Proves the gradebook recorded this item for this student at the time shown.';
+        return payload.e === 'self' || payload.e === 'self-reported' || payload.src === 'self'
+            ? base + ' Note: score is self-reported.'
+            : base;
+    }
+    return 'Proves this event was signed by the listed issuer at the time shown.';
+}
+
+function show(ok, payload, receiptId, errMsg, issuer) {
+    document.querySelectorAll('.breakdown, .receipt-list').forEach(el => el.remove());
+    stage.classList.add('show');
+    facts.classList.remove('show');
+    reasonEl.textContent = '';
+    seal.className = 'seal ' + (ok ? 'ok' : 'fail');
+    document.getElementById('sealWord').textContent = ok ? 'VERIFIED' : 'INVALID';
+    document.getElementById('sealSub').textContent = ok
+        ? 'ED25519 · ' + (issuer ? issuer.name.toUpperCase() : 'CLASS SERVER')
+        : 'SIGNATURE FAILED';
+    void seal.offsetWidth; // restart animation
+    seal.classList.add('stamp');
+    if (!ok) {
+        inputPanel.classList.add('shake');
+        setTimeout(() => inputPanel.classList.remove('shake'), 450);
+        reasonEl.textContent = errMsg || 'This receipt was NOT signed by any known class issuer key (or was altered after signing).';
+    }
+    facts.innerHTML = '';
+    if (payload) {
+        let rows;
+        if (payload.t === 'transcript') {
+            rows = [];
+            // Parent-friendly lead, only when the signature actually verified —
+            // a warm plain-language headline above the technical facts.
+            if (ok) {
+                rows.push(['Verified', `✅ <strong>${payload.u ? esc(payload.u) : 'This student'}</strong>'s AP Statistics progress — signed by the class server, genuine and unaltered.`]);
+            }
+            rows.push(
+                ['Receipt type', '<strong>GRADEBOOK SUMMARY (report card)</strong>'],
+                ['Signing issuer', issuer ? `<strong>${esc(issuer.name)}</strong>` : '—'],
+                ['What it proves', 'A report-card receipt — proves the class server\'s recorded grade for this student at the time shown. The full item-by-item transcript is verified separately (drag the .json into Verify transcript).'],
+                ['Student', payload.u ? esc(payload.u) : '—'],
+                ['Student ID', payload.sid ? esc(String(payload.sid).slice(0, 8)) + '…' : '—'],
+                ['Grade', `${esc(payload.g)}% (${esc(payload.gq)})`],
+                ['Items sealed', esc(payload.cnt)],
+                ['Completeness root', payload.root ? esc(String(payload.root).slice(0, 16)) + '…' : '—'],
+                ['Sealed', fmtTime(payload.asOf || payload.ts)]
+            );
+        } else if (payload.t === 'ledger') {
+            rows = [
+                ['Receipt type', `<strong>${receiptLabel(payload)}</strong>`],
+                ['Signing issuer', issuer ? `<strong>${esc(issuer.name)}</strong>` : '—'],
+                ['What it proves', receiptExplainer(payload)],
+                ['Student', payload.u ? esc(payload.u) : '—'],
+                ['Student ID', payload.sid ? esc(String(payload.sid).slice(0, 8)) + '…' : '—'],
+                ['Source', esc(payload.src)],
+                ['Item', esc(payload.i)],
+            ];
+            if (typeof payload.sc === 'number') rows.push(['Score', esc(Math.round(payload.sc * 100) + '%')]);
+            rows.push(['Attempt', esc(payload.a)]);
+            rows.push(['Evidence', payload.e === 'proctored'
+                ? '<span class="score-E">proctored ✓</span>' : esc(payload.e)]);
+        } else {
+            const isVerdict = payload.t === 'verdict';
+            rows = [
+                ['Receipt type', `<strong>${receiptLabel(payload)}</strong>`],
+                ['Signing issuer', issuer ? `<strong>${esc(issuer.name)}</strong>` : '—'],
+                ['What it proves', receiptExplainer(payload)],
+                ['Claimed name', `claimed: ${esc(payload.u)} (name not identity-verified)`],
+                ['Question', esc(payload.q)],
+            ];
+            if (isVerdict) rows.push(['Score', `<span class="score-${esc(payload.s)}">${esc(payload.s)}</span>`]);
+        }
+        if (payload.t !== 'transcript') {
+            rows.push(
+                ['Server time', fmtTime(payload.ts)],
+                ['Answer hash', esc(payload.ah)],
+                ['Receipt ID', receiptId ? receiptId.slice(0, 12) + '…' : '—'],
+            );
+        }
+        for (const [k, v] of rows) {
+            facts.insertAdjacentHTML('beforeend', `<dt>${k}</dt><dd>${v}</dd>`);
+        }
+        if (ok) requestAnimationFrame(() => facts.classList.add('show'));
+        window._lastReceiptId = receiptId;
+    }
+}
+
+function sourceIcon(src) {
+    const s = String(src || 'unknown').toLowerCase();
+    if (s.includes('quiz')) return 'QZ';
+    if (s.includes('worksheet')) return 'WS';
+    if (s.includes('blooket')) return 'BL';
+    if (s.includes('reflection') || s.includes('self')) return 'RF';
+    return 'RC';
+}
+
+const TRANSCRIPT_STALE_MS = 14 * 24 * 60 * 60 * 1000;
+const TRANSCRIPT_SEEN_KEY = 'desk_verifier_seen';
+
+function transcriptFreshnessAdvisories(payload) {
+    const advisories = [];
+    const asOf = Number(payload && payload.asOf);
+    const sid = payload && payload.sid ? String(payload.sid) : '';
+
+    if (Number.isFinite(asOf) && asOf > 0 && Date.now() - asOf > TRANSCRIPT_STALE_MS) {
+        const days = Math.floor((Date.now() - asOf) / (24 * 60 * 60 * 1000));
+        advisories.push(`Sealed ${days} days ago (${esc(fmtDate(asOf))}) &mdash; ask for a fresh export if you need the current grade.`);
+    }
+
+    try {
+        if (Number.isFinite(asOf) && asOf > 0 && sid && window.localStorage) {
+            const seen = JSON.parse(localStorage.getItem(TRANSCRIPT_SEEN_KEY) || '{}');
+            const previous = Number(seen[sid]);
+            if (Number.isFinite(previous) && asOf < previous) {
+                advisories.push(`You previously imported a NEWER sealed transcript for this student (dated ${esc(fmtDate(previous))}). This one is older.`);
+            }
+            seen[sid] = Number.isFinite(previous) ? Math.max(previous, asOf) : asOf;
+            localStorage.setItem(TRANSCRIPT_SEEN_KEY, JSON.stringify(seen));
+        }
+    } catch {
+        // Freshness memory is advisory only; storage failures must not affect verdicts.
+    }
+
+    return advisories;
+}
+
+function showTranscript(result) {
+    const ok = result.ok;
+    document.querySelectorAll('.breakdown, .receipt-list').forEach(el => el.remove());
+    stage.classList.add('show');
+    facts.classList.remove('show');
+    reasonEl.textContent = '';
+    seal.className = 'seal ' + (ok ? 'ok' : 'fail');
+    document.getElementById('sealWord').textContent = ok ? 'SEALED TRANSCRIPT' : 'INVALID';
+    document.getElementById('sealSub').textContent = ok ? 'ED25519 · THE DESK' : 'TRANSCRIPT FAILED';
+    void seal.offsetWidth;
+    seal.classList.add('stamp');
+    if (!ok) {
+        inputPanel.classList.add('shake');
+        setTimeout(() => inputPanel.classList.remove('shake'), 450);
+        reasonEl.textContent = result.reason || 'This transcript is incomplete, altered, or not signed by a production issuer.';
+    }
+
+    facts.innerHTML = '';
+    if (result.manifest) {
+        const p = result.manifest.payload || {};
+        const student = `${p.u ? esc(p.u) : '—'} (${p.sid ? esc(String(p.sid).slice(0, 8)) + '…' : 'no sid'})`;
+        const grade = typeof p.g === 'number' ? `${esc(p.g)}% (${esc(p.gq || '—')})` : `— (${esc(p.gq || '—')})`;
+        const rows = [
+            ['Verdict', ok ? `✓ Sealed transcript — ${result.members.length} items, complete, untampered` : `FAIL — ${esc(result.reason || 'invalid transcript')}`],
+            ['Student', student],
+            ['Grade', grade],
+            ['Sealed date', p.asOf ? fmtTime(p.asOf) : '—'],
+            ['Manifest issuer', result.manifest.issuer ? esc(result.manifest.issuer.name) : '—'],
+            ['Completeness root', esc(p.root || '—')],
+        ];
+        if (ok) {
+            for (const advisory of transcriptFreshnessAdvisories(p)) {
+                rows.push(['STALENESS ADVISORY', `<span class="advisory">${advisory}</span>`]);
+            }
+        }
+        for (const [k, v] of rows) {
+            facts.insertAdjacentHTML('beforeend', `<dt>${k}</dt><dd>${v}</dd>`);
+        }
+
+        const groups = new Map();
+        for (const member of result.members) {
+            const src = member.payload ? String(member.payload.src || member.payload.t || 'unknown') : 'invalid';
+            groups.set(src, (groups.get(src) || 0) + 1);
+        }
+        const breakdown = document.createElement('div');
+        breakdown.className = 'breakdown';
+        for (const [src, count] of [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
+            breakdown.insertAdjacentHTML('beforeend',
+                `<div class="breakdown-row"><span class="component-icon">${sourceIcon(src)}</span><span>${esc(src)}</span><span class="component-count">${count}</span></div>`);
+        }
+        facts.insertAdjacentElement('afterend', breakdown);
+
+        const list = document.createElement('details');
+        list.className = 'receipt-list';
+        list.innerHTML = `<summary>Show all ${result.members.length} receipts</summary>`;
+        result.members.forEach((m, i) => {
+            const label = m.payload ? `${m.payload.src || m.payload.t || 'receipt'} ${m.payload.i || m.payload.q || ''}`.trim() : 'unreadable receipt';
+            list.insertAdjacentHTML('beforeend',
+                `<div class="receipt-row"><span class="${m.ok ? '' : 'bad'}">${esc(String(i + 1).padStart(3, '0'))} ${esc(label)}</span><span>${m.receiptId ? esc(m.receiptId.slice(0, 12)) + '…' : 'invalid'}</span></div>`);
+        });
+        breakdown.insertAdjacentElement('afterend', list);
+        window._lastReceiptId = result.manifest.receiptId;
+    }
+    requestAnimationFrame(() => facts.classList.add('show'));
+}
+
+async function verifyTranscript(doc) {
+    if (!doc || doc.format !== 'ap-stats-sealed-transcript') throw new Error('Not a sealed transcript JSON file.');
+    if (typeof doc.manifest !== 'string' || !doc.manifest.trim()) throw new Error('Transcript manifest is missing.');
+    if (!Array.isArray(doc.receipts)) throw new Error('Transcript receipts must be an array.');
+
+    const manifest = await verifyReceipt(doc.manifest, { includeTestKeys: false });
+    if (!manifest.ok) return { ok: false, reason: 'Manifest signature invalid or not signed by a production issuer.', manifest, members: [] };
+    if (manifest.issuer && manifest.issuer.test) return { ok: false, reason: 'Manifest was signed by a TEST issuer, not a production issuer.', manifest, members: [] };
+    if (!manifest.issuer || manifest.issuer.kind !== 'desk') return { ok: false, reason: 'Manifest was not signed by The Desk production issuer.', manifest, members: [] };
+    if (!manifest.payload || manifest.payload.t !== 'transcript') return { ok: false, reason: 'Manifest is signed, but is not a transcript manifest.', manifest, members: [] };
+
+    const members = [];
+    for (const compact of doc.receipts) {
+        if (typeof compact !== 'string') {
+            members.push({ ok: false, issuer: null, payload: null, receiptId: null });
+            continue;
+        }
+        try {
+            members.push(await verifyReceipt(compact, { includeTestKeys: false }));
+        } catch {
+            members.push({ ok: false, issuer: null, payload: null, receiptId: null });
+        }
+    }
+    if (members.some(m => !m.ok)) return { ok: false, reason: 'One or more member receipt signatures are invalid.', manifest, members };
+
+    const ids = members.map(m => m.receiptId).sort();
+    const root = await sha256HexText(ids.join('\n'));
+    const countMatches = members.length === manifest.payload.cnt;
+    const rootMatches = root === manifest.payload.root;
+    const uniqueMatches = new Set(ids).size === manifest.payload.cnt;
+    if (!rootMatches && !countMatches) return { ok: false, reason: 'INCOMPLETE / TAMPERED: completeness root and receipt count mismatch.', manifest, members };
+    if (!rootMatches) return { ok: false, reason: 'INCOMPLETE / TAMPERED: completeness root mismatch.', manifest, members };
+    if (!countMatches) return { ok: false, reason: 'INCOMPLETE / TAMPERED: receipt count mismatch.', manifest, members };
+    if (!uniqueMatches) return { ok: false, reason: 'INCOMPLETE / TAMPERED: duplicate receipt IDs in transcript.', manifest, members };
+    if (members.some(m => !m.payload || m.payload.sid !== manifest.payload.sid)) {
+        return { ok: false, reason: 'Foreign member receipt: at least one receipt belongs to a different student.', manifest, members };
+    }
+    return { ok: true, reason: '', manifest, members };
+}
+
+async function run(compact, options = {}) {
+    if (!compact || !compact.trim()) return;
+    if (!window.crypto || !window.crypto.subtle) {
+        show(false, null, null, 'This browser does not support Web Crypto — try an updated Chrome, Edge, Firefox, or Safari.');
+        return;
+    }
+    try {
+        const { ok, issuer, payload, receiptId } = await verifyReceipt(compact, {
+            includeTestKeys: !!options.includeTestKeys || hasTestModeFlag()
+        });
+        show(ok, payload, receiptId, null, issuer);
+    } catch (e) {
+        if (/Ed25519|algorithm/i.test(String(e)) && !(e instanceof Error && e.message.startsWith('Not a receipt'))) {
+            show(false, null, null, 'This browser cannot verify Ed25519 signatures yet — try an updated Chrome, Edge, Firefox, or Safari.');
+        } else {
+            show(false, null, null, e.message);
+        }
+    }
+}
+
+async function runTranscriptText(text) {
+    if (!text || !text.trim()) return;
+    if (!window.crypto || !window.crypto.subtle) {
+        show(false, null, null, 'This browser does not support Web Crypto — try an updated Chrome, Edge, Firefox, or Safari.');
+        return;
+    }
+    try {
+        showTranscript(await verifyTranscript(parseTranscriptText(text)));
+    } catch (e) {
+        showTranscript({ ok: false, reason: e.message, manifest: null, members: [] });
+    }
+}
+
+function setMode(mode) {
+    verifyMode = mode;
+    receiptModeBtn.classList.toggle('active', mode === 'receipt');
+    transcriptModeBtn.classList.toggle('active', mode === 'transcript');
+    transcriptTools.classList.toggle('show', mode === 'transcript');
+    receiptIn.placeholder = mode === 'transcript'
+        ? 'Paste the raw sealed transcript JSON here...'
+        : 'Paste a receipt here (the long code under the QR), or open a receipt QR link…';
+}
+
+receiptModeBtn.addEventListener('click', () => setMode('receipt'));
+transcriptModeBtn.addEventListener('click', () => setMode('transcript'));
+
+document.getElementById('verifyBtn').addEventListener('click', () => {
+    const text = receiptIn.value;
+    const looksLikeTranscript = /^\s*\{/.test(text) && text.includes('"format"') && text.includes('ap-stats-sealed-transcript');
+    if (verifyMode === 'transcript' || looksLikeTranscript) runTranscriptText(text);
+    else run(text);
+});
+let selfTestToggle = false;
+document.getElementById('selfTestBtn').addEventListener('click', () => {
+    const vec = selfTestToggle ? TEST_VECTOR_LEDGER : TEST_VECTOR;
+    selfTestToggle = !selfTestToggle;
+    setMode('receipt');
+    receiptIn.value = vec;
+    run(vec, { includeTestKeys: true });
+});
+document.getElementById('keyTag').textContent =
+    ISSUERS.map(i => `${i.name} ${i.pubkey.slice(0, 8)}…`).join(' · ');
+
+document.getElementById('keyTag').textContent =
+    issuersForRun(hasTestModeFlag()).map(i => `${i.name} ${i.pubkey.slice(0, 8)}...`).join(' / ');
+
+// ── Session commit (proto-git) verification ──
+// A commit QR carries { v, m: manifest, r: [receipts] }. Verify the manifest
+// signature, every member receipt, recompute the root over the receipt ids, and
+// confirm it matches — same guarantees as the sealed transcript, scoped to one
+// QR-sized session chunk. The `prev` field links it into the commit chain.
+async function verifyCommitDoc(doc) {
+    if (!doc || typeof doc.m !== 'string' || !doc.m.trim()) throw new Error('Commit manifest is missing.');
+    if (!Array.isArray(doc.r)) throw new Error('Commit receipts must be an array.');
+    const manifest = await verifyReceipt(doc.m, { includeTestKeys: false });
+    if (!manifest.ok) return { ok: false, reason: 'Commit manifest signature invalid or not signed by a production issuer.', manifest, members: [] };
+    if (manifest.issuer && manifest.issuer.test) return { ok: false, reason: 'Commit was signed by a TEST issuer, not a production issuer.', manifest, members: [] };
+    if (manifest.payload.t !== 'commit') return { ok: false, reason: 'Manifest is signed, but is not a commit.', manifest, members: [] };
+    const members = [];
+    for (const compact of doc.r) {
+        try { members.push(await verifyReceipt(compact, { includeTestKeys: false })); }
+        catch { members.push({ ok: false, payload: null, receiptId: null }); }
+    }
+    if (members.some(m => !m.ok)) return { ok: false, reason: 'One or more answers in this commit failed signature verification.', manifest, members };
+    const ids = members.map(m => m.receiptId);
+    if (new Set(ids).size !== ids.length) return { ok: false, reason: 'Commit contains duplicate receipts.', manifest, members };
+    const root = await sha256HexText(ids.slice().sort().join('\n'));
+    if (root !== manifest.payload.root) return { ok: false, reason: 'Commit root does not match its receipts — altered or incomplete.', manifest, members };
+    if (manifest.payload.cnt !== members.length) return { ok: false, reason: 'Commit count does not match the receipts.', manifest, members };
+    const sid = manifest.payload.sid;
+    if (members.some(m => m.payload && m.payload.sid && m.payload.sid !== sid)) return { ok: false, reason: 'Commit mixes receipts from different students.', manifest, members };
+    return { ok: true, reason: null, manifest, members };
+}
+
+function showCommit(result) {
+    const ok = result.ok;
+    document.querySelectorAll('.breakdown, .receipt-list').forEach(el => el.remove());
+    stage.classList.add('show');
+    facts.classList.remove('show');
+    reasonEl.textContent = '';
+    seal.className = 'seal ' + (ok ? 'ok' : 'fail');
+    document.getElementById('sealWord').textContent = ok ? 'SIGNED COMMIT' : 'INVALID';
+    document.getElementById('sealSub').textContent = ok ? 'ED25519 · THE DESK' : 'COMMIT FAILED';
+    void seal.offsetWidth;
+    seal.classList.add('stamp');
+    if (!ok) {
+        inputPanel.classList.add('shake');
+        setTimeout(() => inputPanel.classList.remove('shake'), 450);
+        reasonEl.textContent = result.reason || 'This commit is altered, incomplete, or not signed by a production issuer.';
+    }
+    facts.innerHTML = '';
+    if (result.manifest) {
+        const p = result.manifest.payload || {};
+        const student = `${p.u ? esc(p.u) : '—'} (${p.sid ? esc(String(p.sid).slice(0, 8)) + '…' : 'no sid'})`;
+        const rows = [
+            ['Verdict', (function () { const n = result.members.length || (p.cnt != null ? p.cnt : 0); return ok ? `✓ Signed session commit — ${n} item${n === 1 ? '' : 's'}` + (result.members.length ? ', untampered' : ' (manifest verified)') : `FAIL — ${esc(result.reason || 'invalid commit')}`; })()],
+            ['Receipt type', '<strong>SESSION COMMIT (proto-git)</strong>'],
+            ['Student', student],
+            ['Commit #', esc(p.seq != null ? p.seq : '—')],
+            ['Answers in commit', esc(p.cnt != null ? p.cnt : result.members.length)],
+            ['Session window', (p.from ? fmtTime(p.from) : '—') + ' – ' + (p.to ? fmtTime(p.to) : '—')],
+            ['Chain link (prev)', p.prev ? esc(String(p.prev).slice(0, 16)) + '…' : 'genesis (first commit)'],
+            ['Commit root', p.root ? esc(String(p.root).slice(0, 16)) + '…' : '—'],
+            ['Issuer', result.manifest.issuer ? esc(result.manifest.issuer.name) : '—'],
+            ['Sealed', p.ts ? fmtTime(p.ts) : '—'],
+        ];
+        for (const [k, v] of rows) facts.insertAdjacentHTML('beforeend', `<dt>${k}</dt><dd>${v}</dd>`);
+        if (result.members.length) {
+            const list = document.createElement('details');
+            list.className = 'receipt-list';
+            list.innerHTML = `<summary>Show all ${result.members.length} answers in this commit</summary>`;
+            result.members.forEach((m, i) => {
+                const label = m.payload ? `${m.payload.src || m.payload.t || 'receipt'} ${m.payload.i || m.payload.q || ''}`.trim() : 'unreadable receipt';
+                list.insertAdjacentHTML('beforeend',
+                    `<div class="receipt-row"><span class="${m.ok ? '' : 'bad'}">${esc(String(i + 1).padStart(3, '0'))} ${esc(label)}</span><span>${m.receiptId ? esc(m.receiptId.slice(0, 12)) + '…' : 'invalid'}</span></div>`);
+            });
+            facts.insertAdjacentElement('afterend', list);
+        }
+    }
+    requestAnimationFrame(() => facts.classList.add('show'));
+}
+
+// A signed commit manifest on its own (payload.sig) — the small, scannable QR
+// form. Its signed `root` already cryptographically commits to all its receipts,
+// so the signature alone proves the Desk attested to this session commit.
+async function verifyCommitManifestOnly(compact) {
+    const manifest = await verifyReceipt(compact, { includeTestKeys: false });
+    if (!manifest.ok) return { ok: false, reason: 'Commit manifest signature invalid or not signed by a production issuer.', manifest, members: [] };
+    if (manifest.issuer && manifest.issuer.test) return { ok: false, reason: 'Commit was signed by a TEST issuer, not a production issuer.', manifest, members: [] };
+    if (manifest.payload.t !== 'commit') return { ok: false, reason: 'Signed, but not a commit manifest.', manifest, members: [] };
+    return { ok: true, reason: null, manifest, members: [] };
+}
+
+async function runCommitDeep(raw) {
+    if (!window.crypto || !window.crypto.subtle) {
+        show(false, null, null, 'This browser does not support Web Crypto — try an updated Chrome, Edge, Firefox, or Safari.');
+        return;
+    }
+    const v = String(raw || '').trim();
+    // Manifest-only QR: a bare compact receipt (payload.sig). base64url has no '.',
+    // so a single dot reliably distinguishes it from the self-contained JSON form.
+    if (/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(v)) {
+        try { showCommit(await verifyCommitManifestOnly(v)); }
+        catch (e) { showCommit({ ok: false, reason: e.message, manifest: null, members: [] }); }
+        return;
+    }
+    // Self-contained QR/link: base64url(JSON { m, r }) — manifest + every receipt.
+    let doc;
+    try {
+        let s = v.replace(/-/g, '+').replace(/_/g, '/');
+        while (s.length % 4) s += '=';
+        doc = JSON.parse(decodeURIComponent(escape(atob(s))));
+    } catch (e) {
+        showCommit({ ok: false, reason: 'Commit QR payload is not readable.', manifest: null, members: [] });
+        return;
+    }
+    try { showCommit(await verifyCommitDoc(doc)); }
+    catch (e) { showCommit({ ok: false, reason: e.message, manifest: null, members: [] }); }
+}
+
+// QR deep-link: verify.html#r=<compact>
+(function () {
+    const m = location.hash.match(/[#&]r=([^&]+)/);
+    if (m) {
+        const compact = decodeURIComponent(m[1]);
+        receiptIn.value = compact;
+        run(compact);
+    }
+})();
+
+// QR deep-link: verify.html#commit=<base64url({m,r})>
+(function () {
+    const m = location.hash.match(/[#&]commit=([^&]+)/);
+    if (m) runCommitDeep(m[1]);
+})();
+
+transcriptFile.addEventListener('change', async () => {
+    const file = transcriptFile.files && transcriptFile.files[0];
+    if (!file) return;
+    const text = await file.text();
+    setMode('transcript');
+    receiptIn.value = text;
+    runTranscriptText(text);
+});
+dropzone.addEventListener('dragover', e => {
+    e.preventDefault();
+    dropzone.classList.add('drag');
+});
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag'));
+dropzone.addEventListener('drop', async e => {
+    e.preventDefault();
+    dropzone.classList.remove('drag');
+    const file = e.dataTransfer.files && e.dataTransfer.files[0];
+    if (!file) return;
+    const text = await file.text();
+    setMode('transcript');
+    receiptIn.value = text;
+    runTranscriptText(text);
+});
+
+// ===== hidden: tap the seal five times =====
+(function () {
+    let taps = 0, timer = null, raf = null;
+    const canvas = document.getElementById('rain');
+    seal.addEventListener('click', () => {
+        taps++;
+        clearTimeout(timer);
+        timer = setTimeout(() => { taps = 0; }, 1600);
+        if (taps >= 5) { taps = 0; rain(); }
+    });
+    function rain() {
+        if (raf) { cancelAnimationFrame(raf); raf = null; canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height); return; }
+        const ctx = canvas.getContext('2d');
+        canvas.width = innerWidth; canvas.height = innerHeight;
+        const digits = (window._lastReceiptId || 'ecceb8d3a527a912').split('');
+        const cols = Math.floor(canvas.width / 16);
+        const y = Array(cols).fill(0).map(() => Math.random() * -60);
+        const started = performance.now();
+        (function step(t) {
+            ctx.fillStyle = 'rgba(15,23,42,0.12)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.font = '14px ui-monospace, monospace';
+            for (let i = 0; i < cols; i++) {
+                ctx.fillStyle = i % 7 === 0 ? '#34d399' : 'rgba(52,211,153,0.45)';
+                ctx.fillText(digits[(i * 13 + Math.floor(y[i])) % digits.length], i * 16, (y[i] % (canvas.height / 14)) * 14);
+                y[i] += 0.35 + (i % 5) * 0.12;
+            }
+            if (t - started < 12000) raf = requestAnimationFrame(step);
+            else { raf = null; ctx.clearRect(0, 0, canvas.width, canvas.height); }
+        })(started);
+    }
+})();
+</script>
+</body>
+</html>

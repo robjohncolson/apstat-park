@@ -1,0 +1,90 @@
+\documentclass[11pt]{article}
+\usepackage{preamble}
+\setlength{\parskip}{4pt}
+
+\begin{document}
+
+\daybanner{AP Statistics \textperiodcentered\ Unit 3 \textperiodcentered\ Topic 3.14 \textperiodcentered\ TEACHER KEY}{Two Simulations for Mystery Tokens}
+
+\sectionbanner{CED TETHER}
+
+{\small
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item \textbf{VAR-1.J} Identify questions suggested by variation between observed and expected counts in categorical data. \textbf{[Skill 1.A]}
+  \item \textbf{VAR-1.J.1} Variation between what we find and what we expect to find may be random or not.
+\end{itemize}
+}
+\textbf{Essential question:} What must a simulation vary to decide whether observed categorical discrepancies are surprising?\par
+\textbf{DOK-3 skill:} 4.B \textperiodcentered\ \textbf{FRQ pattern:} {\small\texttt{fixed-\allowbreak{}count-\allowbreak{}vs-\allowbreak{}null-\allowbreak{}generation}}\par
+\textbf{DOK rationale:} Part (c) coordinates the null model, what each simulation preserves, the chi-square tail, and an evidence threshold to adjudicate two designs and explain the false assurance produced by the rejected design.\par
+
+\textbf{Self-paced bonus sheet.} Students take it when they choose and turn it in when they finish. Everything they need is printed on the sheet. Score part (c) only, E / P / I, by hand --- never AI-graded or auto-scored. (a) and (b) are the ladder up; use them to see where a thin (c) came from.\par
+
+\textbf{Questions to ask}
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item Which specific number or study detail supports your choice?
+  \item What claim would go beyond the evidence, and why?
+\end{itemize}
+
+\begin{callout}{\IconWarn\ LOOK FOR}{calloutred}
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item Choosing a speaker without a reason.
+  \item Copying numbers without explaining what they support.
+\end{itemize}
+\end{callout}
+
+\sectionbanner{SCORING PART (c) --- E / P / I}
+
+\textbf{Expected elements}
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item \textbf{varied-counts} (required) --- Justifies Amara using new counts under the claimed probabilities
+  \item \textbf{fixed-counts} (required) --- Explains that Leo redraws the same counts and cannot model their variation
+  \item \textbf{bounded-conclusion} (required) --- Uses 0.186 > 0.05 to call the result unsurprising without claiming proof
+\end{itemize}
+
+{\small\renewcommand{\arraystretch}{1.25}
+\noindent\begin{tabular}{|p{0.5in}|p{5.9in}|}
+\hline
+\textbf{E} & Explains both simulation mechanisms and uses the tail proportion for a bounded conclusion. \\ \hline
+\textbf{P} & Shows substantive valid reasoning for at least one required element, but does not meet all E requirements. Credit correct reasoning even when another claim is wrong. \\ \hline
+\textbf{I} & Shows no substantive valid reasoning for any required element; a name, unsupported choice, or copied number alone does not count. \\ \hline
+\end{tabular}}
+
+\clearpage
+\focusbanner{THE PROBLEM --- annotated}
+
+Suppose a company claims 10{,}000 mystery tokens are $50\%$ red, $30\%$ teal, and $20\%$ gold. An SRS of 80 has the shown counts.\par\smallskip \textbf{Leo:} ``Mix and redraw these same 80 tokens without replacement; recompute $\chi^2$ for 1,000 trials.''\par \textbf{Amara:} ``For each trial, generate 80 independent colors with probabilities 0.50, 0.30, and 0.20, then recompute $\chi^2$.'' In Amara's 1,000 trials, 186 statistics are at least the observed value.\par
+\begin{center}
+\textbf{Token sample}\par\smallskip
+\begin{tabular}{|l|c|c|}
+\hline
+\textbf{Color} & \textbf{Claim} & \textbf{Observed} \\ \hline
+\textbf{Red} & $0.50$ & 32 \\ \hline
+\textbf{Teal} & $0.30$ & 30 \\ \hline
+\textbf{Gold} & $0.20$ & 18 \\ \hline
+\end{tabular}
+\end{center}
+\begin{firsttakebox}{FIRST TAKE --- one sentence before you work the parts}
+Which plan can produce a different number of red tokens on the next trial? Explain in one sentence.\par
+\answer{Ungraded commitment; accept any evidence-based first impression.}
+\end{firsttakebox}
+
+\begin{callout}{\IconBook\ EXPECTED COUNTS AND SIMULATION (keep on the page)}{calloutgreen}
+For a model probability $p_i$ and sample size $n$, the expected count is $E_i=np_i$.
+The chi-square statistic adds the relative squared gaps: $\chi^2=\sum (O-E)^2/E$.
+To model chance variation, generate new samples of the same size using the claimed probabilities.
+Compute the statistic each time. The fraction at least as large as the observed statistic estimates
+how often such a mismatch occurs if the model is true. A fraction at or below a stated cutoff is
+evidence against the model; a larger fraction does not prove the model.
+\end{callout}
+
+\dokbadge{1}~\textbf{(a)} Find the three expected color counts from the company's percentages.\par
+\answer{$80(0.50)=40$ red, $80(0.30)=24$ teal, and $80(0.20)=16$ gold.}
+
+\dokbadge{2}~\textbf{(b)} The observed statistic is $\chi^2=3.35$. Check the red contribution $(32-40)^2/40$, then compute the simulation proportion $186/1{,}000$.\par
+\answer{The red contribution is $(32-40)^2/40=1.60$. The simulated upper-tail proportion is $186/1{,}000=0.186$.}
+
+\dokbadge{3}~\textbf{(c)} In 3--4 sentences, choose a simulation and justify what varies from trial to trial. Use the simulated proportion to decide whether the result is unusual at a 5 percent cutoff, and explain why this does not prove the company's claim.\par
+\answer{Amara is justified because each trial generates new counts using the claimed color probabilities. Leo redraws all of the same 80 tokens, so the counts and $\chi^2=3.35$ never change; his output cannot show sample-to-sample variation. Since $0.186>0.05$, the observed result is not unusual by the stated cutoff. This leaves chance variation plausible but does not prove the company's color claim.}
+
+\end{document}

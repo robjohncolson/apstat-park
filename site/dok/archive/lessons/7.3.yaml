@@ -1,0 +1,42 @@
+# Topic 7.3 — Justifying a Claim About a Population Mean Based on a Confidence Interval (B: 2027-01-15)
+topic: "7.3"
+ced2026: { unit: 4, topic: "4.3", label: "Justifying a Claim Based on a Confidence Interval for a Population Mean" }
+title: "One Interval, Two Cutoffs"
+essential_question: "How can one confidence interval support a bounded claim while leaving a stronger claim unresolved?"
+worksheet: "u7_lesson3_live.html"
+
+rules_callout:
+  title: "LET THE ENTIRE INTERVAL GOVERN THE CLAIM (keep on the page)"
+  body: |
+    A $C\%$ confidence interval estimates a population mean, not the spread of individual observations.
+    We are $C\%$ confident that the interval captures the population mean represented by the random sample;
+    the fixed interval either contains that mean or it does not. A value inside the interval remains plausible.
+    To support $\mu<c$, the entire interval must lie below $c$; an endpoint merely falling below $c$ is not enough.
+    With other features held fixed, a larger sample tends to narrow a mean interval, while a higher confidence
+    level widens it.
+
+focus: aps-7.3-d3-1
+reinforcement: []
+space: { first_take: 0.9in, a: 0.7in, b: 1.4in, c: 2.0in }
+
+teacher:
+  questions_to_ask:
+  - Which specific number or study detail supports your choice?
+  - What claim would go beyond the evidence, and why?
+  watch_for:
+  - Choosing a speaker without a reason.
+  - Copying numbers without explaining what they support.
+  first_take_note: Ungraded commitment; accept any evidence-based first impression.
+visuals:
+  kiosk_sample:
+    kind: two_way_table
+    col_label: "Kiosk sample"
+    row_label: "Summary"
+    cols: ["Value"]
+    rows: ["Population", "$n$", "Mean (s)", "SD (s)", "Shape"]
+    cells:
+      - ["800"]
+      - ["25"]
+      - ["42.4"]
+      - ["6.0"]
+      - ["Symmetric; no outliers"]

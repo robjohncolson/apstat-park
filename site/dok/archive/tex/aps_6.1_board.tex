@@ -1,0 +1,48 @@
+\documentclass[14pt]{extarticle}
+\usepackage{preamble}
+\geometry{letterpaper, landscape, margin=0.5in}
+\renewcommand{\answer}[1]{}
+\setlength{\parskip}{4pt}
+
+\begin{document}
+\pagestyle{empty}
+
+\daybanner{Unit 3 \textperiodcentered\ Topic 3.3 \textperiodcentered\ THE PROBLEM}{Six Activations in Twelve Users}
+
+\noindent\begin{minipage}[t]{0.57\linewidth}
+\vspace{0pt}
+Suppose a developer's model says $p_0=0.20$ of new app users activate voice commands. An SRS of 12 users includes 6 activations, so $\hat p=0.50$. The chart shows 200 simulated samples of 12 independent users under this model.\par\smallskip \textbf{Mara:} ``A normal model for $\hat p$ gives $P(\hat p\ge 0.50)\approx0.005$, so that is the chance probability I would report.''\par \textbf{Jules:} ``The simulated distribution is not very normal. I would estimate the chance probability directly from its tail.''\par
+\end{minipage}\hfill
+\begin{minipage}[t]{0.40\linewidth}
+\vspace{0pt}
+\begin{center}
+\begin{tikzpicture}
+\begin{axis}[
+  width=0.98\linewidth,height=1.75in,
+  ybar,bar width=10pt,xmin=-0.6,xmax=6.6,ymin=0,ymax=70,
+  xtick={0,1,2,3,4,5,6},ytick={0,20,40,60},
+  xlabel={Activations in a sample of 12},ylabel={Simulated samples},
+  tick label style={font=\small},label style={font=\small},
+  nodes near coords,nodes near coords style={font=\scriptsize},
+  axis lines*=left
+]
+\addplot[draw=dayblue,fill=dayblue!20] coordinates {(0,14) (1,40) (2,58) (3,47) (4,25) (5,12) (6,4)};
+\end{axis}
+\end{tikzpicture}
+\end{center}
+\end{minipage}
+
+\begin{firsttakebox}{FIRST TAKE --- one sentence before you work the parts}
+Whose method would you trust more, Mara's smooth curve or Jules's repeated trials? Give one reason from the picture.
+\end{firsttakebox}
+
+\begin{description}[leftmargin=1.15in, labelwidth=1in, itemsep=2pt, topsep=2pt]
+  \item[\dokbadge{1}~(a)] State the most common number of activations in the simulated samples and describe the distribution as roughly symmetric, skewed left, or skewed right.
+  \item[\dokbadge{2}~(b)] Use the chart to estimate $P(\hat p\ge0.50)$ under $p_0=0.20$. Then calculate $np_0$ and $n(1-p_0)$ and assess the expected-count condition for a normal approximation.
+  \item[\dokbadge{3}~(c)] In 3--4 sentences, choose a method using the simulated tail and either the shape or expected counts. Apply the $5\%$ evidence rule. Explain how reporting 0.005 instead of 0.020 would change a reader's impression.
+\end{description}
+
+\vfill
+\textbf{Self-paced bonus problem. Work (a)--(c) from this sheet; turn it in whenever you finish.}
+
+\end{document}

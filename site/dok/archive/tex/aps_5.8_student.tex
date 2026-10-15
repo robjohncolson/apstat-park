@@ -1,0 +1,55 @@
+\documentclass[11pt]{article}
+\usepackage{preamble}
+\renewcommand{\answer}[1]{}
+
+\begin{document}
+
+\ladderheading{AP Statistics \textperiodcentered\ Unit 4 \textperiodcentered\ Topic 4.6}{Two Samples, One Difference}
+
+\focusbanner{THE PROBLEM}
+
+Suppose parcel pickup waits have the shown population parameters, measured in minutes. There are 600 North visits and 1,000 South visits. North waits are approximately normal; South waits are strongly right-skewed. Independent SRSs are taken without replacement, and the service wants $P(\bar X_N-\bar X_S>2.5)$.\par\smallskip \textbf{Rina:} ``South is skewed, so I would not use a normal model for the difference.''\par \textbf{Oscar:} ``North is normal and the combined sample size is 60, so the normal model is valid; the probability is $0.0273$.''\par
+\begin{center}
+\textbf{Locker samples}\par\smallskip
+\begin{tabular}{|l|c|c|c|}
+\hline
+\textbf{Locker} & \textbf{$n$} & \textbf{$\mu$} & \textbf{$\sigma$} \\ \hline
+\textbf{North} & 12 & 6.0 & 1.8 \\ \hline
+\textbf{South} & 48 & 4.8 & 3.0 \\ \hline
+\end{tabular}
+\end{center}
+\begin{firsttakebox}{FIRST TAKE --- one sentence before you work the parts}
+Would you check each place's sample size separately or add them together? Give one reason from the study.
+\workspace{0.9in}
+\end{firsttakebox}
+
+\begin{callout}{\IconBook\ JUSTIFY EACH SAMPLE MEAN BEFORE THEIR DIFFERENCE (keep on the page)}{calloutgreen}
+For independent random samples, $\mu_{\bar X_1-\bar X_2}=\mu_1-\mu_2$ and
+$\sigma_{\bar X_1-\bar X_2}=\sqrt{\sigma_1^2/n_1+\sigma_2^2/n_2}$ when each
+sample has $n\leq0.10N$. Justify each component's shape: a normal population
+supports a normal sample mean even for small $n$, while the Central Limit Theorem supports
+a sample mean from a nonnormal population when its own $n\geq30$. The two groups need not
+use the same pathway. Interpret probabilities as outcomes from repeated pairs of samples.
+For a normal probability, standardize with $z=(\text{value}-\text{mean})/\text{SD}$ and use the appropriate normal tail.
+Printed normal table: $P(Z\leq1.9220)=0.972696$. A right-tail area is 1 minus the left area.
+\end{callout}
+
+\newpage
+\textbf{Work (a)--(c).}\par\smallskip
+
+\dokbadge{1}~\textbf{(a)} State the mean of $\bar X_N-\bar X_S$ and translate the event above into context.\par
+\workspace{0.8in}
+
+\dokbadge{2}~\textbf{(b)} Verify both 10 percent conditions, compute the sampling-distribution SD, and calculate the probability under a normal model.\par
+\workspace{1.4in}
+
+\dokbadge{3}~\textbf{(c)} In 4--5 sentences, decide whether 0.0273 is supported and explain what each student overlooks. Justify each sample mean using its own shape and size. Then consider $n_N=48$ and $n_S=8$: explain why their total alone cannot justify the same normal-model claim.\par
+\workspace{2.0in}
+
+\begin{sentenceframebox}\raggedright\textbf{Frame:} North uses \blank[1.8in]; South uses \blank[1.8in].\end{sentenceframebox}
+
+\begin{sentenceframebox}\raggedright\textbf{Frame:} With samples of 48 and 8, the total is \blank[0.6in], but \blank[2.8in].\end{sentenceframebox}
+
+\textbf{Turn this sheet in whenever you finish --- bonus credit. Part (c) is scored E / P / I.}\par
+
+\end{document}

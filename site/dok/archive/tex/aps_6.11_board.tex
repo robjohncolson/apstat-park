@@ -1,0 +1,42 @@
+\documentclass[14pt]{extarticle}
+\usepackage{preamble}
+\geometry{letterpaper, landscape, margin=0.5in}
+\renewcommand{\answer}[1]{}
+\setlength{\parskip}{4pt}
+
+\begin{document}
+\pagestyle{empty}
+
+\daybanner{Unit 3 \textperiodcentered\ Topic 3.13 \textperiodcentered\ THE PROBLEM}{One Result, Two Claims}
+
+\noindent\begin{minipage}[t]{0.57\linewidth}
+\vspace{0pt}
+Suppose a utility has 500,000 online accounts. It randomly selects 10,000, randomly assigns 5,000 to message A and 5,000 to B, and records on-time payment. The pre-data question asks whether the population proportions differ at $\alpha=0.05$; deployment requires A to improve payment by at least 5 percentage points.\par\smallskip \textbf{Rowan:} ``I rejected equality, so A has proved an important improvement of at least 5 points. Deploy A.''\par \textbf{Salma:} ``Rejecting equality supports a nonzero difference, but does not automatically establish the separate 5-point requirement.''\par\smallskip Conditions have been verified: random selection and assignment; $10{,}000\leq50{,}000$; pooled expected counts 3,000 and 2,000 in each group.\par
+\end{minipage}\hfill
+\begin{minipage}[t]{0.40\linewidth}
+\vspace{0pt}
+\begin{center}
+\textbf{On-time payment}\par\smallskip
+\begin{tabular}{|l|c|c|c|}
+\hline
+\textbf{Text} & \textbf{n} & \textbf{Paid} & \textbf{Other} \\ \hline
+\textbf{A} & 5000 & 3050 & 1950 \\ \hline
+\textbf{B} & 5000 & 2950 & 2050 \\ \hline
+\end{tabular}
+\end{center}
+\end{minipage}
+
+\begin{firsttakebox}{FIRST TAKE --- one sentence before you work the parts}
+The observed improvement is 2 percentage points and the deployment target is 5. Is that enough to deploy? Give one reason.
+\end{firsttakebox}
+
+\begin{description}[leftmargin=1.15in, labelwidth=1in, itemsep=2pt, topsep=2pt]
+  \item[\dokbadge{1}~(a)] Calculate $\hat p_A$, $\hat p_B$, and the observed difference $\hat p_A-\hat p_B$.
+  \item[\dokbadge{2}~(b)] Using the verified conditions, calculate the pooled proportion, pooled SE, $z$, and the two-sided $p$-value for $H_0:p_A-p_B=0$.
+  \item[\dokbadge{3}~(c)] In 3--4 sentences, choose a report using the $p$-value, the 2-point observed gap, and the 5-point target. Explain what the test against zero establishes and why that does or does not justify deployment.
+\end{description}
+
+\vfill
+\textbf{Self-paced bonus problem. Work (a)--(c) from this sheet; turn it in whenever you finish.}
+
+\end{document}

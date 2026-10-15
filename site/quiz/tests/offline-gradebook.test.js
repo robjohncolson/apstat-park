@@ -1,0 +1,324 @@
+/**
+ * cr gradebook-client.js offline capture (OFFLINE_MODE_SPEC §4.A). The quiz feeder
+ * records grades via gradebookClient.record, so this is the quiz app's offline path.
+ * Node env: a plain vm sandbox (no jsdom) with offline-queue.js + gradebook-client.js.
+ */
+
+import { describe, it, expect, vi } from 'vitest';
+import { readFileSync } from 'fs';
+import { resolve } from 'path';
+import { createContext, runInContext } from 'vm';
+
+const ROOT = resolve(__dirname, '..');
+const QUEUE_SRC = readFileSync(resolve(ROOT, 'offline-queue.js'), 'utf8');
+const GBC_SRC = readFileSync(resolve(ROOT, 'gradebook-client.js'), 'utf8');
+
+function boot({ offline = false, studentId = 'stu-1' } = {}) {
+  const store = new Map();
+  const win = {
+    Date, console,
+    OFFLINE_MODE: offline || undefined,
+    ROSTER_SERVICE_URL: 'https://roster.test',
+    rosterClient: { token: () => 'tok', studentId: () => studentId },
+    localStorage: {
+      getItem: (k) => (store.has(k) ? store.get(k) : null),
+      setItem: (k, v) => store.set(k, v),
+      removeItem: (k) => store.delete(k),
+    },
+    addEventListener: () => {},
+  };
+  win.window = win; win.globalThis = win;
+  const ctx = createContext(win);
+  runInContext(QUEUE_SRC, ctx);
+  runInContext(GBC_SRC, ctx);
+  return win;
+}
+
+const quiz = (over = {}) => ({ source: 'quiz', itemId: 'WS-U1L1-Q1', response: 'B', score: 1, attempt: 1, ...over });
+
+describe('quiz app sign-in replays captured answers', () => {
+  it('applyRosterSignInResult calls gradebookClient.syncOfflineQueue (same-tab sign-in fires no storage event)', () => {
+    const html = readFileSync(resolve(ROOT, 'index.html'), 'utf8');
+    const start = html.indexOf('window.applyRosterSignInResult = async function');
+    expect(start).toBeGreaterThan(0);
+    const body = html.slice(start, start + 2500);
+    expect(body).toContain('window.gradebookClient.syncOfflineQueue()');
+  });
+});
+
+describe('cr gradebook-client offline capture (quiz feeder path)', () => {
+  it('OFFLINE_MODE: enqueues, no fetch, returns ok+queued', async () => {
+    const win = boot({ offline: true });
+    win.fetch = vi.fn();
+    const r = await win.gradebookClient.record(quiz());
+    expect(r).toMatchObject({ ok: true, queued: true });
+    expect(win.fetch).not.toHaveBeenCalled();
+    const q = await win.OfflineQueue.all();
+    expect(q).toHaveLength(1);
+    expect(q[0]).toMatchObject({ source: 'quiz', itemId: 'WS-U1L1-Q1', studentId: 'stu-1' });
+  });
+
+  it('OFFLINE_MODE without a studentId: refuses honestly ({ok:false, no-identity}), nothing queued', async () => {
+    const win = boot({ offline: true, studentId: null });
+    win.fetch = vi.fn();
+    const r = await win.gradebookClient.record(quiz({ itemId: 'Q0' }));
+    expect(r).toEqual({ ok: false, reason: 'no-identity' });
+    expect(win.fetch).not.toHaveBeenCalled();
+    expect(await win.OfflineQueue.all()).toHaveLength(0);
+  });
+
+  it('unreachable fetch: enqueues, keeps reason="network", adds queued:true', async () => {
+    const win = boot();
+    win.fetch = vi.fn().mockRejectedValue(new Error('offline'));
+    const r = await win.gradebookClient.record(quiz({ itemId: 'Q2' }));
+    expect(r).toMatchObject({ ok: false, reason: 'network', queued: true });
+    expect(await win.OfflineQueue.all()).toHaveLength(1);
+  });
+
+  it('read-only: never enqueues or fetches', async () => {
+    const win = boot({ offline: true });
+    win.__WS_READ_ONLY__ = true;
+    win.fetch = vi.fn();
+    const r = await win.gradebookClient.record(quiz({ itemId: 'Q3' }));
+    expect(r).toMatchObject({ ok: false, reason: 'read-only' });
+    expect(win.fetch).not.toHaveBeenCalled();
+    expect(await win.OfflineQueue.all()).toHaveLength(0);
+  });
+
+  // 2026-09-09: a quiz taken on an expired session used to be DROPPED with a console
+  // warning ("I did the quiz but can't see the grade"). Any attributable non-ok write is
+  // captured now and replayed by the ownership-gated drain once the student signs in.
+  it('a 401 is auth-expired AND is captured for replay when the studentId is known', async () => {
+    const win = boot();
+    win.fetch = vi.fn().mockResolvedValue({ ok: false, status: 401, json: async () => ({}) });
+    const r = await win.gradebookClient.record(quiz({ itemId: 'Q4' }));
+    expect(r).toMatchObject({ ok: false, reason: 'auth-expired', queued: true });
+    const q = await win.OfflineQueue.all();
+    expect(q).toHaveLength(1);
+    expect(q[0]).toMatchObject({ source: 'quiz', itemId: 'Q4', studentId: 'stu-1' });
+  });
+
+  it.each([429, 500, 503])('a retryable HTTP %s is captured too (reason stays "network")', async (status) => {
+    const win = boot();
+    win.fetch = vi.fn().mockResolvedValue({ ok: false, status, json: async () => ({}) });
+    const r = await win.gradebookClient.record(quiz({ itemId: 'Q5' }));
+    expect(r).toMatchObject({ ok: false, reason: 'network', queued: true });
+    expect(r).not.toHaveProperty('retryable');
+    expect(await win.OfflineQueue.all()).toHaveLength(1);
+  });
+
+  it('a FINAL reject (4xx validation, or an ok:false body) is NOT queued — it could never drain', async () => {
+    const win = boot();
+    win.fetch = vi.fn().mockResolvedValue({ ok: false, status: 400, json: async () => ({ ok: false, error: 'bad item' }) });
+    const r = await win.gradebookClient.record(quiz({ itemId: 'Q6' }));
+    expect(r).toEqual({ ok: false, reason: 'network' });
+    expect(await win.OfflineQueue.all()).toHaveLength(0);
+
+    const win2 = boot();
+    win2.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ok: false, error: 'boom' }) });
+    const r2 = await win2.gradebookClient.record(quiz({ itemId: 'Q7' }));
+    expect(r2).toEqual({ ok: false, reason: 'network' });
+    expect(await win2.OfflineQueue.all()).toHaveLength(0);
+  });
+
+  it('a 401 WITHOUT a studentId is NOT queued (an unattributed row could never drain)', async () => {
+    const win = boot({ studentId: null });
+    win.fetch = vi.fn().mockResolvedValue({ ok: false, status: 401, json: async () => ({}) });
+    const r = await win.gradebookClient.record(quiz({ itemId: 'Q7' }));
+    expect(r).toMatchObject({ ok: false, reason: 'auth-expired' });
+    expect(r.queued).not.toBe(true);
+    expect(await win.OfflineQueue.all()).toHaveLength(0);
+  });
+
+  it('a 401-captured quiz record drains under the owner once the session is back', async () => {
+    const win = boot();
+    win.fetch = vi.fn().mockResolvedValue({ ok: false, status: 401, json: async () => ({}) });
+    await win.gradebookClient.record(quiz({ itemId: 'Q8', response: 'C', score: 1 }));
+    expect(await win.OfflineQueue.all()).toHaveLength(1);
+
+    win.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ok: true, ledgerId: 'L8' }) });
+    const res = await win.gradebookClient.syncOfflineQueue();
+    expect(res.sent).toBe(1);
+    expect(await win.OfflineQueue.all()).toHaveLength(0);
+    const body = JSON.parse(win.fetch.mock.calls[0][1].body);
+    expect(body).toMatchObject({ source: 'quiz', itemId: 'Q8', response: 'C', score: 1, token: 'tok' });
+  });
+
+  it('shared device: a row captured by student A is NOT drained under student B, and drains once A is back', async () => {
+    const win = boot();   // stu-1 captures on an expired session
+    win.fetch = vi.fn().mockResolvedValue({ ok: false, status: 401, json: async () => ({}) });
+    await win.gradebookClient.record(quiz({ itemId: 'Q9', response: 'D' }));
+    expect(await win.OfflineQueue.all()).toHaveLength(1);
+
+    // student B signs in on the same browser: A's row must stay queued and never POST
+    win.rosterClient = { token: () => 'tokB', studentId: () => 'stu-2' };
+    win.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ok: true, ledgerId: 'X' }) });
+    const asB = await win.gradebookClient.syncOfflineQueue();
+    expect(win.fetch).not.toHaveBeenCalled();
+    expect(asB.sent).toBe(0);
+    expect(await win.OfflineQueue.all()).toHaveLength(1);
+
+    // A signs back in: drains under A's NEW token, then clears
+    win.rosterClient = { token: () => 'tokA2', studentId: () => 'stu-1' };
+    const asA = await win.gradebookClient.syncOfflineQueue();
+    expect(asA.sent).toBe(1);
+    const body = JSON.parse(win.fetch.mock.calls[0][1].body);
+    expect(body).toMatchObject({ itemId: 'Q9', response: 'D', token: 'tokA2' });
+    expect(await win.OfflineQueue.all()).toHaveLength(0);
+  });
+
+  it('a legacy queued row with NO studentId never drains (no POST, stays queued)', async () => {
+    const win = boot();
+    await win.OfflineQueue.enqueue({ source: 'quiz', itemId: 'LEGACY', response: 'A', score: 1, attempt: 1 });
+    win.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ok: true }) });
+    const res = await win.gradebookClient.syncOfflineQueue();
+    expect(win.fetch).not.toHaveBeenCalled();
+    expect(res.sent).toBe(0);
+    expect(await win.OfflineQueue.all()).toHaveLength(1);
+  });
+
+  it('syncOfflineQueue drains queued quiz records once back online', async () => {
+    const win = boot({ offline: true });
+    win.fetch = vi.fn();
+    await win.gradebookClient.record(quiz({ itemId: 'A' }));
+    await win.gradebookClient.record(quiz({ itemId: 'B' }));
+    expect(await win.OfflineQueue.all()).toHaveLength(2);
+
+    win.OFFLINE_MODE = undefined;
+    win.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ok: true, ledgerId: 'L1' }) });
+    const res = await win.gradebookClient.syncOfflineQueue();
+    expect(res.sent).toBe(2);
+    expect(await win.OfflineQueue.all()).toHaveLength(0);
+  });
+});
+
+
+describe('repeated server failures preserve and park answers', () => {
+  it('parks after 12 server failures, exports flagged work, and a fresh edit resets it', async () => {
+    const Q = boot().OfflineQueue;
+    const row = { source: 'quiz', itemId: 'park-me', response: 'A', ts: 1 };
+    await Q.enqueue(row);
+    let calls = 0;
+    const sender = async () => { calls++; return { ok: false, status: 500 }; };
+    for (let i = 0; i < 12; i++) await Q.drain(sender);
+    expect(await Q.parked()).toEqual([expect.objectContaining({ serverFailures: 12, lastServerError: { status: 500, at: expect.any(Number) }, response: 'A' })]);
+    expect(await Q.drain(sender)).toEqual({ sent: 0, failed: 0, remaining: 1 });
+    expect(calls).toBe(12);
+    expect(Q.toBundle(await Q.all(), {}).records[0]).toMatchObject({ parked: true, response: 'A' });
+    await Q.enqueue({ ...row, ts: 2, response: 'B' });
+    expect(await Q.parked()).toEqual([]);
+    expect((await Q.all())[0]).toMatchObject({ serverFailures: 0, response: 'B' });
+    expect((await Q.all())[0].lastServerError).toBeUndefined();
+    await Q.drain(sender); expect(calls).toBe(13);
+  });
+  it('401, 429, unreachable sends and ownership/auth refusal do not consume attempts', async () => {
+    const Q = boot().OfflineQueue;
+    await Q.enqueue({ source: 'quiz', itemId: 'recoverable', ts: 1 });
+    for (const result of [{ok:false,status:401}, {ok:false,status:429}, {ok:false,status:500,reason:'no-identity'}, {ok:false,status:503,reason:'auth-expired'}]) {
+      await Q.drain(async () => result);
+    }
+    await Q.drain(async () => { throw new Error('offline'); });
+    expect((await Q.all())[0].serverFailures).toBe(0);
+    expect((await Q.all())[0].lastServerError).toBeUndefined();
+  });
+  it('a failed older send does not charge a newer edit', async () => {
+    const Q = boot().OfflineQueue;
+    await Q.enqueue({ source: 'quiz', itemId: 'race', ts: 1 });
+    await Q.drain(async () => {
+      await Q.enqueue({ source: 'quiz', itemId: 'race', ts: 2, response: 'new' });
+      return { ok: false, status: 500 };
+    });
+    expect((await Q.all())[0]).toMatchObject({ ts: 2, serverFailures: 0, response: 'new' });
+  });
+});
+
+
+describe('parked answer notification', () => {
+  it('12 HTTP 500s park the stored row; a 13th sync makes no fetch and shows one banner', async () => {
+    const win = boot();
+    const nodes = [];
+    win.document = {
+      body: { appendChild: node => nodes.push(node) },
+      createElement: () => ({ style: {}, setAttribute() {}, remove() { nodes.splice(nodes.indexOf(this), 1); } }),
+      getElementById: id => nodes.find(node => node.id === id),
+      querySelectorAll: selector => nodes.filter(node => '#' + node.id === selector),
+      defaultView: { close() {} }
+    };
+    try {
+      win.fetch = vi.fn().mockResolvedValue({ ok: false, status: 500, json: async () => ({ ok: false }) });
+      await win.OfflineQueue.enqueue({ source: 'quiz', itemId: 'park-http', studentId: 'stu-1', response: 'saved answer', ts: 1 });
+      for (let i=0;i<12;i++) await win.gradebookClient.syncOfflineQueue();
+      expect(win.document.querySelectorAll('#gb-parked-nudge')).toHaveLength(1);
+      expect(win.document.getElementById('gb-parked-nudge').textContent).toContain('1 answer(s) could not be saved');
+      win.document.getElementById('gb-parked-nudge').remove();
+      expect(await win.gradebookClient.syncOfflineQueue()).toEqual({sent:0,failed:0,remaining:1});
+      expect(win.document.querySelectorAll('#gb-parked-nudge')).toHaveLength(0);
+      expect(win.fetch).toHaveBeenCalledTimes(12);
+    } finally { win.document.defaultView.close(); }
+  });
+});
+
+// QUIZ_FIRST_ANSWER_SPEC v2: a quiz retry (attempt 2) captured offline must replay WITH its
+// explanation (the roster server refuses attempt 2 without one), and the replay's final answer
+// (accepted / refused 409) must reach the page, which keeps the retry PENDING until then.
+describe('quiz retry replay (spec v2)', () => {
+  function bootWithEvents() {
+    const win = boot({ offline: true });
+    const events = [];
+    win.CustomEvent = class { constructor(type, init) { this.type = type; this.detail = init && init.detail; } };
+    win.dispatchEvent = (event) => { events.push(event); return true; };
+    return { win, events };
+  }
+  const retry = (over = {}) => ({ source: 'curriculum_quiz', itemId: 'U1-L1-Q01', response: 'B', attempt: 2, reasoning: 'I misread the axis', ...over });
+
+  it('the queued retry keeps reasoning + attempt, and the replayed POST carries them', async () => {
+    const { win } = bootWithEvents();
+    win.fetch = vi.fn();
+    await win.gradebookClient.record(retry());
+    const queued = await win.OfflineQueue.all();
+    expect(queued[0]).toMatchObject({ attempt: 2, reasoning: 'I misread the axis' });
+
+    win.OFFLINE_MODE = undefined;
+    win.fetch = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ ok: true, ledgerId: 'L1' }) });
+    await win.gradebookClient.syncOfflineQueue();
+    const body = JSON.parse(win.fetch.mock.calls[0][1].body);
+    expect(body).toMatchObject({ source: 'curriculum_quiz', attempt: 2, reasoning: 'I misread the axis' });
+  });
+
+  it('an accepted replay tells the page (gradebook:quiz-retry-outcome accepted)', async () => {
+    const { win, events } = bootWithEvents();
+    win.fetch = vi.fn();
+    await win.gradebookClient.record(retry());
+    win.OFFLINE_MODE = undefined;
+    win.fetch = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ ok: true, ledgerId: 'L1' }) });
+    await win.gradebookClient.syncOfflineQueue();
+    expect(events.map(e => [e.type, e.detail.outcome, e.detail.itemId])).toEqual([['gradebook:quiz-retry-outcome', 'accepted', 'U1-L1-Q01']]);
+    expect(await win.OfflineQueue.all()).toHaveLength(0);
+  });
+
+  it('a 409 replay is final: the row leaves the queue and the page is told why', async () => {
+    const { win, events } = bootWithEvents();
+    win.fetch = vi.fn();
+    await win.gradebookClient.record(retry());
+    win.OFFLINE_MODE = undefined;
+    win.fetch = vi.fn().mockResolvedValue({ ok: false, status: 409,
+      json: async () => ({ ok: false, error: 'retry not allowed', reason: 'correct-first' }) });
+    await win.gradebookClient.syncOfflineQueue();
+    expect(events).toHaveLength(1);
+    expect(events[0].detail).toMatchObject({ outcome: 'refused', reason: 'correct-first', itemId: 'U1-L1-Q01' });
+    expect(await win.OfflineQueue.all()).toHaveLength(0);
+    // a second sync sends nothing (it can never succeed)
+    await win.gradebookClient.syncOfflineQueue();
+    expect(win.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('an online 409 comes back as retry-not-allowed with the server reason, and is not queued', async () => {
+    const { win } = bootWithEvents();
+    win.OFFLINE_MODE = undefined;
+    win.fetch = vi.fn().mockResolvedValue({ ok: false, status: 409,
+      json: async () => ({ ok: false, error: 'retry not allowed', reason: 'already-retried' }) });
+    const r = await win.gradebookClient.record(retry());
+    expect(r).toMatchObject({ ok: false, reason: 'retry-not-allowed', detail: 'already-retried' });
+    expect(await win.OfflineQueue.all()).toHaveLength(0);
+  });
+});

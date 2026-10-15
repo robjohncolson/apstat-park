@@ -1,0 +1,55 @@
+topic: "1.4"
+ced2026:
+  unit: 1
+  topic: '1.4'
+  label: Representing a Categorical Variable with Graphs
+title: Same Counts, Different Message
+essential_question: How can a graph use correct counts but still create a misleading comparison?
+worksheet: u1_lesson4_live.html
+rules_callout:
+  title: GRAPHING ONE CATEGORICAL VARIABLE (keep on the page)
+  body: Bar height represents a category's count or relative frequency. Label both axes, use equal-width
+    bars, and start the vertical scale at zero to avoid distortion. The visible height above a displayed
+    baseline is the count minus that baseline. Compare what the lengths suggest with the actual counts
+    before writing a claim.
+focus: aps-1.4-d3-1
+reinforcement: []
+space:
+  first_take: 0.9in
+  a: 0.7in
+  b: 1.4in
+  c: 2.0in
+teacher:
+  questions_to_ask:
+  - What changed between the graphs if the votes are identical?
+  - Where does each visible bar begin?
+  - What do the counts support about the size of Pizza's lead?
+  - What headline would tell readers both the leader and the size of the difference?
+  watch_for:
+  - Calling Graph A's counts false instead of explaining its baseline
+  - Treating the visible heights as vote counts
+  - Repeating a headline without using the counts
+  first_take_note: Not graded. Expect Graph A to attract votes because its Pizza bar dominates.
+visuals:
+  lunch_bars:
+    kind: raw_tikz
+    body: "\\def\\auditplotheight{1.4in}\\ifdim\\linewidth<5in\\def\\auditplotheight{1.15in}\\fi\n\\def\\\
+      auditplotwidth{0.48\\linewidth}\\ifdim\\linewidth<5in\\def\\auditplotwidth{0.98\\linewidth}\\fi\n\
+      \\begin{minipage}{\\auditplotwidth}\n\\centering\n\\begin{tikzpicture}\n\\begin{axis}[\n  width=0.95\\\
+      linewidth,\n  height=\\auditplotheight,\n  ybar=2pt,\n  bar width=10pt,\n  ymin=40,\n  ymax=55,\n\
+      \  ytick={40,44,48,52},\n  symbolic x coords={Pizza,Tacos,Salad,Pasta},\n  xtick=data,\n  enlarge\
+      \ x limits=0.18,\n  title={\\textbf{Graph A}},\n  xlabel={Favorite lunch option},\n  ylabel={Number\
+      \ of students},\n  x tick label style={rotate=30,anchor=east,font=\\scriptsize},\n  tick label style={font=\\\
+      scriptsize},\n  label style={font=\\scriptsize},\n  title style={font=\\small},\n  ymajorgrids,\n\
+      \  nodes near coords,\n  every node near coord/.append style={font=\\scriptsize},\n  axis on top\n\
+      ]\n\\addplot[fill=calloutblue,draw=dayblue] coordinates\n  {(Pizza,52) (Tacos,47) (Salad,44) (Pasta,41)};\n\
+      \\end{axis}\n\\end{tikzpicture}\n\\end{minipage}\\ifdim\\linewidth<5in\\par\\smallskip\\else\\hfill\\\
+      fi\n\\begin{minipage}{\\auditplotwidth}\n\\centering\n\\begin{tikzpicture}\n\\begin{axis}[\n  width=0.95\\\
+      linewidth,\n  height=\\auditplotheight,\n  ybar=2pt,\n  bar width=10pt,\n  ymin=0,\n  ymax=58,\n\
+      \  ytick={0,20,40},\n  symbolic x coords={Pizza,Tacos,Salad,Pasta},\n  xtick=data,\n  enlarge x\
+      \ limits=0.18,\n  title={\\textbf{Graph B}},\n  xlabel={Favorite lunch option},\n  ylabel={Number\
+      \ of students},\n  x tick label style={rotate=30,anchor=east,font=\\scriptsize},\n  tick label style={font=\\\
+      scriptsize},\n  label style={font=\\scriptsize},\n  title style={font=\\small},\n  ymajorgrids,\n\
+      \  nodes near coords,\n  every node near coord/.append style={font=\\scriptsize},\n  axis on top\n\
+      ]\n\\addplot[fill=calloutblue,draw=dayblue] coordinates\n  {(Pizza,52) (Tacos,47) (Salad,44) (Pasta,41)};\n\
+      \\end{axis}\n\\end{tikzpicture}\n\\end{minipage}\n"

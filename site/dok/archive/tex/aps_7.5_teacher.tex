@@ -1,0 +1,102 @@
+\documentclass[11pt]{article}
+\usepackage{preamble}
+\setlength{\parskip}{4pt}
+
+\begin{document}
+
+\daybanner{AP Statistics \textperiodcentered\ Unit 4 \textperiodcentered\ Topic 4.5 \textperiodcentered\ TEACHER KEY}{A Test of Mean Resolution Time}
+
+\sectionbanner{CED TETHER}
+
+{\small
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item \textbf{Skill 3.E} --- Calculate a test statistic and find a p-value, provided conditions for inference are met.
+  \item \textbf{Skill 4.B} --- Interpret statistical calculations and findings to assign meaning or assess a claim.
+  \item \textbf{Skill 4.E} --- Justify a claim using a decision based on significance tests.
+  \item \textbf{EU VAR-7} --- The t-distribution may be used to model variation.
+  \item \textbf{LO VAR-7.E} --- Calculate an appropriate test statistic for a population mean, including the mean difference between values in matched pairs. [Skill 3.E]
+  \item \textbf{EK VAR-7.E.1} --- For a single quantitative variable when random sampling with replacement from a population that can be modeled with a normal distribution with mean $\mu$ and standard deviation $\sigma$, the sampling distribution of t = ($\bar{x}$ - $\mu$) / (s/$\surd$n) has a t-distribution with n - 1 degrees of freedom.
+  \item \textbf{EU DAT-3} --- Significance testing allows us to make decisions about hypotheses within a particular context.
+  \item \textbf{LO DAT-3.E} --- Interpret the p-value of a significance test for a population mean, including the mean difference between values in matched pairs. [Skill 4.B]
+  \item \textbf{EK DAT-3.E.1} --- An interpretation of the p-value of a significance test for a population mean should recognize that the p-value is computed by assuming that the null hypothesis is true, i.e., by assuming that the true population mean is equal to the particular value stated in the null hypothesis.
+  \item \textbf{LO DAT-3.F} --- Justify a claim about the population based on the results of a significance test for a population mean. [Skill 4.E]
+  \item \textbf{EK DAT-3.F.1} --- A formal decision explicitly compares the p-value to the significance $\alpha$. If the p-value $\leq$ $\alpha$, then reject the null hypothesis, $H_0$: $\mu$ = $\mu_0$. If the p-value > $\alpha$, then fail to reject the null hypothesis.
+  \item \textbf{EK DAT-3.F.2} --- The results of a significance test for a population mean can serve as the statistical reasoning to support the answer to a research question about the population that was sampled.
+\end{itemize}
+}
+\textbf{Essential question:} What conclusion is warranted when a one-sample t-test does not cross its evidence threshold?\par
+\textbf{DOK-3 skill:} 4.E \textperiodcentered\ \textbf{FRQ pattern:} {\small\texttt{mean-\allowbreak{}test-\allowbreak{}decision-\allowbreak{}and-\allowbreak{}conclusion}}\par
+\textbf{DOK rationale:} Part (c) coordinates the lower-tail p-value, preset threshold, asymmetric decision logic, and SRS population scope to adjudicate two conclusions and trace the consequence of overclaiming.\par
+
+\textbf{Self-paced bonus sheet.} Students take it when they choose and turn it in when they finish. Everything they need is printed on the sheet. Score part (c) only, E / P / I, by hand --- never AI-graded or auto-scored. (a) and (b) are the ladder up; use them to see where a thin (c) came from.\par
+
+\textbf{Questions to ask}
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item Which specific number or study detail supports your choice?
+  \item What claim would go beyond the evidence, and why?
+\end{itemize}
+
+\begin{callout}{\IconWarn\ LOOK FOR}{calloutred}
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item Choosing a speaker without a reason.
+  \item Copying numbers without explaining what they support.
+\end{itemize}
+\end{callout}
+
+\sectionbanner{SCORING PART (c) --- E / P / I}
+
+\textbf{Expected elements}
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item \textbf{decision} (required) --- Uses 0.0645 > 0.05 to fail to reject
+  \item \textbf{context} (required) --- States insufficient evidence for a mean below 12 hours among the 1,200 tickets
+  \item \textbf{limits} (required) --- Explains why the test does not prove equality or chance as the only explanation
+\end{itemize}
+
+{\small\renewcommand{\arraystretch}{1.25}
+\noindent\begin{tabular}{|p{0.5in}|p{5.9in}|}
+\hline
+\textbf{E} & Uses the threshold correctly, gives the population conclusion, and explains both limits on what the test proves. \\ \hline
+\textbf{P} & Shows substantive valid reasoning for at least one required element, but does not meet all E requirements. Credit correct reasoning even when another claim is wrong. \\ \hline
+\textbf{I} & Shows no substantive valid reasoning for any required element; a name, unsupported choice, or copied number alone does not count. \\ \hline
+\end{tabular}}
+
+\clearpage
+\focusbanner{THE PROBLEM --- annotated}
+
+Suppose a help desk closed 1,200 tickets in a quarter. To investigate whether their population mean resolution time was below 12 hours, an analyst took an SRS of 24 and used $\alpha=0.05$.\par\smallskip \textbf{Leah:} ``The lower-tail test gives $t=-1.5747$, $df=23$, and $p\approx0.0645$. I would state what evidence this does and does not provide.''\par \textbf{Damon:} ``Because $p>0.05$, accept $H_0$. The test proves the population mean was exactly 12 hours and the observed difference was only chance.''\par
+\begin{center}
+\textbf{Ticket sample}\par\smallskip
+\begin{tabular}{|l|c|}
+\hline
+\textbf{Summary} & \textbf{Value} \\ \hline
+\textbf{Population} & 1200 \\ \hline
+\textbf{$n$} & 24 \\ \hline
+\textbf{Mean (h)} & 11.1 \\ \hline
+\textbf{SD (h)} & 2.8 \\ \hline
+\textbf{Shape} & Symmetric; no outliers \\ \hline
+\end{tabular}
+\end{center}
+\begin{firsttakebox}{FIRST TAKE --- one sentence before you work the parts}
+Does this small study seem able to prove that the average was exactly 12 hours? Explain in one sentence.\par
+\answer{Ungraded commitment; accept any evidence-based first impression.}
+\end{firsttakebox}
+
+\begin{callout}{\IconBook\ COMPARE EVIDENCE TO THE PRESET THRESHOLD (keep on the page)}{calloutgreen}
+For a one-sample mean test with unknown population standard deviation,
+$t=(\bar x-\mu_0)/(s/\sqrt n)$ has $df=n-1$. The $p$-value is the probability, assuming $H_0$ is true,
+of a test statistic at least as extreme as the observed statistic in the direction of $H_a$.
+If $p\leq\alpha$, reject $H_0$; if $p>\alpha$, fail to reject $H_0$. Failing to reject says the sample
+does not provide convincing evidence for $H_a$ at that significance level. It does not prove the null value,
+and the conclusion must concern the population represented by the random sample.
+\end{callout}
+
+\dokbadge{1}~\textbf{(a)} State $H_0$ and $H_a$ for the population mean resolution time.\par
+\answer{$H_0:\mu=12$ hours; $H_a:\mu<12$ hours, where $\mu$ is the mean for all 1,200 tickets closed that quarter.}
+
+\dokbadge{2}~\textbf{(b)} Using $\bar x=11.1$, $s=2.8$, and $n=24$, calculate $t$. Use the supplied $p=0.0645$; you do not need to find it again.\par
+\answer{$t=(11.1-12)/(2.8/\sqrt{24})=-1.5747$. The supplied lower-tail $p$-value is about 0.0645 with $df=23$.}
+
+\dokbadge{3}~\textbf{(c)} In 3--4 sentences, decide whose account is justified. Compare the p-value with 0.05, state the conclusion for all 1,200 tickets, and explain why failure to reject does not prove equality or that chance was the only explanation.\par
+\answer{Leah is justified: $0.0645>0.05$, so fail to reject $H_0$. There is not convincing evidence that the mean resolution time for all 1,200 tickets was below 12 hours. The p-value measures how unusual the data would be assuming a mean of 12; it does not prove that assumption. Chance remains a possible explanation, but the test does not prove it was the only explanation.}
+
+\end{document}

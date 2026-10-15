@@ -1,0 +1,1194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Welcome to AP Statistics — Start Here</title>
+<style>
+  :root {
+    --bg: #E5E3D2;
+    --card: #F7F5EE;
+    --ink: #161616;
+    --muted: #6E6C62;
+    --accent: #A8330A;
+    --accent-hover: #FF5B19;
+    --border: #A9A79A;
+    --promise: #F1EBC4;
+    --promise-border: #C9B97A;
+    --flag: #AECACD;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    margin: 0;
+    padding: 2rem 1rem 4rem;
+    line-height: 1.6;
+  }
+  .container { max-width: 820px; margin: 0 auto; }
+
+  /* Hero */
+  .hero {
+    background: #161616;
+    color: #E5E3D2;
+    border-bottom: 4px solid #FF5B19;
+    border-radius: 12px;
+    padding: 2.5rem 2rem;
+    margin-bottom: 1.75rem;
+  }
+  .hero h1 { margin: 0 0 0.5rem; font-size: 2rem; line-height: 1.2; }
+  .hero p { margin: 0; color: #D3D1C2; font-size: 1.05rem; }
+
+  section {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.5rem 1.75rem;
+    margin-bottom: 1.25rem;
+  }
+  section h2 {
+    margin: 0 0 0.85rem;
+    font-size: 1.25rem;
+    color: var(--accent);
+  }
+  section h2 .num {
+    display: inline-block;
+    background: var(--accent);
+    color: #fff;
+    width: 1.7rem; height: 1.7rem;
+    line-height: 1.7rem;
+    text-align: center;
+    border-radius: 50%;
+    font-size: 0.95rem;
+    margin-right: 0.6rem;
+  }
+  p { margin: 0.65rem 0; }
+  strong { color: var(--ink); }
+
+  /* Promise callout */
+  .promise {
+    background: var(--promise);
+    border: 1px solid var(--promise-border);
+    border-left: 5px solid #FF5B19;
+  }
+  .promise h2 { color: #161616; }
+  .promise ul { margin: 0.5rem 0 0; padding-left: 1.2rem; }
+  .promise li { margin: 0.6rem 0; }
+
+  /* Expectations list */
+  .expect { list-style: none; padding: 0; margin: 0.5rem 0 0; }
+  .expect li {
+    padding: 0.55rem 0 0.55rem 1.9rem;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+  }
+  .expect li:last-child { border-bottom: none; }
+  .expect li::before {
+    content: "→";
+    position: absolute; left: 0;
+    color: var(--accent);
+    font-weight: 700;
+  }
+
+  /* Rhythm flow */
+  .flow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0.75rem 0 0.5rem;
+  }
+  .step {
+    background: #F3F1E8;
+    border: 1px solid #A9A79A;
+    color: var(--accent);
+    border-radius: 999px;
+    padding: 0.45rem 0.95rem;
+    font-size: 0.92rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .step.big {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+  .step.loop {
+    background: #fff;
+    border-style: dashed;
+  }
+  .arrow { color: var(--muted); font-weight: 700; }
+  .flow-caption {
+    margin-top: 0.85rem;
+    font-style: italic;
+    color: var(--muted);
+  }
+
+  /* Summer steps */
+  ol.steps { margin: 0.5rem 0 0; padding-left: 1.3rem; }
+  ol.steps li { margin: 0.55rem 0; }
+  .lowstakes {
+    background: #DEF0D3;
+    border: 1px solid #8FB893;
+    border-radius: 8px;
+    padding: 0.8rem 1rem;
+    margin: 0 0 1rem;
+    font-size: 0.97rem;
+  }
+
+  /* Toolkit cards */
+  .tools { display: grid; grid-template-columns: 1fr 1fr; gap: 0.9rem; margin-top: 0.5rem; }
+  @media (max-width: 600px) { .tools { grid-template-columns: 1fr; } }
+  .tool {
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    padding: 1rem 1.1rem;
+    display: flex;
+    flex-direction: column;
+  }
+  .tool .icon { font-size: 1.6rem; }
+  .tool h3 { margin: 0.4rem 0 0.3rem; font-size: 1.05rem; color: var(--ink); }
+  .tool p { margin: 0 0 0.9rem; font-size: 0.92rem; color: var(--muted); flex: 1; }
+  .tool a.btn {
+    align-self: flex-start;
+    background: var(--accent);
+    color: #fff;
+    text-decoration: none;
+    padding: 0.45rem 1rem;
+    border-radius: 6px;
+    font-size: 0.92rem;
+    font-weight: 600;
+  }
+  .tool a.btn:hover { background: var(--accent-hover); }
+
+  .note {
+    font-size: 0.9rem;
+    color: var(--muted);
+    margin-top: 1rem;
+  }
+
+  /* Editable placeholder — must be replaced before sharing */
+  .fillme {
+    background: var(--flag);
+    border-radius: 3px;
+    padding: 0 0.3rem;
+    font-weight: 700;
+  }
+
+  footer {
+    text-align: center;
+    margin-top: 2rem;
+    color: var(--muted);
+    font-size: 0.92rem;
+  }
+  footer .signoff { color: var(--ink); font-weight: 600; }
+
+  /* "Where you stand" — live grade render (signed-in students only) */
+  .wys-loading { color: var(--muted); font-style: italic; }
+  .wys-signed-out {
+    background: #F3F1E8;
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.1rem;
+    margin-top: 0.5rem;
+  }
+  .wys-signed-out p { margin: 0 0 0.7rem; color: var(--muted); }
+  .wys-signed-out a.btn {
+    display: inline-block;
+    background: var(--accent);
+    color: #fff;
+    text-decoration: none;
+    padding: 0.45rem 1rem;
+    border-radius: 6px;
+    font-size: 0.92rem;
+    font-weight: 600;
+  }
+  .wys-signed-out a.btn:hover { background: var(--accent-hover); }
+
+  .wys-quarters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 0.75rem 0 1rem;
+  }
+  .wys-quarters .step small { display: block; font-weight: 400; color: var(--muted); }
+  .wys-quarters .step.empty { background: #fff; color: var(--muted); border-style: dashed; }
+
+  .wys-units {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+    margin: 0.5rem 0 0;
+  }
+  @media (max-width: 600px) { .wys-units { grid-template-columns: 1fr; } }
+  .wys-unit {
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    padding: 0.8rem 1rem;
+    background: #F7F5EE;
+  }
+  .wys-unit h3 {
+    margin: 0 0 0.35rem;
+    font-size: 1rem;
+    color: var(--ink);
+  }
+  .wys-unit .grade {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--accent);
+    margin: 0.1rem 0 0.4rem;
+  }
+  .wys-unit .grade.notyet {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--muted);
+  }
+  .wys-unit .breakdown {
+    font-size: 0.88rem;
+    color: var(--muted);
+    margin: 0;
+  }
+  .wys-unit .completion {
+    font-size: 0.82rem;
+    color: var(--muted);
+    margin: 0.35rem 0 0;
+    border-top: 1px dashed var(--border);
+    padding-top: 0.4rem;
+  }
+
+  /* -- Grade Playground (interactive v3 toy) -- */
+  .gp {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: #F7F5EE;
+    margin: 1rem 0 0.5rem;
+    overflow: hidden;
+  }
+  .gp-tabs {
+    display: flex;
+    gap: 0.25rem;
+    padding: 0.55rem 0.6rem 0;
+    background: #F3F1E8;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .gp-tab {
+    appearance: none;
+    border: 1px solid transparent;
+    border-bottom: none;
+    background: transparent;
+    color: var(--accent);
+    font: inherit;
+    font-size: 0.92rem;
+    font-weight: 600;
+    padding: 0.5rem 0.95rem;
+    border-radius: 7px 7px 0 0;
+    cursor: pointer;
+  }
+  .gp-tab:hover { background: #DEDDD3; }
+  .gp-tab[aria-selected="true"] {
+    background: var(--card);
+    border-color: var(--border);
+    color: var(--ink);
+    position: relative;
+    top: 1px;
+  }
+  .gp-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .gp-panel { padding: 1.1rem 1.15rem 1.25rem; }
+  .gp-panel[hidden] { display: none; }
+
+  /* Sliders (Tab 1) */
+  .gp-slider { margin: 0 0 0.9rem; }
+  .gp-slider label {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 0.3rem;
+  }
+  .gp-slider label .gp-val {
+    font-weight: 700;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+  .gp-slider input[type="range"] {
+    width: 100%;
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+  .gp-slider input[type="range"]:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+  }
+
+  /* Preset buttons */
+  .gp-presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    margin: 0.2rem 0 1rem;
+  }
+  .gp-preset {
+    appearance: none;
+    border: 1px solid #A9A79A;
+    background: #F3F1E8;
+    color: var(--accent);
+    font: inherit;
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 0.4rem 0.8rem;
+    border-radius: 999px;
+    cursor: pointer;
+  }
+  .gp-preset:hover { background: #DEDDD3; }
+  .gp-preset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* Live result block */
+  .gp-result {
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    background: var(--card);
+    padding: 1rem 1.1rem;
+    text-align: center;
+  }
+  .gp-result .gp-big {
+    font-size: 2.6rem;
+    font-weight: 700;
+    color: var(--accent);
+    line-height: 1.05;
+    font-variant-numeric: tabular-nums;
+  }
+  .gp-result .gp-label {
+    font-size: 0.85rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin: 0 0 0.2rem;
+  }
+  .gp-branch {
+    margin: 0.7rem 0 0;
+    font-size: 0.96rem;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .gp-branch.warn { color: #A8330A; }
+  .gp-branch .gp-win {
+    background: #DEF0D3;
+    border-radius: 4px;
+    padding: 0 0.3rem;
+  }
+  .gp-branch.warn .gp-win {
+    background: var(--flag);
+  }
+
+  /* Two-bar visual with 40% floor marker */
+  .gp-bars {
+    display: flex;
+    gap: 1.1rem;
+    align-items: flex-end;
+    justify-content: center;
+    height: 130px;
+    position: relative;
+    margin: 1.1rem 0 0.2rem;
+    padding-top: 0.4rem;
+  }
+  .gp-bar-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    width: 64px;
+    height: 100%;
+  }
+  .gp-bar-track {
+    width: 38px;
+    height: 100%;
+    background: #F3F1E8;
+    border: 1px solid var(--border);
+    border-radius: 5px 5px 0 0;
+    position: relative;
+    display: flex;
+    align-items: flex-end;
+    overflow: hidden;
+  }
+  .gp-bar-fill {
+    width: 100%;
+    background: var(--accent);
+    border-radius: 4px 4px 0 0;
+    transition: height 0.18s ease;
+  }
+  .gp-bar-fill.low { background: #FF5B19; }
+  .gp-bar-name {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--muted);
+    margin-top: 0.3rem;
+    text-align: center;
+  }
+  .gp-floor {
+    position: absolute;
+    left: 0; right: 0;
+    border-top: 2px dashed #B03A2E;
+    pointer-events: none;
+  }
+  .gp-floor span {
+    position: absolute;
+    right: 0;
+    top: -1.05rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #B03A2E;
+    background: var(--card);
+    padding: 0 0.25rem;
+  }
+
+  /* Tab 2 — real-grade inputs */
+  .gp-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.8rem 1.2rem;
+    margin: 0 0 1rem;
+  }
+  @media (max-width: 560px) { .gp-grid { grid-template-columns: 1fr; } }
+  .gp-grid h4 {
+    grid-column: 1 / -1;
+    margin: 0.3rem 0 0;
+    font-size: 0.95rem;
+    color: var(--accent);
+  }
+  .gp-field { display: flex; flex-direction: column; }
+  .gp-field label {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 0.25rem;
+  }
+  .gp-field input[type="number"] {
+    font: inherit;
+    padding: 0.4rem 0.55rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--card);
+    color: var(--ink);
+    width: 100%;
+  }
+  .gp-field input[type="number"]:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+  .gp-readout {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.7rem;
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    background: var(--card);
+    padding: 0.9rem 1rem;
+  }
+  .gp-readout .gp-stat {
+    flex: 1;
+    min-width: 7rem;
+    text-align: center;
+  }
+  .gp-readout .gp-stat .gp-label { margin: 0 0 0.15rem; }
+  .gp-readout .gp-stat .gp-num {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+  .gp-readout .gp-stat.final .gp-num { font-size: 2rem; }
+  .gp-blanknote {
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin: 0.7rem 0 0;
+  }
+
+  /* Video slot */
+  .gp-video {
+    border: 2px dashed var(--accent);
+    border-radius: 10px;
+    background: #F3F1E8;
+    text-align: center;
+    padding: 1.6rem 1.2rem;
+    margin: 1.1rem 0 0;
+    color: var(--muted);
+  }
+  .gp-video strong { color: var(--accent); display: block; font-size: 1.05rem; }
+  .gp-video span { font-size: 0.9rem; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="hero">
+    <h1>Welcome to AP Statistics</h1>
+    <p>You're joining my class in the fall. Here's how it works, what I promise you, and what I'll ask of you in return — plus an optional head start if you want one.</p>
+  </div>
+
+  <section>
+    <h2>You've already started</h2>
+    <p>You're coming out of Probability &amp; Statistics, so you're not starting from zero. A good chunk of our <strong>probability</strong> work (Unit 2) and some of how we <strong>describe data</strong> (Unit 1) will feel familiar.</p>
+    <p>What's new is the frame. AP Statistics is built around one question that every topic comes back to: <strong>what can we actually conclude from data, and how sure are we allowed to be?</strong> That shift — from computing answers to defending claims — is the whole course. The summer path below lets you move quickly through what you've seen and spend your energy where it's genuinely new.</p>
+  </section>
+
+  <section class="promise">
+    <h2>My promise to you</h2>
+    <ul>
+      <li><strong>A grade should tell the truth about what you know.</strong> One rough test day should not outweigh everything you can actually do. I've been the student with the real understanding and the disappointing grade, and it followed me further than it should have. I am not running that class.</li>
+      <li><strong>This class is mastery-based, and the door back is always open.</strong> Your grade reflects what you've shown you can do — and there is no single moment that decides your fate. Fall behind, have a bad week, bomb a check: none of it is final.</li>
+      <li><strong>Anyone here can earn full marks.</strong> Not by luck, not by retake roulette — by finishing the loop: learn it, show it, and where it's shaky, fix it and show it again. As many times as it takes. "Caring enough" isn't a personality trait here; it's a process, and the process is open to everyone.</li>
+      <li><strong>My job is to keep the path clear and keep it open.</strong> That's the promise. The rest of this page is me holding up my end.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>What I'll ask of you</h2>
+    <p>Short version: do the work honestly, and don't move on while something's broken. Concretely —</p>
+    <ul class="expect">
+      <li><strong>Do the follow-along <em>while</em> you watch.</strong> Fill it in, don't just play the video. The watching isn't the learning; the doing is.</li>
+      <li><strong>Warm up with the Blooket.</strong> Class opens with a quick Blooket on the last video — fast retrieval practice that locks it in, and it counts toward your grade. A few minutes practicing it at home the night before goes a long way.</li>
+      <li><strong>Don't just finish a quiz — understand it.</strong> A wrong answer is the most useful thing on the page. Dig into <em>why</em> until you could explain it to someone else.</li>
+      <li><strong>Treat a weak quiz as information, not a verdict.</strong> A gap is just a signal — go back, shore it up, keep going. It still counts toward your grade; nothing is wasted.</li>
+      <li><strong>Own your calculator.</strong> TI-84 fluency is a skill you build, not something you look up mid-test. The trainer turns it into muscle memory.</li>
+      <li><strong>Show up for the Progress Check.</strong> It's in class, paced like the real exam. You do need to take it — skip it once it's due and your grade is capped — but walk in with the work done and it's upside, not a threat: it can lift your grade, never drag it down.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>The rhythm</h2>
+    <p>The year has a heartbeat. Once you feel it there are no surprises — every lesson is the same four beats:</p>
+    <div class="flow">
+      <span class="step">Warm up<br><small>yesterday's Blooket · GRADED</small></span>
+      <span class="arrow">→</span>
+      <span class="step big">Learn<br><small>video + worksheet · GRADED</small></span>
+      <span class="arrow">→</span>
+      <span class="step">Finish<br><small>~10 min to wrap the sheet</small></span>
+      <span class="arrow">→</span>
+      <span class="step big">At home<br><small>lesson quiz · GRADED + Blooket practice</small></span>
+    </div>
+    <p>Each lesson, your <strong>worksheet</strong>, <strong>quiz</strong>, and <strong>Blooket</strong> all count toward your grade (the full breakdown is just below). Here's the trick that makes it stick: <strong>today's Blooket comes back tomorrow as your graded warm-up</strong>, so a few minutes practicing it at home pays off. We move about <strong>3–4 lessons a week</strong>, and every class opens by reviewing the last one — spaced repetition built into the schedule so you never have to engineer it yourself.</p>
+    <p>When a unit wraps, it closes with the <strong>Progress Check</strong>:</p>
+    <div class="flow">
+      <span class="step big">Progress Check<br><small>in class via AP Classroom · two periods · AP-exam-style timing</small></span>
+    </div>
+    <p class="flow-caption">It's paced like the real May exam — eased in gently early in the year, then held to full exam pace once you're strong. Practice for the thing that actually counts, run under the conditions that actually count.</p>
+  </section>
+
+  <section id="on-the-desk">
+    <h2>What it looks like on the Desk</h2>
+    <p>You don't have to organize any of that rhythm — the <strong>Desk</strong> runs it for you. Here's the entire loop, click by click:</p>
+    <ol class="steps">
+      <li><strong>Make your account — once, in about ten seconds.</strong> The first time you open the Desk it asks you to create an account: tap to roll a fun username (🎲 keep rolling until you like one — they're first-come, first-served, so grab a good one), set a <strong>4-digit PIN</strong>, and you're in. That account is what ties every piece of work to <em>your</em> grade, so do it on day one. After that, signing in is just your username and PIN.</li>
+      <li><strong>Read your Do&nbsp;Now.</strong> The Desk opens on a <strong>Do&nbsp;Now</strong> card that tells you exactly what today's lesson is — no planning, no guessing what's next. Your grade so far lives right there too.</li>
+      <li><strong>Open the lesson — watch and fill at the same time.</strong> The tile opens the video and its <strong>worksheet</strong> together. Fill the sheet <em>while</em> the video plays; that's the part that actually teaches you, not the watching. In class, a panel shows you how everyone answered each blank as you go.</li>
+      <li><strong>Wrap it up.</strong> A few minutes to finish the sheet, then the <strong>lesson quiz</strong> and the <strong>Blooket</strong> — both linked right off the tile. Miss a quiz question? That's the most useful thing on the page; dig into <em>why</em> (your AI tutor is one click away for exactly that).</li>
+      <li><strong>Mark it Done.</strong> The tile <strong>greys out</strong> and the next lesson unlocks, so at a glance you always know where you are. Finish on one device and it shows done on the next one too.</li>
+      <li><strong>Watch your grade move.</strong> Everything you just did flows into your grade automatically — nothing to submit, no waiting. Tap <strong>📊&nbsp;My&nbsp;Gradebook</strong> any time to see every score that makes it up.</li>
+    </ol>
+    <p class="flow-caption">Repeat about three to four times a week, and when a unit closes you take its Progress Check in class. That's the whole job — and the next section is exactly how all of it adds up to a grade.</p>
+  </section>
+
+  <section id="how-your-grade">
+    <h2>How your grade actually works</h2>
+    <div class="lowstakes">
+      Make no mistake — <strong>this is for a grade.</strong> Everything you do here is tracked, and it all counts. There is no "busywork that doesn't matter" in this class.
+    </div>
+
+    <p>Your grade is the <strong>better of two tracks</strong> — your everyday <strong>Work</strong> and your <strong>Progress Checks</strong>. It starts as your Work; once Work (with bonus) is at least <strong>40%</strong>, your Progress Check score replaces it <strong>if it's higher</strong>, all the way to 100%. A low Progress Check <strong>never lowers</strong> you. The playground below shows the Desk's <strong>Today's estimate</strong>, which is slightly stricter (see the note in the rules). Don't just read it — <strong>play with it below.</strong></p>
+
+    <!-- THE GRADE PLAYGROUND -->
+    <p>Your Work is <strong>worksheets 50%, quizzes 35%, Blookets 15%</strong>. A graded exit ticket adds +5 (E), +3 (P), or +1 (I) without lowering your lesson grade: lessons can reach 105%; quarters still cap at 100%.</p>
+    <p>Unit posters are bonus: graded E/P/I by Mr. Colson, banked, and added at the end of the quarter &mdash; they can only raise your grade.</p>
+    <div class="gp" id="grade-playground">
+      <div class="gp-tabs" role="tablist" aria-label="Grade playground">
+        <button class="gp-tab" id="gp-tab-toy" role="tab" type="button"
+                aria-selected="true" tabindex="0" aria-controls="gp-panel-toy">Quick toy</button>
+        <button class="gp-tab" id="gp-tab-real" role="tab" type="button"
+                aria-selected="false" tabindex="-1" aria-controls="gp-panel-real">Plug in real Q1 grades</button>
+      </div>
+
+      <!-- TAB 1: Quick toy -->
+      <div class="gp-panel" id="gp-panel-toy" role="tabpanel" aria-labelledby="gp-tab-toy">
+        <div class="gp-slider">
+          <label for="gp-pc">Progress Checks <span class="gp-val" id="gp-pc-val">80</span></label>
+          <input type="range" id="gp-pc" min="0" max="100" step="1" value="80"
+                 aria-describedby="gp-toy-result">
+        </div>
+        <div class="gp-slider">
+          <label for="gp-work">Your work <span class="gp-val" id="gp-work-val">65</span></label>
+          <input type="range" id="gp-work" min="0" max="105" step="1" value="65"
+                 aria-describedby="gp-toy-result">
+        </div>
+
+        <div class="gp-presets">
+          <button class="gp-preset" type="button" data-pc="100" data-work="50">Ace the checks</button>
+          <button class="gp-preset" type="button" data-pc="50" data-work="100">Do all the work</button>
+          <button class="gp-preset" type="button" data-pc="0" data-work="90">Skip the checks</button>
+          <button class="gp-preset" type="button" data-pc="0" data-work="0">Do nothing</button>
+        </div>
+
+        <div class="gp-result" id="gp-toy-result" aria-live="polite">
+          <p class="gp-label">Your quarter grade</p>
+          <div class="gp-big" id="gp-toy-grade">80.0%</div>
+          <p class="gp-branch" id="gp-toy-branch"></p>
+
+          <div class="gp-bars" aria-hidden="true">
+            <div class="gp-floor" id="gp-floor" style="bottom:40%"><span>40% floor</span></div>
+            <div class="gp-bar-col">
+              <div class="gp-bar-track"><div class="gp-bar-fill" id="gp-bar-pc"></div></div>
+              <div class="gp-bar-name">Checks</div>
+            </div>
+            <div class="gp-bar-col">
+              <div class="gp-bar-track"><div class="gp-bar-fill" id="gp-bar-work"></div></div>
+              <div class="gp-bar-name">Work</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 2: Plug in real Q1 grades -->
+      <div class="gp-panel" id="gp-panel-real" role="tabpanel" aria-labelledby="gp-tab-real" hidden>
+        <div class="gp-grid">
+          <h4>Progress Checks <small style="color:var(--muted);font-weight:400">— Q1 runs Sep 2 &ndash; Nov 6</small></h4>
+          <div class="gp-field">
+            <label for="gp-pc-u1">PC score 1</label>
+            <input type="number" id="gp-pc-u1" min="0" max="100" step="any" inputmode="decimal" placeholder="blank">
+          </div>
+          <div class="gp-field">
+            <label for="gp-pc-u2">PC score 2</label>
+            <input type="number" id="gp-pc-u2" min="0" max="100" step="any" inputmode="decimal" placeholder="blank">
+          </div>
+          <div class="gp-field">
+            <label for="gp-pc-u3">PC score 3</label>
+            <input type="number" id="gp-pc-u3" min="0" max="100" step="any" inputmode="decimal" placeholder="blank">
+          </div>
+          <div class="gp-field"></div>
+
+          <h4>Your work</h4>
+          <div class="gp-field">
+            <label for="gp-w-lessons">Worksheets</label>
+            <input type="number" id="gp-w-lessons" min="0" max="105" step="any" inputmode="decimal" placeholder="blank">
+          </div>
+          <div class="gp-field">
+            <label for="gp-w-quizzes">Quizzes</label>
+            <input type="number" id="gp-w-quizzes" min="0" max="100" step="any" inputmode="decimal" placeholder="blank">
+          </div>
+          <div class="gp-field">
+            <label for="gp-w-blooket">Blooket</label>
+            <input type="number" id="gp-w-blooket" min="0" max="100" step="any" inputmode="decimal" placeholder="blank">
+          </div>
+        </div>
+
+        <div class="gp-readout" id="gp-real-result" aria-live="polite">
+          <div class="gp-stat">
+            <p class="gp-label">PC avg</p>
+            <div class="gp-num" id="gp-real-pc">&mdash;</div>
+          </div>
+          <div class="gp-stat">
+            <p class="gp-label">Work avg</p>
+            <div class="gp-num" id="gp-real-work">&mdash;</div>
+          </div>
+          <div class="gp-stat final">
+            <p class="gp-label">Quarter grade</p>
+            <div class="gp-num" id="gp-real-grade">&mdash;</div>
+          </div>
+        </div>
+        <p class="gp-blanknote">Blank = not counted yet.</p>
+      </div>
+    </div>
+
+    <!-- The full rules, demoted to opt-in read-more -->
+    <details>
+      <summary>The full rules, in words</summary>
+      <p><strong>The whole course is open to you from day one</strong>, and you work at your own pace. The work has a destination, not a nightly deadline.</p>
+      <p>Your grade is built from <strong>two tracks</strong>, and it takes <strong>whichever one you're stronger at</strong>:</p>
+      <p><strong>① Your work</strong> — your everyday graded pieces: each lesson's <strong>worksheet (50%)</strong>, <strong>quiz (35%)</strong>, and <strong>Blooket (15%)</strong>. The Blooket slice is scored on how many questions you answer and how accurate you are — answer them all correctly and it's full marks; the in-game points you race for are just for fun. A lesson's <strong>flashcard deck</strong> on the Desk is how you earn that Blooket credit if you missed the game. Early in a quarter, only the pieces that exist so far count — the weights share out over what's there.</p>
+      <p><strong>② The Progress Checks</strong> — one per unit, in class, AP-exam-style, and <strong>retakable until the quarter closes</strong>: after the paper check, Mr. Colson can open an online retake, and your <strong>best score counts</strong>. Pure mastery: prove you know the material and this alone can carry you.</p>
+      <p><strong>Your grade starts as your Work.</strong> Once your Work (with bonus) is at least <strong>40%</strong> — roughly D-level; an honest attempt clears it — your <strong>Progress Check</strong> score replaces it <strong>if it's higher</strong>. A low Progress Check <strong>never lowers</strong> you. Lead with your strength — ace the AP checks <em>or</em> put in the steady work, and either path goes all the way to 100%. The one thing you can't do is skip the work: below 40% Work, your grade is just your Work.</p>
+      <p><strong>A worked example.</strong> Say your worksheets average 90%, your quizzes 70%, and your Blookets 80%. Your Work is 0.50 × 90 + 0.35 × 70 + 0.15 × 80 = 45 + 24.5 + 12 = <strong>81.5%</strong>. That clears 40%, so your Progress Check can count. If your Progress Check is 88%, it's higher, so your grade is <strong>88%</strong>. If your Progress Check is 60%, your grade stays at <strong>81.5%</strong> — the lower check doesn't pull you down. If you had no quiz yet, Work would share out over the other two: (45 + 12) ÷ 0.65 = <strong>87.7%</strong>.</p>
+      <p><strong>Missing work becomes a 0 — later, not on the day.</strong> A worksheet or Blooket you haven't done becomes a <strong>0</strong> 13 days after its class day (about two weeks), in the Desk and in Schoology. The Desk turns your Do&nbsp;Now yellow and lists it <strong>3 days</strong> before that happens. Nothing ever locks: do the work later and your real score replaces the 0.</p>
+      <p><strong>Worksheets stay open.</strong> A greyed-out tile means <em>done</em>, not locked. Change any answer and Check again. <strong>✨ Grade with AI</strong> only ever <strong>raises</strong> a score, so it's always safe to re-run.</p>
+      <p><strong>Quizzes: one explained retry.</strong> Get a question right the first time and you're done. Get it wrong and you get <strong>one retry</strong>, after you write a short explanation; that second answer is your score. Still wrong? <strong>Talk it through</strong> with the AI — show you understand why the right answer is right and you earn <strong>half credit</strong>. (Free-response quiz questions can be revised any time.) The quiz's <strong>Done</strong> button unlocks at a recorded score of <strong>40%</strong>.</p>
+      <p><strong>Bonus can only raise your grade.</strong></p>
+      <ul>
+        <li><strong>Exit tickets:</strong> +5 (E), +3 (P), or +1 (I) on that lesson, up to 105%.</li>
+        <li><strong>Bonus sheets</strong> (DOK sheets and unit posters): graded E/P/I by Mr. Colson and worth <strong>+7.5 / +4.5 / +1.5</strong>. They're banked, then added at the end of the quarter to <strong>whichever track helps you more</strong>. Turn a DOK sheet in whenever you finish it.</li>
+        <li><strong>Finishing on time:</strong> +1 on your quarter grade for each worksheet finished (at least 80% of its blanks) by 11:59&nbsp;PM on its class day, up to +5 a quarter.</li>
+      </ul>
+      <p>Quarters still top out at <strong>100%</strong>.</p>
+      <p><strong>One official grade.</strong> Every night your grade is written to Schoology, and the Desk shows that same number marked <strong>official</strong>. Next to it, <strong>Today's estimate</strong> moves the moment you finish something, so it's a <strong>step ahead of Schoology</strong> until that night's sync. The estimate (and the playground above) uses a slightly stricter formula: it also asks for <strong>40% on each</strong> track, and below that it is <strong>capped at 70%</strong> of the better track (exactly: the best of 70% of either track or the average of the two). So it can differ from the official number until the nightly write. If Mr. Colson types a score into Schoology by hand, the sync never lowers it.</p>
+      <p><strong>Practice never counts.</strong> The Review deck, the TI-84 Trainer, and Study Break are there to help you learn, not to grade you. <strong>Candy, keys and games never change your grade.</strong></p>
+      <p>So the move is simple: <strong>do the work at your pace, and take the Progress Checks when they come.</strong> Work ahead and that work stands on its own until a unit's Progress Check actually arrives in class; then the check is your shot to top it off. The <strong>↑ number</strong> on each quarter is your <strong>ceiling</strong> — the best grade you can still reach if you ace what's left. As long as it's above where you are now, the door is open.</p>
+    </details>
+
+    <!-- Video slot (paste embed later) -->
+    <div class="gp-video">
+      <strong>Watch Mr. Colson walk through it</strong>
+      <span>Video coming soon.</span>
+      <!--
+        PASTE THE VIDEO EMBED HERE. Replace the <span> above (or this comment)
+        with a responsive iframe, e.g.:
+        <iframe width="100%" height="360"
+                src="https://www.youtube.com/embed/VIDEO_ID"
+                title="How your grade works"
+                frameborder="0" allowfullscreen></iframe>
+        (For a Google Drive video use the file's /preview share URL as src.)
+      -->
+    </div>
+
+    <!-- Grade Playground engine (verbatim v3 from roster-server/lesson-grade.js) -->
+    <script>
+    (function () {
+      'use strict';
+
+      // === v3 ENGINE (copied verbatim; displayed numbers MUST equal the server's) ===
+      var V3_WORK_WEIGHTS = { lessons: 0.50, quizzes: 0.35, blooket: 0.15 };
+      function quarterGradeV3(pc, work) { // both on 0..1
+        if (pc >= 0.40 && work >= 0.40) return Math.max(pc, work);
+        return Math.max(0.7 * pc, 0.7 * work, (pc + work) / 2);
+      }
+      function workAvgV3(tracks) { // {lessons,quizzes,blooket} each 0..1 or null; renormalizes over present
+        var num = 0, den = 0;
+        for (var k in V3_WORK_WEIGHTS) {
+          var v = tracks[k]; if (v == null) continue;
+          num += V3_WORK_WEIGHTS[k] * v; den += V3_WORK_WEIGHTS[k];
+        }
+        return den === 0 ? null : num / den;
+      }
+      function combineV3(pc, work) { // tolerates a null track
+        if (pc == null && work == null) return null;
+        if (pc == null) return work;
+        if (work == null) return pc;
+        return quarterGradeV3(pc, work);
+      }
+      // === END v3 ENGINE ===
+
+      // Round exactly like the rest of the page: (Math.round(v*10)/10).toFixed(1).
+      function fmtPct(frac) { // frac on 0..1 -> "NN.N"
+        if (frac == null || isNaN(frac)) return null;
+        return (Math.round(frac * 100 * 10) / 10).toFixed(1);
+      }
+
+      // Read a number input as a 0..1 fraction (blank/non-numeric -> null), clamped.
+      function readPct(id) {
+        var inp = document.getElementById(id);
+        if (!inp) return null;
+        var raw = (inp.value == null ? '' : String(inp.value)).trim();
+        if (raw === '') return null;
+        var n = Number(raw);
+        if (isNaN(n)) return null;
+        if (n < 0) n = 0;
+        var maximum = Number(inp.max) || 100;
+        if (n > maximum) n = maximum;
+        return n / 100;
+      }
+
+      // -- Tabs --
+      var tabToy = document.getElementById('gp-tab-toy');
+      var tabReal = document.getElementById('gp-tab-real');
+      var panelToy = document.getElementById('gp-panel-toy');
+      var panelReal = document.getElementById('gp-panel-real');
+
+      function selectTab(which) {
+        var toy = which === 'toy';
+        tabToy.setAttribute('aria-selected', toy ? 'true' : 'false');
+        tabReal.setAttribute('aria-selected', toy ? 'false' : 'true');
+        tabToy.tabIndex = toy ? 0 : -1;
+        tabReal.tabIndex = toy ? -1 : 0;
+        panelToy.hidden = !toy;
+        panelReal.hidden = toy;
+      }
+      tabToy.addEventListener('click', function () { selectTab('toy'); });
+      tabReal.addEventListener('click', function () { selectTab('real'); });
+      // Arrow-key navigation across the tablist.
+      function onTabKey(e) {
+        if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+          e.preventDefault();
+          var goReal = (e.currentTarget === tabToy);
+          selectTab(goReal ? 'real' : 'toy');
+          (goReal ? tabReal : tabToy).focus();
+        }
+      }
+      tabToy.addEventListener('keydown', onTabKey);
+      tabReal.addEventListener('keydown', onTabKey);
+
+      // -- Tab 1: Quick toy --
+      var pcSlider = document.getElementById('gp-pc');
+      var workSlider = document.getElementById('gp-work');
+      var pcValOut = document.getElementById('gp-pc-val');
+      var workValOut = document.getElementById('gp-work-val');
+      var toyGradeOut = document.getElementById('gp-toy-grade');
+      var toyBranchOut = document.getElementById('gp-toy-branch');
+      var barPc = document.getElementById('gp-bar-pc');
+      var barWork = document.getElementById('gp-bar-work');
+
+      function renderToy() {
+        var pc = Number(pcSlider.value) / 100;   // 0..1
+        var work = Number(workSlider.value) / 100;
+        pcValOut.textContent = String(Math.round(pc * 100));
+        workValOut.textContent = String(Math.round(work * 100));
+
+        var grade = Math.min(1, quarterGradeV3(pc, work));
+        toyGradeOut.textContent = fmtPct(grade) + '%';
+
+        // Bars + low-side colouring.
+        barPc.style.height = Math.round(pc * 100) + '%';
+        barWork.style.height = Math.min(100, Math.round(work * 100)) + '%';
+        barPc.className = 'gp-bar-fill' + (pc < 0.40 ? ' low' : '');
+        barWork.className = 'gp-bar-fill' + (work < 0.40 ? ' low' : '');
+
+        // Branch explainer.
+        if (pc >= 0.40 && work >= 0.40) {
+          toyBranchOut.className = 'gp-branch';
+          var pcWins = pc >= work;
+          var trackName = pcWins ? 'Progress Checks' : 'your Work';
+          toyBranchOut.innerHTML = 'We take your stronger track ('
+            + '<span class="gp-win">' + trackName + '</span>): ' + fmtPct(grade) + '%';
+        } else {
+          toyBranchOut.className = 'gp-branch warn';
+          var lowTrack = (pc < 0.40 && work < 0.40)
+            ? 'both tracks'
+            : (pc < 0.40 ? 'Progress Checks' : 'your Work');
+          toyBranchOut.innerHTML = '&#9888; below 40% on '
+            + '<span class="gp-win">' + lowTrack + '</span> &rarr; capped at 70% '
+            + 'until you put a little more in.';
+        }
+      }
+
+      pcSlider.addEventListener('input', renderToy);
+      workSlider.addEventListener('input', renderToy);
+
+      var presets = document.querySelectorAll('#gp-panel-toy .gp-preset');
+      for (var i = 0; i < presets.length; i++) {
+        presets[i].addEventListener('click', function () {
+          pcSlider.value = this.getAttribute('data-pc');
+          workSlider.value = this.getAttribute('data-work');
+          renderToy();
+        });
+      }
+
+      // -- Tab 2: Plug in real Q1 grades --
+      var realPcOut = document.getElementById('gp-real-pc');
+      var realWorkOut = document.getElementById('gp-real-work');
+      var realGradeOut = document.getElementById('gp-real-grade');
+      var realInputIds = [
+        'gp-pc-u1', 'gp-pc-u2', 'gp-pc-u3',
+        'gp-w-lessons', 'gp-w-quizzes', 'gp-w-blooket'
+      ];
+
+      function meanOf(vals) { // vals already filtered to non-null
+        if (vals.length === 0) return null;
+        var s = 0;
+        for (var j = 0; j < vals.length; j++) s += vals[j];
+        return s / vals.length;
+      }
+
+      function show(out, frac) {
+        var f = fmtPct(frac);
+        out.innerHTML = (f == null) ? '&mdash;' : (f + '%');
+      }
+
+      function renderReal() {
+        // PC avg = mean of the ENTERED PCs.
+        var pcs = [];
+        var pcRaw = [readPct('gp-pc-u1'), readPct('gp-pc-u2'), readPct('gp-pc-u3')];
+        for (var a = 0; a < pcRaw.length; a++) if (pcRaw[a] != null) pcs.push(pcRaw[a]);
+        var pcAvg = meanOf(pcs);
+
+        // Work avg = workAvgV3 over the ENTERED components (renormalized).
+        var tracks = {
+          lessons: readPct('gp-w-lessons'),
+          quizzes: readPct('gp-w-quizzes'),
+          blooket: readPct('gp-w-blooket')
+        };
+        var workAvg = workAvgV3(tracks);
+
+        // Quarter grade = combineV3 (tolerates a null track).
+        var grade = combineV3(pcAvg, workAvg);
+        if (grade != null) grade = Math.min(1, grade);
+
+        show(realPcOut, pcAvg);
+        show(realWorkOut, workAvg);
+        show(realGradeOut, grade);
+      }
+
+      for (var b = 0; b < realInputIds.length; b++) {
+        var node = document.getElementById(realInputIds[b]);
+        if (node) node.addEventListener('input', renderReal);
+      }
+
+      // Initial paint.
+      renderToy();
+      renderReal();
+    })();
+    </script>
+  </section>
+
+  <section id="where-you-stand">
+    <h2>Where you stand</h2>
+    <p>Once you start working, this is where you'll see your grade take shape — the better of your <strong>work</strong> and your <strong>Progress Checks</strong>, quarter by quarter. It's the same grade that posts to Schoology — this page just updates the moment you finish something, so it's usually a step ahead of Schoology's once-a-day sync.</p>
+    <div id="wys-status">
+      <p class="wys-loading">Loading your progress…</p>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">★</span>Your summer on-ramp <small style="color:var(--muted);font-weight:400">— optional</small></h2>
+    <div class="lowstakes">
+      There's no summer deadline, and skipping it now costs you nothing. But be clear on what this is: <strong>it's the graded work itself, just done early.</strong> Finish a unit over the summer and you've <strong>banked real work for it before day one</strong> — and since a unit's Progress Check doesn't count until we take it in class, that summer work stands on its own until then.
+    </div>
+    <p>How to do it without overthinking it:</p>
+    <ol class="steps">
+      <li><strong>Open the Roadmap (the Desk).</strong> Make your quick account when it asks (a username and a PIN — see above), then it lays out the lessons in order and tells you what's next, so you never have to plan anything.</li>
+      <li><strong>For each lesson tile:</strong> watch the video, fill in the <strong>worksheet</strong>, then take the <strong>quiz</strong> when the lesson has one — those are the graded pieces, linked right from the tile. (Working solo over the summer, the worksheet's "class answers" panel stays quiet — that's expected; it wakes up in the fall.)</li>
+      <li><strong>Anytime you want:</strong> ten minutes on the TI-84 Trainer. Low effort, high payoff, works on your phone.</li>
+    </ol>
+    <p style="margin-top:1rem"><strong>Where to start:</strong> Roadmap → Unit 1 → first lesson. That's the entire decision.</p>
+  </section>
+
+  <section>
+    <h2>Your toolkit</h2>
+    <p>Deliberately short. Fewer things used well beats more things half-used — that's the whole design.</p>
+
+    <div class="tool" style="margin-bottom:0.9rem;border-left:4px solid var(--accent)">
+      <span class="icon">🗺️</span>
+      <h3>The Desk <small style="color:var(--muted);font-weight:400">· start here, every time</small></h3>
+      <p>Every lesson tile opens <strong>everything that lesson has in one place</strong>: the video, its worksheet, its quiz, and its Blooket — your graded pieces for the lesson. (A few intro lessons are worksheet-only, and their tiles say so.) This is where you live day to day; it drives the whole rhythm above. (There's a Study Break game in there too, for when your brain is full.)</p>
+      <a class="btn" href="ap_stats_roadmap_square_mode.html">Open the Desk</a>
+    </div>
+
+    <div class="tool">
+      <span class="icon">🔢</span>
+      <h3>TI-84 Trainer</h3>
+      <p>Drill the calculator key sequences until they're automatic. Phone-friendly, ten minutes at a time — low cognitive load, high payoff.</p>
+      <a class="btn" href="ti84-trainer-v2/standalone.html">Open the Trainer</a>
+    </div>
+
+    <div class="tool">
+      <span class="icon">🤖</span>
+      <h3>Your AI tutor (per lesson)</h3>
+      <p>Most lesson tiles in <strong>the Desk</strong> have a <strong>copy-to-clipboard button</strong> for an AP-framework-tethered tutor prompt. Paste it into whatever AI you use — ChatGPT, Claude, or Gemini — and it becomes a Socratic tutor for <strong>that exact lesson</strong>, with the AP CED concepts named as the tether.</p>
+      <p>It has the answer key, but won't hand you an answer. It makes you reason there and defend it. For free-response questions it grades like an AP reader and iterates with you until you'd earn full credit.</p>
+      <p style="font-size:0.85rem;color:var(--muted);margin-bottom:0">Designed to help you <em>earn</em> a 5, not to do the work for you. Open the Desk → click a lesson tile → copy the prompt.</p>
+    </div>
+
+    <p class="note">Getting started is one step: open the Desk and make your account — roll a username, set a PIN, about ten seconds. That's what saves your work to your grade. Prefer a plain list of every worksheet? They're all indexed <a href="TOC.html">here</a>.</p>
+  </section>
+
+  <footer>
+    <p>Questions before the fall? I'd genuinely rather hear from you early than have you sitting stuck.</p>
+    <p class="signoff">— Mr. Colson · <a href="mailto:colsonr@lynnschools.org">colsonr@lynnschools.org</a></p>
+  </footer>
+
+</div>
+<script src="roster_config.js"></script>
+<script src="roster-client.js"></script>
+<script src="js/ced2026-crosswalk.js"></script>
+<script src="js/ced2026-labels.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  function el(tag, attrs, children) {
+    var node = document.createElement(tag);
+    if (attrs) {
+      for (var k in attrs) {
+        if (k === 'class') node.className = attrs[k];
+        else if (k === 'text') node.textContent = attrs[k];
+        else if (k === 'html') node.innerHTML = attrs[k];
+        else node.setAttribute(k, attrs[k]);
+      }
+    }
+    if (children) {
+      for (var i = 0; i < children.length; i++) {
+        var c = children[i];
+        if (c == null) continue;
+        if (typeof c === 'string') node.appendChild(document.createTextNode(c));
+        else node.appendChild(c);
+      }
+    }
+    return node;
+  }
+
+  function renderSignedOut(host) {
+    host.innerHTML = '';
+    var wrap = el('div', { class: 'wys-signed-out' });
+    wrap.appendChild(el('p', { text: 'Sign in on the Desk to see your live progress here.' }));
+    wrap.appendChild(el('a', { class: 'btn', href: 'ap_stats_roadmap_square_mode.html', text: 'Open the Desk' }));
+    host.appendChild(wrap);
+  }
+
+  function fmtGrade(v) {
+    if (v == null || isNaN(v)) return null;
+    return (Math.round(v * 10) / 10).toFixed(1);
+  }
+
+  function unitNumberFromKey(uKey) {
+    var m = /^U(\d+)$/.exec(uKey);
+    return m ? parseInt(m[1], 10) : null;
+  }
+
+  // Quarter band labels (must match grade-config.js quarters + the Desk roadmap).
+  // SY2627: quarters are the real LEHS marking-period DATE windows; units are
+  // taught in CED order and straddle quarters, so label by dates, not units.
+  var QUARTER_BAND_LABEL = {
+    Q1: 'Sep 2 – Nov 6',
+    Q2: 'Nov 9 – Jan 22',
+    Q3: 'Jan 25 – Apr 14',
+    Q4: 'Apr 15 – Jun 17',
+  };
+
+  function renderQuarters(host, quarters) {
+    var strip = el('div', { class: 'wys-quarters' });
+    var order = ['Q1', 'Q2', 'Q3', 'Q4'];
+    for (var i = 0; i < order.length; i++) {
+      var qKey = order[i];
+      var q = quarters && quarters[qKey];
+      var grade = q ? fmtGrade(q.quarterGrade) : null;
+      var ceiling = q ? fmtGrade(q.ceiling) : null;
+      var graded = q && typeof q.unitsGraded === 'number' ? q.unitsGraded : null;
+      var total = q && typeof q.unitsTotal === 'number' ? q.unitsTotal : null;
+
+      var classes = 'step' + (grade == null ? ' empty' : '');
+      var pill = el('span', { class: classes });
+      // Tooltip: name the band + (if any work) the progress fraction.
+      var bandLabel = QUARTER_BAND_LABEL[qKey] || '';
+      var tip = qKey + ' covers ' + bandLabel;
+      if (graded != null && total != null) {
+        tip += ' — ' + graded + ' of ' + total + ' topic group' + (total === 1 ? '' : 's') + ' graded';
+      }
+      pill.setAttribute('title', tip);
+      pill.appendChild(document.createTextNode(qKey));
+      pill.appendChild(el('br'));
+      pill.appendChild(el('small', { html: grade == null ? '&mdash;' : grade }));
+      // Motivational ceiling: present only when there's a current grade AND
+      // at least one unit still to bank (ceiling > current). The server
+      // returns ceiling=null in both edge cases (0 graded / all graded).
+      if (ceiling != null && grade != null) {
+        pill.appendChild(el('br'));
+        var ceilEl = el('small', { html: '&uarr; ' + ceiling });
+        ceilEl.setAttribute('title', 'If you ace the remaining ' + (total - graded) + ' topic group' + ((total - graded) === 1 ? '' : 's') + ' in ' + qKey);
+        ceilEl.style.color = '#25663F';
+        ceilEl.style.fontSize = '0.85em';
+        pill.appendChild(ceilEl);
+      }
+      strip.appendChild(pill);
+    }
+    host.appendChild(strip);
+  }
+
+  function renderUnitCard(uKey, u, completion) {
+    var card = el('div', { class: 'wys-unit' });
+    var unitNum = unitNumberFromKey(uKey);
+    // Preserve each server score bucket; its CED topic coverage may span units.
+    card.appendChild(el('h3', { text: cedLegacyUnitLabel(unitNum) }));
+
+    var ug = fmtGrade(u && u.unitGrade);
+    var graded = !!(u && u.graded) && ug != null;
+    if (graded) {
+      card.appendChild(el('div', { class: 'grade', text: ug }));
+    } else {
+      card.appendChild(el('div', { class: 'grade notyet', text: 'Not started yet' }));
+    }
+
+    var banked = fmtGrade(u && u.banked);
+    var P = u && typeof u.P === 'number' ? u.P : 0;
+    var pcText = P > 0 ? fmtGrade(P) : 'not yet';
+    var parts = [];
+    parts.push('Banked: ' + (banked == null ? '&mdash;' : banked));
+    parts.push('Progress Check: ' + pcText);
+    card.appendChild(el('p', { class: 'breakdown', html: parts.join(' &middot; ') }));
+
+    var c = completion && completion[uKey];
+    if (c) {
+      var sources = [];
+      var wsCount = (c.worksheet || 0) + (c.frq || 0);
+      if (wsCount > 0) sources.push(wsCount + ' worksheet item' + (wsCount === 1 ? '' : 's'));
+      if (c.curriculum_quiz > 0) sources.push(c.curriculum_quiz + ' quiz item' + (c.curriculum_quiz === 1 ? '' : 's'));
+      if (sources.length > 0) {
+        card.appendChild(el('p', { class: 'completion', html: 'Recorded: ' + sources.join(' &middot; ') }));
+      }
+    }
+    return card;
+  }
+
+  function renderSignedIn(host, body) {
+    host.innerHTML = '';
+    renderQuarters(host, body.quarters || {});
+
+    var units = body.units || {};
+    var keys = Object.keys(units).sort(function (a, b) {
+      var na = unitNumberFromKey(a);
+      var nb = unitNumberFromKey(b);
+      if (na != null && nb != null) return na - nb;
+      return a.localeCompare(b);
+    });
+
+    var grid = el('div', { class: 'wys-units' });
+    for (var i = 0; i < keys.length; i++) {
+      grid.appendChild(renderUnitCard(keys[i], units[keys[i]], body.completion || {}));
+    }
+    host.appendChild(grid);
+
+    host.appendChild(el('p', {
+      class: 'note',
+      html: '<em>This page reflects what we have recorded so far &mdash; your grade is the better of your work and your Progress Checks, so keep both moving.</em>'
+    }));
+  }
+
+  async function init() {
+    var host = document.getElementById('wys-status');
+    if (!host) return;
+
+    if (!window.rosterClient || typeof window.rosterClient.token !== 'function') {
+      renderSignedOut(host);
+      return;
+    }
+
+    var token = null;
+    try {
+      token = window.rosterClient.token();
+    } catch (_) {
+      token = null;
+    }
+    if (!token) {
+      renderSignedOut(host);
+      return;
+    }
+
+    var baseUrl = window.ROSTER_SERVICE_URL || null;
+    if (!baseUrl) {
+      renderSignedOut(host);
+      return;
+    }
+
+    try {
+      var response = await fetch(baseUrl + '/grade?token=' + encodeURIComponent(token));
+      if (!response || !response.ok) {
+        renderSignedOut(host);
+        return;
+      }
+      var body = await response.json();
+      if (!body || !body.ok) {
+        renderSignedOut(host);
+        return;
+      }
+      renderSignedIn(host, body);
+    } catch (_) {
+      renderSignedOut(host);
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+</script>
+</body>
+</html>

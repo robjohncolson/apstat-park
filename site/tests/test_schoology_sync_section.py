@@ -1,0 +1,1357 @@
+"""test_schoology_sync_section.py -- unit tests for the P2 orchestration module.
+
+Covers:
+  - Scope resolution from an inline schedule-like dict
+  - First run: plans N creates + M grade pushes
+  - Second run (state populated): 0 creates + 0 pushes (idempotency)
+  - Dry-run: no state mutation
+  - Grades fixture: maps to the right cells
+
+Runnable standalone:
+    python tests/test_schoology_sync_section.py
+
+ASCII only. LF line endings.
+"""
+from __future__ import annotations
+
+import json
+import os
+import sys
+import tempfile
+import types
+import unittest
+
+# ---------------------------------------------------------------------------
+# Path setup -- reach the tools directory from wherever this file lives
+# ---------------------------------------------------------------------------
+
+TESTS_DIR = os.path.dirname(os.path.abspath(__file__))
+REPO_ROOT = os.path.dirname(TESTS_DIR)
+TOOLS_DIR = os.path.join(REPO_ROOT, "tools")
+sys.path.insert(0, TOOLS_DIR)
+
+import schoology_sync_lib as lib
+from schoology_sync_section import (
+    LocalJsonStateStore,
+    PERIOD_LETTER,
+    SECTION_FORCE_MP_DATE,
+    SECTION_TO_COURSE_ID,
+    StateStore,
+    build_scope,
+    sync_section,
+)
+
+
+# ---------------------------------------------------------------------------
+# Fixtures
+# ---------------------------------------------------------------------------
+
+MINI_SCHEDULE = {
+    "schemaVersion": 2,
+    "lessons": {
+        "6.1": {
+            "unit": 6,
+            "topicKey": "6.1",
+            "worksheetKey": "1-2",
+            "periods": {"B": "2026-03-02", "E": "2026-03-06"},
+        },
+        "6.2": {
+            "unit": 6,
+            "topicKey": "6.2",
+            "worksheetKey": "1-2",
+            "periods": {"B": "2026-03-02", "E": "2026-03-06"},
+        },
+        "7.1": {
+            "unit": 7,
+            "topicKey": "7.1",
+            "worksheetKey": "1",
+            "periods": {"B": None, "E": None},   # no date -- excluded
+        },
+    },
+    "progressChecks": {
+        "6": {
+            "unit": 6,
+            "title": "Unit 6 Progress Check",
+            "kind": "pc",
+            "periods": {"B": "2026-04-01", "E": "2026-04-03"},
+        },
+        "7": {
+            "unit": 7,
+            "title": "Unit 7 Progress Check",
+            "kind": "pc",
+            "periods": {"B": None, "E": None},   # no date -- excluded
+        },
+    },
+    "posters": {
+        "6": {
+            "unit": 6,
+            "title": "Unit 6 Poster",
+            "kind": "poster",
+            "periods": {"B": "2026-04-05", "E": "2026-04-07"},
+        },
+    },
+}
+
+# Expected scope for PeriodB from MINI_SCHEDULE:
+# 6.1, 6.2 (lessons), PC:U6 (progress_check), POSTER:U6 (poster) = 4 items --
+# PC/Poster keys share the component-mode PC:U{n}/POSTER:U{n} form.
+EXPECTED_B_KEYS = {"6.1", "6.2", "PC:U6", "POSTER:U6"}
+EXPECTED_B_COUNT = 4
+
+
+# ---------------------------------------------------------------------------
+# Fake StateStore (in-memory, no file I/O)
+# ---------------------------------------------------------------------------
+
+class FakeStateStore(StateStore):
+    def __init__(self):
+        self._assignments = {}   # (section, key) -> dict
+        self._last_synced = {}   # (student_id, assignment_key) -> value
+        self.runs = []
+
+    def get_assignment(self, section, lesson_key):
+        return self._assignments.get((section, lesson_key))
+
+    def upsert_assignment(self, section, lesson_key, fields):
+        key = (section, lesson_key)
+        existing = self._assignments.get(key, {})
+        existing.update(fields)
+        self._assignments[key] = existing
+
+    def get_last_synced(self, student_id, assignment_key):
+        return self._last_synced.get((student_id, assignment_key))
+
+    def set_last_synced(self, student_id, assignment_key, value):
+        self._last_synced[(student_id, assignment_key)] = value
+
+    def log_run(self, summary):
+        self.runs.append(summary)
+
+
+# ---------------------------------------------------------------------------
+# Fake ops module (simulates schoology_ops without CDP)
+# ---------------------------------------------------------------------------
+
+class FakeOps:
+    """Injectable stand-in for schoology_ops.
+
+    Records all write calls for assertions.  Returns plausible success
+    payloads.  Uses a simple counter to generate assignment ids.
+    """
+
+    def __init__(
+        self,
+        students=None,
+        existing_titles=None,
+        marking_periods=None,
+        add_ok=True,
+        add_returns_id=True,
+        folder_ok=True,
+    ):
+        self._folder_ok = folder_ok
+        self.filed = []                  # nids handed to move_assignments_into_folder
+        # students: list of {studentId, rowIndex, name}
+        self._students = students or [
+            {"studentId": "S1", "rowIndex": 0, "name": "Alice"},
+            {"studentId": "S2", "rowIndex": 1, "name": "Bob"},
+        ]
+        # existing_titles: set of titles already in Schoology (pre-existing)
+        self._existing_titles = existing_titles or set()
+        self._marking_periods = (
+            {"MP1": {"start": "2026-01-01", "end": "2026-06-30"}}
+            if marking_periods is None else marking_periods
+        )
+        self._add_ok = add_ok
+        self._add_returns_id = add_returns_id
+        self._id_counter = 100
+        self.current_page = None
+        self.page_history = []
+
+        # Recorded calls (for assertions)
+        self.created_assignments = []    # list of kwargs dicts
+        self.written_grades = []         # list of (column_key, row_index, value)
+        self.cdp = None                  # pretend cdp handle
+
+    # -- materials folder (2026-09-16) ---------------------------------------
+    def move_assignments_into_folder(self, cdp, course_id, title="Assignments", only_nids=None):
+        nids = sorted(only_nids or [])
+        self.filed.extend(nids)
+        if not self._folder_ok:
+            return {"ok": False, "folder_id": None, "moved": [], "errors": ["move form missing"]}
+        return {"ok": True, "folder_id": "F1", "moved": [{"nid": n} for n in nids], "errors": []}
+
+    # -- CDP lifecycle (no-ops in tests) -----------------------------------
+    def connect(self, reuse=True):
+        return self.cdp
+
+    def navigate(self, cdp, url):
+        if url.endswith("/grades"):
+            self.current_page = "gradebook"
+        else:
+            self.current_page = url
+        self.page_history.append(self.current_page)
+
+    def inject_helpers(self, cdp):
+        pass
+
+    def detect_login_state(self, cdp):
+        self._require_page("gradebook", "detect_login_state")
+        return "authenticated"
+
+    def _require_page(self, page, operation):
+        if self.current_page != page:
+            raise AssertionError(
+                f"{operation} requires {page}; current_page={self.current_page!r}"
+            )
+
+    # -- live-data reads ---------------------------------------------------
+    def gradebook_url(self, course_id):
+        return f"https://schoology.example.com/course/{course_id}/grades"
+
+    def list_categories(self, cdp, course_id):
+        self.current_page = "gradesetup"
+        self.page_history.append(self.current_page)
+        return {
+            "Lesson": "CAT_LESSON",
+            "Quizzes": "CAT_QUIZ",
+            "Posters": "CAT_POSTER",
+            "Blooket": "CAT_BLOOKET",
+            "Progress Check": "CAT_PC",
+        }
+
+    def list_marking_periods(self, cdp, course_id):
+        self.current_page = "add_form"
+        self.page_history.append(self.current_page)
+        return self._marking_periods
+
+    def list_students(self, cdp):
+        self._require_page("gradebook", "list_students")
+        return self._students
+
+    def list_assignments(self, cdp):
+        self._require_page("gradebook", "list_assignments")
+        return []
+
+    # -- write operations --------------------------------------------------
+    def find_assignment_id_by_title(self, cdp, title):
+        self._require_page("gradebook", "find_assignment_id_by_title")
+        if title in self._existing_titles:
+            return f"EXISTING_{title.replace(' ', '_')}"
+        return None
+
+    def add_assignment(self, cdp, course_id, *, title, points=100, category_id,
+                       grading_period_id, due_date=None, publish_scores=True,
+                       sync_to_sis=True):
+        self.current_page = "add_form"
+        self.page_history.append(self.current_page)
+        self._id_counter += 1
+        assignment_id = f"ASGN_{self._id_counter}"
+        self.created_assignments.append({
+            "title": title,
+            "course_id": course_id,
+            "category_id": category_id,
+            "grading_period_id": grading_period_id,
+            "due_date": due_date,
+            "assignment_id": assignment_id,
+        })
+        # Register so find_assignment_id_by_title returns it next time
+        self._existing_titles.add(title)
+        return {
+            "ok": self._add_ok,
+            "assignment_id": assignment_id if self._add_returns_id else None,
+            "error": None if self._add_ok else "create not confirmed",
+        }
+
+    def read_grade_from_cell(self, cdp, column_key, row_index):
+        self._require_page("gradebook", "read_grade_from_cell")
+        return None
+
+    def write_grade_to_cell(self, cdp, column_key, row_index, value):
+        self._require_page("gradebook", "write_grade_to_cell")
+        self.written_grades.append((column_key, row_index, value))
+        return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
+# Helper: build a tiny schedule file on disk for schedule-loading tests
+# ---------------------------------------------------------------------------
+
+def _write_schedule(tmpdir, schedule=None):
+    path = os.path.join(tmpdir, "test-schedule.json")
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(schedule or MINI_SCHEDULE, f)
+    return path
+
+
+# ---------------------------------------------------------------------------
+# Test cases
+# ---------------------------------------------------------------------------
+
+class TestBuildScope(unittest.TestCase):
+    """build_scope correctly resolves scope from schedule data."""
+
+    def test_periodB_item_count(self):
+        items = build_scope(MINI_SCHEDULE, "PeriodB")
+        keys = {item["key"] for item in items}
+        self.assertEqual(keys, EXPECTED_B_KEYS)
+        self.assertEqual(len(items), EXPECTED_B_COUNT)
+
+    def test_periodE_includes_same_items_different_dates(self):
+        items_b = build_scope(MINI_SCHEDULE, "PeriodB")
+        items_e = build_scope(MINI_SCHEDULE, "PeriodE")
+        keys_b = {item["key"] for item in items_b}
+        keys_e = {item["key"] for item in items_e}
+        # Same keys -- schedule has E dates for the same items
+        self.assertEqual(keys_b, keys_e)
+        # Dates differ
+        dates_b = {item["key"]: item["due_date"] for item in items_b}
+        dates_e = {item["key"]: item["due_date"] for item in items_e}
+        self.assertNotEqual(dates_b["6.1"], dates_e["6.1"])
+
+    def test_no_date_items_excluded(self):
+        # 7.1 has null dates; 7.PC has null dates -> excluded
+        items = build_scope(MINI_SCHEDULE, "PeriodB")
+        keys = {item["key"] for item in items}
+        self.assertNotIn("7.1", keys)
+        self.assertNotIn("PC:U7", keys)
+
+    def test_item_kinds_correct(self):
+        items = build_scope(MINI_SCHEDULE, "PeriodB")
+        by_key = {item["key"]: item for item in items}
+        self.assertEqual(by_key["6.1"]["kind"], "lesson")
+        self.assertEqual(by_key["PC:U6"]["kind"], "progress_check")
+        self.assertEqual(by_key["POSTER:U6"]["kind"], "poster")
+
+    def test_items_sorted_by_date_then_key(self):
+        items = build_scope(MINI_SCHEDULE, "PeriodB")
+        dates = [item["due_date"] for item in items]
+        self.assertEqual(dates, sorted(dates))
+
+
+class TestFirstRunCreatesAssignments(unittest.TestCase):
+    """First run: all scope items are in the 'create' bucket."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.schedule_path = _write_schedule(self.tmpdir)
+        self.state = FakeStateStore()
+        self.ops = FakeOps()
+
+    def test_creates_all_scope_items(self):
+        summary = sync_section(
+            "PeriodB", "7945275782",
+            dry_run=False,
+            state=self.state,
+            grades={},
+            ops=self.ops,
+            schedule_path=self.schedule_path,
+        )
+        self.assertEqual(summary["assignments_created"], EXPECTED_B_COUNT)
+        self.assertEqual(len(self.ops.created_assignments), EXPECTED_B_COUNT)
+
+    def test_assignments_recorded_in_state(self):
+        sync_section(
+            "PeriodB", "7945275782",
+            dry_run=False,
+            state=self.state,
+            grades={},
+            ops=self.ops,
+            schedule_path=self.schedule_path,
+        )
+        for key in EXPECTED_B_KEYS:
+            row = self.state.get_assignment("PeriodB", key)
+            self.assertIsNotNone(row, f"state missing entry for key={key}")
+            self.assertIsNotNone(row.get("schoology_assignment_id"))
+
+    def test_run_summary_logged(self):
+        sync_section(
+            "PeriodB", "7945275782",
+            dry_run=False,
+            state=self.state,
+            grades={},
+            ops=self.ops,
+            schedule_path=self.schedule_path,
+        )
+        self.assertEqual(len(self.state.runs), 1)
+        self.assertEqual(self.state.runs[0]["section"], "PeriodB")
+
+
+class TestAssignmentsFolder(unittest.TestCase):
+    """Every created assignment is filed into the Assignments folder; a failed move is
+    reported but never blocks the create or the grade push (2026-09-16)."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.schedule_path = _write_schedule(self.tmpdir)
+        self.state = FakeStateStore()
+
+    def test_every_created_assignment_is_filed(self):
+        ops = FakeOps()
+        summary = sync_section("PeriodB", "7945275782", dry_run=False, state=self.state,
+                               grades={}, ops=ops, schedule_path=self.schedule_path)
+        created_ids = sorted(str(self.state.get_assignment("PeriodB", k)["schoology_assignment_id"])
+                             for k in EXPECTED_B_KEYS)
+        self.assertEqual(sorted(ops.filed), created_ids)
+        self.assertEqual(summary["assignments_created"], EXPECTED_B_COUNT)
+        self.assertEqual(summary["errors"], [])
+
+    def test_failed_move_is_reported_not_fatal(self):
+        ops = FakeOps(folder_ok=False)
+        summary = sync_section("PeriodB", "7945275782", dry_run=False, state=self.state,
+                               grades={}, ops=ops, schedule_path=self.schedule_path)
+        self.assertEqual(summary["assignments_created"], EXPECTED_B_COUNT)
+        self.assertEqual(len(ops.filed), EXPECTED_B_COUNT)
+        self.assertTrue(all("Assignments folder" in e for e in summary["errors"]))
+        self.assertEqual(len(summary["errors"]), EXPECTED_B_COUNT)
+
+    def test_dry_run_files_nothing(self):
+        ops = FakeOps()
+        sync_section("PeriodB", "7945275782", dry_run=True, state=self.state,
+                     grades={}, ops=ops, schedule_path=self.schedule_path)
+        self.assertEqual(ops.filed, [])
+
+
+class TestIdempotencySecondRun(unittest.TestCase):
+    """Second run with the same inputs: 0 creates + 0 grade pushes."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.schedule_path = _write_schedule(self.tmpdir)
+        self.state = FakeStateStore()
+        self.ops = FakeOps()
+
+        # Grades fixture: two students, one lesson each
+        self.grades = {
+            ("S1", "6.1"): 88.0,
+            ("S2", "6.2"): 75.0,
+        }
+
+    def _run(self):
+        return sync_section(
+            "PeriodB", "7945275782",
+            dry_run=False,
+            state=self.state,
+            grades=self.grades,
+            ops=self.ops,
+            schedule_path=self.schedule_path,
+        )
+
+    def test_idempotency(self):
+        # First run
+        s1 = self._run()
+        self.assertEqual(s1["assignments_created"], EXPECTED_B_COUNT)
+        self.assertEqual(s1["grades_pushed"], 2)
+        self.assertEqual(s1["grades_skipped"], 0)
+
+        # Second run -- fresh ops to confirm no new CDP writes
+        self.ops = FakeOps(
+            existing_titles={a["title"] for a in self.ops.created_assignments}
+        )
+        s2 = self._run()
+
+        self.assertEqual(s2["assignments_created"], 0,
+                         "Second run must not create any assignments")
+        self.assertEqual(s2["grades_pushed"], 0,
+                         "Second run must not re-push identical grades")
+        self.assertEqual(s2["grades_skipped"], 2,
+                         "Second run must skip the already-pushed grades")
+
+    def test_idempotency_no_new_cdp_writes_on_second_run(self):
+        self._run()
+        fresh_ops = FakeOps(
+            existing_titles={a["title"] for a in self.ops.created_assignments}
+        )
+        self.ops = fresh_ops
+        self._run()
+        self.assertEqual(len(fresh_ops.created_assignments), 0)
+        self.assertEqual(len(fresh_ops.written_grades), 0)
+
+
+class TestDryRunNoStateMutation(unittest.TestCase):
+    """Dry-run must not mutate state or perform any CDP writes."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.schedule_path = _write_schedule(self.tmpdir)
+        self.state = FakeStateStore()
+        self.ops = FakeOps()
+        self.grades = {("S1", "6.1"): 90.0}
+
+    def test_dry_run_no_assignments_created(self):
+        summary = sync_section(
+            "PeriodB", "7945275782",
+            dry_run=True,
+            state=self.state,
+            grades=self.grades,
+            ops=self.ops,
+            schedule_path=self.schedule_path,
+        )
+        # ops records zero real CDP writes
+        self.assertEqual(len(self.ops.created_assignments), 0)
+        self.assertEqual(len(self.ops.written_grades), 0)
+
+    def test_dry_run_no_state_mutation(self):
+        sync_section(
+            "PeriodB", "7945275782",
+            dry_run=True,
+            state=self.state,
+            grades=self.grades,
+            ops=self.ops,
+            schedule_path=self.schedule_path,
+        )
+        # State store untouched
+        self.assertEqual(self.state._assignments, {})
+        self.assertEqual(self.state._last_synced, {})
+        self.assertEqual(self.state.runs, [])
+
+    def test_dry_run_summary_shows_zero_creates(self):
+        summary = sync_section(
+            "PeriodB", "7945275782",
+            dry_run=True,
+            state=self.state,
+            grades=self.grades,
+            ops=self.ops,
+            schedule_path=self.schedule_path,
+        )
+        # assignments_created reflects what would have been created only after
+        # actual creation; dry-run returns 0
+        self.assertEqual(summary["assignments_created"], 0)
+
+
+class TestLivePageNavigation(unittest.TestCase):
+    """Live ops readers must be called from the page they scrape."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.schedule_path = _write_schedule(self.tmpdir)
+
+    def test_reloads_gradebook_after_setup_readers(self):
+        state = FakeStateStore()
+        ops = FakeOps()
+        sync_section(
+            "PeriodB", "7945275782",
+            dry_run=False,
+            state=state,
+            grades={},
+            ops=ops,
+            schedule_path=self.schedule_path,
+            limit=1,
+        )
+        self.assertGreaterEqual(ops.page_history.count("gradebook"), 3)
+        self.assertEqual(ops.current_page, "gradebook")
+
+
+class TestMissingMarkingPeriod(unittest.TestCase):
+    """A dated sync item with no matching MP must not submit a create form."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.schedule_path = _write_schedule(self.tmpdir)
+
+    def test_missing_marking_period_skips_create(self):
+        state = FakeStateStore()
+        ops = FakeOps(marking_periods={
+            "OLD": {"start": "2025-01-01", "end": "2025-06-30"},
+        })
+        summary = sync_section(
+            "PeriodB", "7945275782",
+            dry_run=False,
+            state=state,
+            grades={},
+            ops=ops,
+            schedule_path=self.schedule_path,
+            limit=1,
+        )
+        self.assertEqual(summary["assignments_created"], 0)
+        self.assertEqual(len(ops.created_assignments), 0)
+        self.assertTrue(any("No grading_period_id" in e for e in summary["errors"]))
+
+
+class TestBestEffortCreateConfirmation(unittest.TestCase):
+    """A false negative create confirmation should reconcile by title."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.schedule_path = _write_schedule(self.tmpdir)
+
+    def test_false_negative_create_records_visible_column(self):
+        state = FakeStateStore()
+        ops = FakeOps(add_ok=False, add_returns_id=False)
+        summary = sync_section(
+            "PeriodB", "7945275782",
+            dry_run=False,
+            state=state,
+            grades={},
+            ops=ops,
+            schedule_path=self.schedule_path,
+            limit=1,
+        )
+        row = state.get_assignment("PeriodB", "6.1")
+        self.assertEqual(summary["assignments_created"], 1)
+        self.assertEqual(summary["errors"], [])
+        self.assertIsNotNone(row)
+        self.assertEqual(row["schoology_assignment_id"], "EXISTING_Topic_6.1")
+
+
+class TestGradesFixtureCellMapping(unittest.TestCase):
+    """Grades fixture maps (student_id, lesson_key) to the right column + row."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.schedule_path = _write_schedule(self.tmpdir)
+        self.state = FakeStateStore()
+        self.ops = FakeOps(students=[
+            {"studentId": "S1", "rowIndex": 0, "name": "Alice"},
+            {"studentId": "S2", "rowIndex": 1, "name": "Bob"},
+        ])
+        self.grades = {
+            ("S1", "6.1"): 95.0,
+            ("S2", "6.1"): 82.0,
+            ("S1", "6.2"): 78.0,
+        }
+
+    def test_correct_cells_written(self):
+        sync_section(
+            "PeriodB", "7945275782",
+            dry_run=False,
+            state=self.state,
+            grades=self.grades,
+            ops=self.ops,
+            schedule_path=self.schedule_path,
+        )
+        # All three grade targets should have been pushed
+        self.assertEqual(len(self.ops.written_grades), 3)
+
+        # Row indices must match the student roster
+        written_rows = {row_index for _, row_index, _ in self.ops.written_grades}
+        self.assertIn(0, written_rows)   # S1
+        self.assertIn(1, written_rows)   # S2
+
+    def test_grade_values_correct(self):
+        sync_section(
+            "PeriodB", "7945275782",
+            dry_run=False,
+            state=self.state,
+            grades=self.grades,
+            ops=self.ops,
+            schedule_path=self.schedule_path,
+        )
+        written_values = [v for _, _, v in self.ops.written_grades]
+        self.assertIn(95.0, written_values)
+        self.assertIn(82.0, written_values)
+        self.assertIn(78.0, written_values)
+
+    def test_last_synced_recorded_after_push(self):
+        sync_section(
+            "PeriodB", "7945275782",
+            dry_run=False,
+            state=self.state,
+            grades=self.grades,
+            ops=self.ops,
+            schedule_path=self.schedule_path,
+        )
+        self.assertEqual(self.state.get_last_synced("S1", "6.1"), 95.0)
+        self.assertEqual(self.state.get_last_synced("S2", "6.1"), 82.0)
+        self.assertEqual(self.state.get_last_synced("S1", "6.2"), 78.0)
+
+
+class TestLocalJsonStateStore(unittest.TestCase):
+    """LocalJsonStateStore persists and reloads correctly."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.state_path = os.path.join(self.tmpdir, "state.json")
+
+    def _fresh_store(self):
+        from schoology_sync_section import LocalJsonStateStore as LJSS
+        return LJSS(path=self.state_path)
+
+    def test_assignment_roundtrip(self):
+        s = self._fresh_store()
+        s.upsert_assignment("PeriodB", "6.1", {"schoology_assignment_id": "X42"})
+
+        # Reload from disk
+        s2 = self._fresh_store()
+        row = s2.get_assignment("PeriodB", "6.1")
+        self.assertIsNotNone(row)
+        self.assertEqual(row["schoology_assignment_id"], "X42")
+
+    def test_last_synced_roundtrip(self):
+        s = self._fresh_store()
+        s.set_last_synced("S1", "6.1", 88.0)
+
+        s2 = self._fresh_store()
+        self.assertEqual(s2.get_last_synced("S1", "6.1"), 88.0)
+
+    def test_log_run_appends(self):
+        s = self._fresh_store()
+        s.log_run({"assignments_created": 2})
+        s.log_run({"assignments_created": 0})
+
+        s2 = self._fresh_store()
+        self.assertEqual(len(s2._data["runs"]), 2)
+
+    def test_upsert_merges_fields(self):
+        s = self._fresh_store()
+        s.upsert_assignment("PeriodB", "6.1", {"schoology_assignment_id": "X1"})
+        s.upsert_assignment("PeriodB", "6.1", {"title": "Topic 6.1"})
+
+        row = s.get_assignment("PeriodB", "6.1")
+        # Both fields present after merge
+        self.assertEqual(row["schoology_assignment_id"], "X1")
+        self.assertEqual(row["title"], "Topic 6.1")
+
+
+class TestSupabaseStateStoreStub(unittest.TestCase):
+    """SupabaseStateStore raises NotImplementedError with a helpful message."""
+
+    def setUp(self):
+        from schoology_sync_section import SupabaseStateStore
+        self.store = SupabaseStateStore()
+
+    def _check_raises(self, method, *args):
+        with self.assertRaises(NotImplementedError) as ctx:
+            method(*args)
+        self.assertIn("0010_schoology_sync.sql", str(ctx.exception))
+
+    def test_get_assignment_raises(self):
+        self._check_raises(self.store.get_assignment, "PeriodB", "6.1")
+
+    def test_upsert_assignment_raises(self):
+        self._check_raises(self.store.upsert_assignment, "PeriodB", "6.1", {})
+
+    def test_get_last_synced_raises(self):
+        self._check_raises(self.store.get_last_synced, "S1", "6.1")
+
+    def test_set_last_synced_raises(self):
+        self._check_raises(self.store.set_last_synced, "S1", "6.1", 90.0)
+
+    def test_log_run_raises(self):
+        self._check_raises(self.store.log_run, {})
+
+
+class TestLimitFlag(unittest.TestCase):
+    """--limit caps the scope without breaking idempotency."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.schedule_path = _write_schedule(self.tmpdir)
+
+    def test_limit_caps_scope(self):
+        state = FakeStateStore()
+        ops = FakeOps()
+        summary = sync_section(
+            "PeriodB", "7945275782",
+            dry_run=False,
+            state=state,
+            grades={},
+            ops=ops,
+            schedule_path=self.schedule_path,
+            limit=2,
+        )
+        self.assertEqual(summary["scope_items"], 2)
+        self.assertEqual(len(ops.created_assignments), 2)
+
+
+# ---------------------------------------------------------------------------
+# Summer mock-grading: PeriodY config + forced marking period (-> MP4)
+# ---------------------------------------------------------------------------
+
+# A single lesson dated in SY26-27 (Sept 2026). Its own due-date falls in the
+# FALL marking period, NOT MP4 -- which is exactly why the summer mock needs the
+# force override to land it in MP4.
+SUMMER_SCHEDULE = {
+    "schemaVersion": 2,
+    "lessons": {
+        "1.2": {
+            "unit": 1,
+            "topicKey": "1.2",
+            "worksheetKey": "1-2",
+            "periods": {"B": "2026-09-15", "E": "2026-09-17"},
+        },
+    },
+    "progressChecks": {},
+    "posters": {},
+}
+
+# Two live marking periods: the fall MP that COVERS the Sept lesson date, and MP4
+# (4/11/26-6/30/26, per the teacher). The force date 2026-05-15 lands in MP4.
+MP_RANGES_FALL_AND_MP4 = {
+    "GP_FALL": {"start": "2026-09-01", "end": "2026-11-13"},
+    "GP_MP4":  {"start": "2026-04-11", "end": "2026-06-30"},
+}
+
+
+class TestForceMarkingPeriod(unittest.TestCase):
+    """PeriodY routes to Period B's course + forces every assignment into MP4."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.schedule_path = _write_schedule(self.tmpdir, SUMMER_SCHEDULE)
+        self.state = FakeStateStore()
+
+    def test_periodY_targets_periodB_course_and_dates(self):
+        # Cutover seam #1: PeriodY -> Period B's real course, Period B's dates.
+        # PeriodY always follows PeriodB (fall cutover 2026-09-04 repointed both to SY26-27 Section 1).
+        self.assertEqual(SECTION_TO_COURSE_ID["PeriodY"], SECTION_TO_COURSE_ID["PeriodB"])
+        self.assertEqual(SECTION_TO_COURSE_ID["PeriodY"], SECTION_TO_COURSE_ID["PeriodB"])
+        self.assertEqual(PERIOD_LETTER["PeriodY"], "B")
+
+    def test_force_date_is_inside_mp4(self):
+        # The forced date must sit inside MP4 (4/11/26-6/30/26) or it would file
+        # the mock into the wrong period.
+        d = SECTION_FORCE_MP_DATE["PeriodY"]
+        self.assertTrue("2026-04-11" <= d <= "2026-06-30", f"force date {d!r} not in MP4")
+
+    def test_without_force_uses_the_due_date_marking_period(self):
+        # Baseline: a normal section files the Sept lesson into the FALL MP
+        # (proving the force test below actually changes behavior).
+        ops = FakeOps(marking_periods=MP_RANGES_FALL_AND_MP4)
+        sync_section(
+            "PeriodB", "7945275782",
+            dry_run=False, state=self.state, grades={},
+            ops=ops, schedule_path=self.schedule_path,
+        )
+        self.assertEqual(len(ops.created_assignments), 1)
+        self.assertEqual(ops.created_assignments[0]["grading_period_id"], "GP_FALL")
+        self.assertEqual(ops.created_assignments[0]["due_date"], "2026-09-15")
+
+    def test_force_routes_assignment_into_mp4(self):
+        # The summer mock: force_mp_date overrides the Sept due-date, filing the
+        # assignment into MP4 and dating it inside MP4.
+        ops = FakeOps(marking_periods=MP_RANGES_FALL_AND_MP4)
+        sync_section(
+            "PeriodY", "7945275782",
+            dry_run=False, state=self.state, grades={},
+            ops=ops, schedule_path=self.schedule_path,
+            force_mp_date="2026-05-15",
+        )
+        self.assertEqual(len(ops.created_assignments), 1)
+        self.assertEqual(ops.created_assignments[0]["grading_period_id"], "GP_MP4")
+        self.assertEqual(ops.created_assignments[0]["due_date"], "2026-05-15")
+
+    def test_force_dry_run_creates_nothing(self):
+        # Dry-run still resolves the MP (so the printed plan shows MP4) but writes
+        # nothing.
+        ops = FakeOps(marking_periods=MP_RANGES_FALL_AND_MP4)
+        summary = sync_section(
+            "PeriodY", "7945275782",
+            dry_run=True, state=self.state, grades={},
+            ops=ops, schedule_path=self.schedule_path,
+            force_mp_date="2026-05-15",
+        )
+        self.assertEqual(summary["assignments_created"], 0)
+        self.assertEqual(len(ops.created_assignments), 0)
+
+
+# ---------------------------------------------------------------------------
+# Runner
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# SY2627 (teacher 2026-09-03): Schoology shows ONLY due work -- the --through gate
+# ---------------------------------------------------------------------------
+
+from datetime import datetime  # noqa: E402
+from schoology_sync_section import filter_scope_through, today_school_date, _eastern_offset_hours  # noqa: E402
+
+
+class TestThroughGate(unittest.TestCase):
+    """Columns for future lessons are neither created nor graded until their day."""
+
+    def test_filter_keeps_only_due_items_and_drops_undated(self):
+        items = [
+            {"key": "6.1", "due_date": "2026-03-02"},
+            {"key": "6.2", "due_date": "2026-03-03"},
+            {"key": "6.3", "due_date": "2026-03-05"},
+            {"key": "9.9", "due_date": None},
+        ]
+        kept = filter_scope_through(items, "2026-03-03")
+        self.assertEqual([i["key"] for i in kept], ["6.1", "6.2"])
+
+    def test_filter_disabled_when_through_is_none(self):
+        items = [{"key": "a", "due_date": "2099-01-01"}, {"key": "b", "due_date": None}]
+        self.assertEqual(filter_scope_through(items, None), items)
+
+    def test_today_school_date_is_iso(self):
+        self.assertRegex(today_school_date(), r"^\d{4}-\d{2}-\d{2}$")
+
+    def test_sync_section_creates_only_due_assignments(self):
+        tmpdir = tempfile.mkdtemp()
+        schedule_path = _write_schedule(tmpdir)
+        state = FakeStateStore()
+        ops = FakeOps()
+        all_items = build_scope(MINI_SCHEDULE, "PeriodB")
+        first_date = min(i["due_date"] for i in all_items if i["due_date"])
+        expected = len([i for i in all_items if i["due_date"] and i["due_date"] <= first_date])
+        self.assertLess(expected, len(all_items))
+        summary = sync_section(
+            "PeriodB", "7945275782",
+            dry_run=False,
+            state=state,
+            grades={},
+            ops=ops,
+            schedule_path=schedule_path,
+            through_date=first_date,
+        )
+        self.assertEqual(summary["assignments_created"], expected)
+        self.assertEqual(len(ops.created_assignments), expected)
+
+    def test_eastern_offset_fallback_handles_dst(self):
+        self.assertEqual(_eastern_offset_hours(datetime(2026, 9, 9, 12)), -4)   # EDT
+        self.assertEqual(_eastern_offset_hours(datetime(2027, 1, 12, 12)), -5)  # EST
+        self.assertEqual(_eastern_offset_hours(datetime(2026, 11, 1, 5)), -4)   # 1am EDT, before fall-back
+        self.assertEqual(_eastern_offset_hours(datetime(2026, 11, 1, 7)), -5)   # after fall-back
+
+    def test_grade_targets_for_future_columns_are_deferred_not_errors(self):
+        tmpdir = tempfile.mkdtemp()
+        schedule_path = _write_schedule(tmpdir)
+        state = FakeStateStore()
+        ops = FakeOps()
+        all_items = build_scope(MINI_SCHEDULE, "PeriodB")
+        dated = sorted(i["due_date"] for i in all_items if i["due_date"])
+        first_date = dated[0]
+        last_key = next(i["key"] for i in all_items if i["due_date"] == dated[-1])
+        summary = sync_section(
+            "PeriodB", "7945275782",
+            dry_run=True,
+            state=state,
+            grades={("stu-1", last_key): 88.0},   # a future column -- must be deferred
+            ops=ops,
+            schedule_path=schedule_path,
+            through_date=first_date,
+        )
+        self.assertEqual(summary["grades_deferred"], 1)
+        self.assertEqual(summary["grades_pushed"], 0)
+        self.assertFalse(any("No scope item" in e for e in summary["errors"]))
+
+
+# ---------------------------------------------------------------------------
+# PC / Poster key parity across granularities (SY2627 new-unit numbering)
+# ---------------------------------------------------------------------------
+
+import schoology_components as components  # noqa: E402
+from schoology_sync_section import build_component_scope  # noqa: E402
+
+# A SY2627-shaped schedule: lessons carry OLD units (the 9-unit lesson band),
+# progressChecks/posters are keyed by the NEW CED unit (1-5).
+SY2627_SCHEDULE = {
+    "lessons": {
+        "1.1": {"unit": 1, "topicKey": "1.1", "worksheetKey": "1",
+                "periods": {"B": "2026-09-08", "E": "2026-09-09"}},
+        "6.1": {"unit": 6, "topicKey": "6.1", "worksheetKey": "1",
+                "periods": {"B": "2026-11-20", "E": "2026-11-23"}},
+    },
+    "progressChecks": {
+        str(u): {"unit": u, "kind": "pc",
+                 "periods": {"B": "2026-1%d-01" % (u % 3), "E": "2026-1%d-03" % (u % 3)},
+                 "adminDay2": {"B": "2026-1%d-02" % (u % 3), "E": "2026-1%d-05" % (u % 3)}}
+        for u in (1, 2, 3, 4, 5)
+    },
+    "posters": {
+        str(u): {"unit": u, "kind": "poster",
+                 "periods": {"B": "2026-1%d-04" % (u % 3), "E": "2026-1%d-06" % (u % 3)}}
+        for u in (1, 2, 3, 4, 5)
+    },
+}
+
+
+def _pc_poster_keys(items):
+    return {i["key"] for i in items if i["kind"] in ("progress_check", "poster")}
+
+
+class TestPcPosterKeyParity(unittest.TestCase):
+    """The scope key, the component column key and the grade producer's key
+    must be the SAME string for the SAME new CED unit -- otherwise the sync
+    creates a column under one name and looks up grades under another."""
+
+    def test_lesson_mode_keys_are_new_unit_pc_u(self):
+        items = build_scope(SY2627_SCHEDULE, "PeriodB")
+        self.assertEqual(
+            _pc_poster_keys(items),
+            {"PC:U%d" % u for u in range(1, 6)} | {"POSTER:U%d" % u for u in range(1, 6)},
+        )
+        by_key = {i["key"]: i for i in items}
+        # Unit comes from the event row (new unit), never the old lesson band.
+        self.assertEqual(by_key["PC:U5"]["unit"], 5)
+        self.assertEqual(by_key["PC:U5"]["title"], "Unit 5 Progress Check")
+        self.assertEqual(by_key["POSTER:U5"]["title"], "Unit 5 Poster")
+        # No PC/Poster for OLD unit 6 even though 6.1 is a dated lesson.
+        self.assertNotIn("PC:U6", by_key)
+
+    def test_lesson_and_component_modes_agree(self):
+        lesson_items = build_scope(SY2627_SCHEDULE, "PeriodB")
+        component_items = build_component_scope(
+            SY2627_SCHEDULE, "PeriodB", quiz_topics=set(), blooket_topics=set(),
+        )
+        self.assertEqual(_pc_poster_keys(lesson_items), _pc_poster_keys(component_items))
+        # Same due dates too (PC Day 1 / poster date for this period).
+        lesson_dates = {i["key"]: i["due_date"] for i in lesson_items if i["key"].startswith(("PC:", "POSTER:"))}
+        component_dates = {i["key"]: i["due_date"] for i in component_items if i["key"].startswith(("PC:", "POSTER:"))}
+        self.assertEqual(lesson_dates, component_dates)
+
+    def test_scope_keys_match_grade_producer_keys(self):
+        # The producer keys PC grades by units[U{new}].pcRawPct -> PC:U{new}.
+        doc = {"students": [{
+            "studentId": "9001", "schoologyUid": "77001",
+            "lessons": [],
+            "units": {"U%d" % u: {"pcRawPct": 60 + u} for u in range(1, 6)},
+        }]}
+        produced = components.component_grades_from_class_doc(doc)
+        produced_keys = {k.split("/", 1)[1] for k in produced}
+        scope_keys = _pc_poster_keys(build_scope(SY2627_SCHEDULE, "PeriodB"))
+        self.assertTrue(produced_keys)
+        self.assertTrue(produced_keys <= scope_keys, produced_keys - scope_keys)
+
+    def test_event_unit_prefers_explicit_unit_then_map_key(self):
+        from schoology_sync_section import _event_unit
+        self.assertEqual(_event_unit("3", {"unit": 3}), 3)
+        self.assertEqual(_event_unit("U4", {}), "4")
+        self.assertEqual(_event_unit("4", None), "4")
+
+    def test_legacy_schedule_without_events_unchanged(self):
+        # No progressChecks/posters: lesson mode emits no PC/Poster items; component
+        # mode falls back to one PC + Poster per OLD lesson unit (legacy proxy).
+        legacy = {"lessons": SY2627_SCHEDULE["lessons"]}
+        self.assertEqual(_pc_poster_keys(build_scope(legacy, "PeriodB")), set())
+        component_items = build_component_scope(
+            legacy, "PeriodB", quiz_topics=set(), blooket_topics=set(),
+        )
+        self.assertEqual(
+            _pc_poster_keys(component_items),
+            {"PC:U1", "POSTER:U1", "PC:U6", "POSTER:U6"},
+        )
+
+
+if __name__ == "__main__":
+    loader = unittest.TestLoader()
+    suite = loader.loadTestsFromModule(sys.modules[__name__])
+    runner = unittest.TextTestRunner(verbosity=2)
+    result = runner.run(suite)
+    passed = result.testsRun - len(result.failures) - len(result.errors)
+    print(f"\n{'='*60}")
+    print(f"RESULT: {passed}/{result.testsRun} passed", end="")
+    if result.failures or result.errors:
+        print(f"  ({len(result.failures)} failures, {len(result.errors)} errors)")
+        sys.exit(1)
+    else:
+        print("  -- ALL PASS")
+        sys.exit(0)
+
+
+import schoology_sync_section as sync  # noqa: E402  (tolerant category resolver)
+
+
+class TestCategoryNameTolerance(unittest.TestCase):
+    """SY26-27 Period E was created with 'Quiz'; the sync's kind table says 'Quizzes'."""
+
+    def test_exact_name_wins(self):
+        cats = {"Quizzes": "1", "Quiz": "2"}
+        self.assertEqual(sync._resolve_category_id(cats, "quiz"), "1")
+
+    def test_singular_and_case_tolerant(self):
+        cats = {"Blooket": "97110661", "Lesson": "97110595", "Posters": "97110658",
+                "Progress Check": "97110670", "Quiz": "97110656"}
+        self.assertEqual(sync._resolve_category_id(cats, "quiz"), "97110656")
+        self.assertEqual(sync._resolve_category_id(cats, "poster"), "97110658")
+        self.assertEqual(sync._resolve_category_id({"progress check": "9"}, "progress_check"), "9")
+        self.assertEqual(sync._resolve_category_id({"LESSONS": "7"}, "lesson"), "7")
+
+    def test_unknown_stays_none(self):
+        self.assertIsNone(sync._resolve_category_id({"Homework": "3"}, "quiz"))
+        self.assertIsNone(sync._resolve_category_id({}, "nope"))
+
+
+def test_work_days_never_create_schoology_columns():
+    schedule = {
+        "lessons": {
+            "1.1": {"unit": 1, "periods": {"B": "2026-09-08"}},
+            "B-Work": {"kind": "work", "unit": 0, "periods": {"B": "2026-10-13"}},
+        },
+        "calendar": {"workDays": {"B": ["2026-10-13"], "E": []},
+                     "events": {"B": [{"id": "B-Work", "kind": "work", "date": "2026-10-13"}]}},
+    }
+    assert [item["key"] for item in build_scope(schedule, "PeriodB")] == ["1.1"]
+
+
+class TestGradeCellComments(unittest.TestCase):
+    def test_orchestrator_generates_comments_from_class_doc(self):
+        from unittest.mock import Mock, patch
+        fake_ops = FakeOps()
+        fake_ops.write_cell_comment = Mock(return_value={"ok": True, "verified": True})
+        with tempfile.TemporaryDirectory() as temp, patch.object(sync, "today_school_date", return_value="2026-09-21"):
+            summary = sync_section(
+                "PeriodB", "course", dry_run=False, comments=True,
+                state=FakeStateStore(), grades={("S1", "FA:6.1-2"): 0}, ops=fake_ops,
+                schedule_path=_write_schedule(temp), granularity="component",
+                quiz_topics=set(), blooket_topics=set(), class_doc={"students": [
+                    {"studentId": "S1", "section": "PeriodB", "lessons": [
+                        {"lessonKey": "6.1", "unit": 6, "worksheetKey": "1-2", "zeroDate": {"B": "2026-09-20"}}
+                    ]}
+                ]},
+            )
+        self.assertEqual(summary["grades_pushed"], 1)
+        self.assertIn("Missing: 6.1 worksheet.", fake_ops.write_cell_comment.call_args.args[3])
+
+    def setUp(self):
+        from unittest.mock import Mock
+        self.ops = Mock()
+        self.ops.find_assignment_id_by_title.return_value = "col1"
+        self.ops.read_grade_from_cell.return_value = None
+        self.ops.write_grade_to_cell.return_value = {"ok": True}
+        self.ops.write_cell_comment.return_value = {"ok": True, "verified": True}
+        self.ops.clear_cell_comment.return_value = {"ok": True, "verified": True}
+        self.state = FakeStateStore()
+        self.errors = []
+        self.doc = {"students": [{"studentId": "S1", "section": "PeriodB", "lessons": [
+            {"lessonKey": "1.2", "unit": 1, "worksheetKey": "2", "zeroDate": {"B": "2026-09-20"}}
+        ]}]}
+        self.texts = components.component_comments_from_class_doc(self.doc, today="2026-09-21")
+
+    def push(self, value=0, **kwargs):
+        return sync._push_grades(
+            {("S1", "FA:1.2"): value}, {"FA:1.2": {"title": "1.2 Follow-Along"}},
+            {"S1": {"rowIndex": 2}}, "PeriodB", self.state, self.ops, None,
+            kwargs.pop("dry_run", False), self.errors, comment_texts=self.texts, **kwargs,
+        )
+
+    def test_opt_in_only_after_successful_grade(self):
+        self.push()
+        self.ops.write_cell_comment.assert_not_called()
+        self.state = FakeStateStore()
+        self.push(comments=True)
+        self.ops.write_cell_comment.assert_called_once_with(None, "col1", 2, self.texts["S1/FA:1.2"])
+        methods = [call[0] for call in self.ops.mock_calls]
+        self.assertLess(methods.index("write_grade_to_cell"), methods.index("write_cell_comment"))
+
+    def test_dry_run_plans_text_and_clear_without_writes(self):
+        import contextlib
+        import io
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            self.push(comments=True, dry_run=True)
+            self.push(90, comments=True, dry_run=True)
+        self.assertIn(self.texts["S1/FA:1.2"], output.getvalue())
+        self.assertIn("target=0", output.getvalue())
+        self.assertIn("comment: would clear", output.getvalue())
+        self.ops.write_grade_to_cell.assert_not_called()
+        self.ops.write_cell_comment.assert_not_called()
+        self.ops.clear_cell_comment.assert_not_called()
+        self.assertEqual(self.state._last_synced, {})
+
+    def test_keep_and_failed_never_comment_but_an_existing_zero_is_ensured(self):
+        self.ops.read_grade_from_cell.return_value = 90
+        self.push(comments=True)
+        self.ops.write_cell_comment.assert_not_called()
+        self.state = FakeStateStore()
+        self.ops.read_grade_from_cell.return_value = None
+        self.ops.write_grade_to_cell.return_value = {"ok": False}
+        self.push(comments=True)
+        self.ops.write_cell_comment.assert_not_called()
+        # An already-synced ZERO is different: the comment travels with the zero, so the sync
+        # ensures it (the writer is idempotent: an identical published comment is a no-op).
+        self.state.set_last_synced("S1", "FA:1.2", 0)
+        self.ops.write_cell_comment.return_value = {"ok": True, "verified": True, "text": "x", "skipped": "already set"}
+        self.push(comments=True)
+        self.ops.write_cell_comment.assert_called_once()
+        self.assertEqual(self.ops.write_cell_comment.call_args.args[1:3], ("col1", 2))
+
+    def test_an_earned_zero_clears_only_the_exact_note_the_sync_wrote(self):
+        # The student did the work and scored 0: the builder emits "" for the cell, the grade is
+        # unchanged (0 -> 0), and the note the sync wrote earlier must go — only that exact text,
+        # so an edited or teacher-typed comment is never erased (Codex 2026-09-29).
+        note = "Not a permanent 0. Missing: 1.2 worksheet. Finish it."
+        self.state.set_last_synced("S1", "FA:1.2", 0)
+        self.state.set_last_synced("S1", "FA:1.2#note", note)
+        self.texts = {"S1/FA:1.2": ""}
+        self.ops.write_cell_comment.return_value = {"ok": True, "verified": True, "text": ""}
+        import contextlib
+        import io
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            self.push(comments=True, dry_run=True)
+        self.assertIn("would clear the sync's earlier note", output.getvalue())
+        self.ops.write_cell_comment.assert_not_called()
+        self.push(comments=True)
+        self.ops.write_cell_comment.assert_called_once_with(None, "col1", 2, "", expect_current=note)
+        self.assertEqual(self.state.get_last_synced("S1", "FA:1.2#note"), "")
+        # the note is gone: later nights do no comment UI work for this earned zero
+        self.ops.write_cell_comment.reset_mock()
+        self.push(comments=True)
+        self.ops.write_cell_comment.assert_not_called()
+
+    def test_a_teacher_edited_note_is_released_and_never_retried(self):
+        self.state.set_last_synced("S1", "FA:1.2", 0)
+        self.state.set_last_synced("S1", "FA:1.2#note", "Not a permanent 0. Missing: 1.2 worksheet.")
+        self.texts = {"S1/FA:1.2": ""}
+        self.ops.write_cell_comment.return_value = {"ok": False, "verified": False,
+                                                    "reason": "comment differs from the sync's last note; left untouched"}
+        self.push(comments=True)
+        self.assertEqual(self.state.get_last_synced("S1", "FA:1.2#note"), "")
+        self.ops.write_cell_comment.reset_mock()
+        self.push(comments=True)
+        self.ops.write_cell_comment.assert_not_called()
+
+    def test_a_failed_clear_after_a_real_score_is_retried_next_night(self):
+        note = "Not a permanent 0. Missing: 1.2 worksheet."
+        self.state.set_last_synced("S1", "FA:1.2#note", note)
+        self.texts = {"S1/FA:1.2": ""}
+        self.ops.clear_cell_comment.return_value = {"ok": False, "verified": False, "reason": "editor did not open"}
+        self.push(90, comments=True)                      # grade pushed; the clear fails transiently
+        self.assertEqual(self.state.get_last_synced("S1", "FA:1.2"), 90)
+        self.assertEqual(self.state.get_last_synced("S1", "FA:1.2#note"), note)   # kept for a retry
+        self.ops.write_cell_comment.return_value = {"ok": True, "verified": True, "text": ""}
+        self.push(90, comments=True)                      # next night: grade covered, note reconciled
+        self.ops.write_cell_comment.assert_called_once_with(None, "col1", 2, "", expect_current=note)
+        self.assertEqual(self.state.get_last_synced("S1", "FA:1.2#note"), "")
+
+    def test_an_earned_zero_with_no_recorded_note_does_no_ui_work(self):
+        self.state.set_last_synced("S1", "FA:1.2", 0)
+        self.texts = {"S1/FA:1.2": ""}
+        self.push(comments=True)
+        self.ops.write_cell_comment.assert_not_called()
+
+    def test_missing_comment_data_never_triggers_a_clear(self):
+        self.state.set_last_synced("S1", "FA:1.2", 0)
+        self.state.set_last_synced("S1", "FA:1.2#note", "Not a permanent 0. Missing: 1.2 worksheet.")
+        self.texts = {}   # the builder produced nothing for this cell (e.g. partial class data)
+        self.push(comments=True)
+        self.ops.write_cell_comment.assert_not_called()
+
+    def test_writing_or_ensuring_a_note_records_its_exact_text(self):
+        self.push(comments=True)
+        self.assertEqual(self.state.get_last_synced("S1", "FA:1.2#note"), self.texts["S1/FA:1.2"])
+
+    def test_clear_nonzero_and_comment_failure_not_grade_failure(self):
+        self.ops.clear_cell_comment.side_effect = RuntimeError("UI unavailable")
+        pushed, _, _ = self.push(90, comments=True)
+        self.assertEqual(pushed, 1)
+        self.assertEqual(self.errors, [])
+        self.assertEqual(self.state.get_last_synced("S1", "FA:1.2"), 90)
+        self.ops.clear_cell_comment.assert_called_once_with(None, "col1", 2, expect_current=None)
+
+    def test_unverified_is_logged_as_skipped(self):
+        import contextlib
+        import io
+        self.ops.write_cell_comment.return_value = {"ok": True, "verified": False, "reason": "uncertain"}
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            self.push(comments=True)
+        self.assertIn("comment: skipped(uncertain)", output.getvalue())
+        self.assertEqual(self.errors, [])
+
+    def test_no_text_zero_is_skipped(self):
+        self.texts = {}
+        self.push(comments=True)
+        self.ops.write_cell_comment.assert_not_called()
+        self.ops.clear_cell_comment.assert_not_called()
+
+    def test_cli_defaults_and_flags(self):
+        base = ["--sync-section", "PeriodB"]
+        self.assertFalse(sync._parse_args(base).comments)
+        self.assertTrue(sync._parse_args(base).dry_run)
+        self.assertTrue(sync._parse_args(base + ["--comments"]).comments)
+        self.assertFalse(sync._parse_args(base + ["--no-comments"]).comments)
+        self.assertFalse(sync._parse_args(base + ["--apply"]).dry_run)
+
+
+# ---------------------------------------------------------------------------
+# EFFORT_VISIBILITY_SPEC §5 -- ahead scores waiting for a column (dry-run only)
+# ---------------------------------------------------------------------------
+
+AHEAD_SCHEDULE = json.loads(json.dumps(MINI_SCHEDULE))
+AHEAD_SCHEDULE["lessons"]["6.3"] = {
+    "unit": 6, "topicKey": "6.3", "worksheetKey": "3",
+    "periods": {"B": "2026-03-09", "E": "2026-03-10"},
+}
+
+# A /class/grades-shaped doc (fake ids): both students scored 6.3 before its day;
+# one also took its quiz; both have a Unit 6 PC on file.
+AHEAD_DOC = {"ok": True, "students": [
+    {"studentId": "S1", "section": "PeriodB", "units": {"U6": {"pcRawPct": 70}},
+     "lessons": [{"unit": 6, "worksheetKey": "3", "lessonKey": "6.3", "lessonGradeNoQuiz": 100,
+                  "Q": 67, "quizTotal": 2}]},
+    {"studentId": "S2", "section": "PeriodB", "units": {"U6": {"pcRawPct": 80}},
+     "lessons": [{"unit": 6, "worksheetKey": "3", "lessonKey": "6.3", "lessonGradeNoQuiz": 90,
+                  "Q": None, "quizTotal": 2}]},
+]}
+
+
+def _ahead_targets():
+    produced = components.component_grades_from_class_doc(AHEAD_DOC, None, "2026-03-02")
+    return {tuple(key.split("/", 1)): value for key, value in produced.items()}
+
+
+class TestAheadScoresWaitingForAColumn(unittest.TestCase):
+
+    def test_pure_summary_counts_scores_per_absent_column_in_date_order(self):
+        items = {item["key"]: item for item in build_component_scope(
+            AHEAD_SCHEDULE, "PeriodB", quiz_topics={"6.3"}, blooket_topics=set())}
+        targets = _ahead_targets()
+        deferred = {k: v for k, v in targets.items() if items[k[1]]["due_date"] > "2026-03-02"}
+        entries = sync.ahead_waiting_columns(deferred, items, lambda title: False)
+        self.assertEqual([(e["title"], e["count"]) for e in entries],
+                         [("6.3 Follow-Along", 2), ("6.3 Quiz", 1), ("Unit 6 Progress Check", 2)])
+        self.assertEqual(sync.ahead_waiting_line(entries),
+                         "Ahead scores waiting for a column: 6.3 Follow-Along (2), 6.3 Quiz (1), Unit 6 Progress Check (2)")
+        # a column that already exists is not "waiting"; nothing ahead prints nothing
+        existing = sync.ahead_waiting_columns(deferred, items, lambda title: title == "Unit 6 Progress Check")
+        self.assertEqual([e["title"] for e in existing], ["6.3 Follow-Along", "6.3 Quiz"])
+        self.assertEqual(sync.ahead_waiting_line([]), "")
+        # a key the scope does not list still gets its Schoology title
+        self.assertEqual(sync.ahead_waiting_columns({("S1", "QUIZ:9.9"): 50}, {}, lambda t: False)[0]["title"], "9.9 Quiz")
+
+    def test_dry_run_prints_the_line_and_writes_nothing(self):
+        import contextlib
+        import io
+        tmpdir = tempfile.mkdtemp()
+        schedule_path = _write_schedule(tmpdir, AHEAD_SCHEDULE)
+        state = FakeStateStore()
+        ops = FakeOps(existing_titles={"Unit 6 Progress Check"})
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            summary = sync_section(
+                "PeriodB", "7945275782", dry_run=True, state=state, grades=_ahead_targets(),
+                ops=ops, schedule_path=schedule_path, granularity="component",
+                quiz_topics={"6.3"}, blooket_topics=set(), through_date="2026-03-02",
+            )
+        self.assertIn("[ahead] PeriodB: Ahead scores waiting for a column: 6.3 Follow-Along (2), 6.3 Quiz (1)",
+                      output.getvalue())
+        self.assertEqual([(e["key"], e["count"]) for e in summary["ahead_waiting"]], [("FA:6.3", 2), ("QUIZ:6.3", 1)])
+        self.assertEqual(summary["grades_deferred"], 5)
+        self.assertEqual(ops.created_assignments, [])
+        self.assertEqual(ops.written_grades, [])
+        self.assertEqual(state.runs, [])
+
+    def test_apply_mode_never_computes_it(self):
+        tmpdir = tempfile.mkdtemp()
+        schedule_path = _write_schedule(tmpdir, AHEAD_SCHEDULE)
+        summary = sync_section(
+            "PeriodB", "7945275782", dry_run=False, state=FakeStateStore(), grades=_ahead_targets(),
+            ops=FakeOps(), schedule_path=schedule_path, granularity="component",
+            quiz_topics={"6.3"}, blooket_topics=set(), through_date="2026-03-02",
+        )
+        self.assertEqual(summary["ahead_waiting"], [])
+
+
+class TestStableRosterRead(unittest.TestCase):
+    """_list_students_stable: re-read until two consecutive non-empty reads agree (2026-09-29)."""
+
+    def _ops(self, reads):
+        from unittest.mock import Mock
+        ops = Mock()
+        ops.list_students.side_effect = reads
+        return ops
+
+    def test_waits_for_the_late_rows(self):
+        partial = [{"studentId": "1"}, {"studentId": "2"}]
+        full = partial + [{"studentId": "3"}]
+        ops = self._ops([partial, full, full])
+        out = sync._list_students_stable(ops, None, pause_s=0)
+        self.assertEqual(sorted(s["studentId"] for s in out), ["1", "2", "3"])
+
+    def test_stops_after_the_attempt_budget(self):
+        ops = self._ops([[{"studentId": str(i)}] for i in range(10)])
+        out = sync._list_students_stable(ops, None, attempts=3, pause_s=0)
+        self.assertEqual(ops.list_students.call_count, 3)
+        self.assertEqual(len(out), 1)

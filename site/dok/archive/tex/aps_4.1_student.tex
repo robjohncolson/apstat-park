@@ -1,0 +1,51 @@
+\documentclass[11pt]{article}
+\usepackage{preamble}
+\renewcommand{\answer}[1]{}
+
+\begin{document}
+
+\ladderheading{AP Statistics \textperiodcentered\ Unit 2 \textperiodcentered\ Topic 2.3}{Can Chance Make a Streak?}
+
+\focusbanner{THE PROBLEM}
+
+Suppose a coin advertised as fair is flipped 10 times and gives HHHHHHTTTT. To investigate what chance alone could produce, a class simulates 100 sets of 10 independent fair-coin flips. For each set, the class records the longest run of matching outcomes; the frequency table shows the results.\par\smallskip \textbf{Claim A:} ``The coin is rigged---six heads in a row cannot be chance.''\par \textbf{Claim B:} ``Streaks like this can happen by chance; simulation can tell us how unusual this one is.''\par
+\begin{center}
+\textbf{100 sets of 10 fair-coin flips}\par\smallskip
+\begin{tabular}{|l|c|}
+\hline
+\textbf{Longest run} & \textbf{Sets} \\ \hline
+\textbf{2} & 22 \\ \hline
+\textbf{3} & 32 \\ \hline
+\textbf{4} & 25 \\ \hline
+\textbf{5} & 14 \\ \hline
+\textbf{6} & 7 \\ \hline
+\end{tabular}
+\end{center}
+\begin{firsttakebox}{FIRST TAKE --- one sentence before you work the parts}
+Which claim seems better supported right now? Cite one detail from the sequence or table.
+\workspace{0.9in}
+\end{firsttakebox}
+
+\begin{callout}{\IconBook\ MODEL THE PATTERN, NOT THE STORY (keep on the page)}{calloutgreen}
+A random process can produce streaks. A simulation uses chance to imitate a process; each trial must match the original number of independent flips and the stated chance of heads. Record the outcome of each trial and calculate $\text{successful trials}/\text{total trials}$. Many trials reduce chance variation in this estimate. A simulation result is evidence about a model, not proof that a real coin is fair.
+\end{callout}
+
+\newpage
+\textbf{Work (a)--(c).}\par\smallskip
+
+\dokbadge{1}~\textbf{(a)} State the longest run in the observed sequence and the most common longest run in the simulated sets.\par
+\workspace{0.7in}
+
+\dokbadge{2}~\textbf{(b)} Estimate the chance of a run at least as long as the observed one. Use the number of simulated sets with such a run divided by 100.\par
+\workspace{1.3in}
+
+\dokbadge{3}~\textbf{(c)} Which claim is better supported? Use the simulation count and explain why it does not prove the coin is fair. To improve the estimate, describe one trial, what you would count, and why you would repeat many trials. Write 3--4 sentences.\par
+\workspace{2.0in}
+
+\begin{sentenceframebox}\raggedright\textbf{Frame:} Claim \blank[0.4in] is supported because \blank[0.6in] of the \blank[0.6in] sets had \blank[1.7in].\end{sentenceframebox}
+
+\begin{sentenceframebox}\raggedright\textbf{Frame:} One trial would be \blank[1.8in]; I would count \blank[1.8in] and repeat many trials because \blank[1.8in].\end{sentenceframebox}
+
+\textbf{Turn this sheet in whenever you finish --- bonus credit. Part (c) is scored E / P / I.}\par
+
+\end{document}

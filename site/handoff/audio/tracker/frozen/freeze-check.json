@@ -1,0 +1,254 @@
+{
+ "checks": {
+  "park-bounce": {
+   "decodedFrames": 1512000,
+   "expectedFrames": 1512000,
+   "decodeLag": 0,
+   "codecErrDb": -25.1,
+   "seamStepDb": -45.5,
+   "seam2ndDiffDb": -46.0,
+   "file2ndDiff99.9pctDb": -18.8,
+   "peakDb": -9.7,
+   "frozenVsLiveLagFrames": -307,
+   "frozenVsLive": {
+    "spectral": 0.992,
+    "chroma": 0.999,
+    "onset": 0.998,
+    "levelDb": 0.15
+   },
+   "renderPass1VsPass2": {
+    "spectral": 0.997,
+    "chroma": 0.999,
+    "onset": 0.998,
+    "levelDb": 0.08
+   },
+   "introSpectralVsLive": null,
+   "decodedVsSourceSpectral": {
+    "spectral": 0.993,
+    "chroma": 1.0,
+    "onset": 0.999,
+    "levelDb": 0.14
+   },
+   "frozenVsLiveResidualDb": 4.2,
+   "clickRatioAtWraps": [
+    0.27,
+    0.27
+   ],
+   "clickRatioNaturalBoundary": 0.23,
+   "clickRatioMidLoopControl": 0.23,
+   "wrapVsContinuous50msDb": -33.3,
+   "frozenEnginePeakDb": -9.7,
+   "sha1Fresh": true,
+   "sha1DetectsEdit": true,
+   "frozenFlag": true,
+   "usesWorklet": true
+  },
+  "launchbase": {
+   "decodedFrames": 4564457,
+   "expectedFrames": 4564457,
+   "decodeLag": 0,
+   "codecErrDb": -19.3,
+   "seamStepDb": -42.9,
+   "seam2ndDiffDb": -35.4,
+   "file2ndDiff99.9pctDb": -19.4,
+   "peakDb": -9.0,
+   "frozenVsLiveLagFrames": 0,
+   "frozenVsLive": {
+    "spectral": 0.999,
+    "chroma": 0.999,
+    "onset": 0.999,
+    "levelDb": 0.18
+   },
+   "renderPass1VsPass2": null,
+   "introSpectralVsLive": {
+    "spectral": 0.999,
+    "chroma": 0.999,
+    "onset": 0.999,
+    "levelDb": 0.18
+   },
+   "decodedVsSourceSpectral": {
+    "spectral": 0.999,
+    "chroma": 0.999,
+    "onset": 0.999,
+    "levelDb": 0.18
+   },
+   "frozenVsLiveResidualDb": -19.4,
+   "clickRatioAtWraps": [
+    0.89,
+    0.75,
+    0.75
+   ],
+   "clickRatioNaturalBoundary": 0.91,
+   "clickRatioMidLoopControl": 0.98,
+   "wrapVsContinuous50msDb": -17.3,
+   "frozenEnginePeakDb": -9.0,
+   "lowPowerToggles": {
+    "67.747": 0.55,
+    "87.07": 0.14
+   },
+   "lowPowerFile": {
+    "frames": 4564457,
+    "seamStepDb": -35.5,
+    "peakDb": -8.6
+   },
+   "sha1Fresh": true,
+   "sha1DetectsEdit": true,
+   "frozenFlag": true,
+   "usesWorklet": true
+  },
+  "icecap": {
+   "decodedFrames": 3673905,
+   "expectedFrames": 3673905,
+   "decodeLag": 0,
+   "codecErrDb": -25.0,
+   "seamStepDb": -39.9,
+   "seam2ndDiffDb": -39.1,
+   "file2ndDiff99.9pctDb": -17.3,
+   "peakDb": -6.4,
+   "frozenVsLiveLagFrames": 1,
+   "frozenVsLive": {
+    "spectral": 0.998,
+    "chroma": 0.992,
+    "onset": 0.994,
+    "levelDb": 0.19
+   },
+   "renderPass1VsPass2": {
+    "spectral": 0.999,
+    "chroma": 0.993,
+    "onset": 0.996,
+    "levelDb": 0.11
+   },
+   "introSpectralVsLive": null,
+   "decodedVsSourceSpectral": {
+    "spectral": 1.0,
+    "chroma": 1.0,
+    "onset": 0.999,
+    "levelDb": 0.1
+   },
+   "frozenVsLiveResidualDb": -8.8,
+   "clickRatioAtWraps": [
+    1.81,
+    1.81
+   ],
+   "clickRatioNaturalBoundary": 1.85,
+   "clickRatioMidLoopControl": 1.05,
+   "wrapVsContinuous50msDb": -26.3,
+   "frozenEnginePeakDb": -6.4,
+   "lowPowerToggles": {
+    "30.874": 1.13,
+    "59.199": 0.43
+   },
+   "lowPowerFile": {
+    "frames": 3673905,
+    "seamStepDb": -43.4,
+    "peakDb": -8.6
+   },
+   "sha1Fresh": true,
+   "sha1DetectsEdit": true,
+   "frozenFlag": true,
+   "usesWorklet": true
+  },
+  "mushroomhill": {
+   "decodedFrames": 1951568,
+   "expectedFrames": 1951568,
+   "decodeLag": 0,
+   "codecErrDb": -25.3,
+   "seamStepDb": -63.7,
+   "seam2ndDiffDb": -63.7,
+   "file2ndDiff99.9pctDb": -19.2,
+   "peakDb": -9.4,
+   "frozenVsLiveLagFrames": 0,
+   "frozenVsLive": {
+    "spectral": 0.991,
+    "chroma": 0.996,
+    "onset": 0.998,
+    "levelDb": 0.1
+   },
+   "renderPass1VsPass2": {
+    "spectral": 0.999,
+    "chroma": 1.0,
+    "onset": 0.999,
+    "levelDb": 0.02
+   },
+   "introSpectralVsLive": {
+    "spectral": 0.993,
+    "chroma": 0.998,
+    "onset": 1.0,
+    "levelDb": 0.23
+   },
+   "decodedVsSourceSpectral": {
+    "spectral": 0.989,
+    "chroma": 0.997,
+    "onset": 0.998,
+    "levelDb": 0.11
+   },
+   "frozenVsLiveResidualDb": -16.6,
+   "clickRatioAtWraps": [
+    0.04,
+    0.1,
+    0.1
+   ],
+   "clickRatioNaturalBoundary": 0.0,
+   "clickRatioMidLoopControl": 0.7,
+   "wrapVsContinuous50msDb": -0.0,
+   "frozenEnginePeakDb": -9.4,
+   "sha1Fresh": true,
+   "sha1DetectsEdit": true,
+   "frozenFlag": true,
+   "usesWorklet": true
+  },
+  "keen-wotb": {
+   "decodedFrames": 2453141,
+   "expectedFrames": 2453141,
+   "decodeLag": 0,
+   "codecErrDb": -23.8,
+   "seamStepDb": -68.6,
+   "seam2ndDiffDb": -68.1,
+   "file2ndDiff99.9pctDb": -16.5,
+   "peakDb": -8.5,
+   "frozenVsLiveLagFrames": 0,
+   "frozenVsLive": {
+    "spectral": 0.982,
+    "chroma": 0.998,
+    "onset": 0.997,
+    "levelDb": 0.1
+   },
+   "renderPass1VsPass2": {
+    "spectral": 0.997,
+    "chroma": 0.998,
+    "onset": 0.998,
+    "levelDb": 0.06
+   },
+   "introSpectralVsLive": null,
+   "decodedVsSourceSpectral": {
+    "spectral": 0.985,
+    "chroma": 1.0,
+    "onset": 0.999,
+    "levelDb": 0.1
+   },
+   "frozenVsLiveResidualDb": -5.0,
+   "clickRatioAtWraps": [
+    0.03,
+    0.02
+   ],
+   "clickRatioNaturalBoundary": 0.01,
+   "clickRatioMidLoopControl": 0.02,
+   "wrapVsContinuous50msDb": -26.8,
+   "frozenEnginePeakDb": -8.5,
+   "lowPowerToggles": {
+    "20.632": 0.07,
+    "39.545": 0.17
+   },
+   "lowPowerFile": {
+    "frames": 2453141,
+    "seamStepDb": -55.9,
+    "peakDb": -11.4
+   },
+   "sha1Fresh": true,
+   "sha1DetectsEdit": true,
+   "frozenFlag": true,
+   "usesWorklet": true
+  }
+ },
+ "errors": []
+}

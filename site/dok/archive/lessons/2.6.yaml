@@ -1,0 +1,68 @@
+topic: "2.6"
+ced2026:
+  unit: 5
+  topic: '5.3'
+  label: Linear Regression Models
+title: Two Payloads, One Regression Line
+essential_question: How should observed range, prediction purpose, and new evidence guide use of
+  a regression model?
+worksheet: u2_lesson6_live.html
+rules_callout:
+  title: USING A REGRESSION MODEL (keep on the page)
+  body: 'A linear model $\hat y=a+bx$ predicts response $y$ from explanatory variable $x$.
+
+    Its slope is the predicted change in $y$ for a one-unit increase in $x$; substitution
+
+    gives a prediction, not an exact outcome. Interpolation uses an $x$ inside the observed
+
+    range. Extrapolation uses an $x$ outside that range and becomes less reliable farther
+
+    from the data because the fitted pattern may not continue. A plausible output does not
+
+    create evidence beyond the observations used to fit the model.
+
+    '
+focus: aps-2.6-d3-1
+reinforcement: []
+space:
+  first_take: 0.85in
+  a: 0.65in
+  b: 1.35in
+  c: 1.9in
+teacher:
+  questions_to_ask:
+  - Which number or visible feature supports your claim?
+  - Why does the other claim go beyond that evidence?
+  - What would you tell someone who chose the other claim?
+  watch_for:
+  - A choice with copied numbers but no explanation of how they support it.
+  - Treating a model or average as a guaranteed individual outcome.
+  first_take_note: Not graded. Students should distinguish a computed prediction from evidence supporting
+    its use.
+visuals:
+  drone_scatter:
+    kind: scatter
+    points:
+    - - 0.5
+      - 33.2
+    - - 0.8
+      - 30.58
+    - - 1.1
+      - 29.16
+    - - 1.4
+      - 26.74
+    - - 1.6
+      - 25.46
+    - - 1.9
+      - 24.04
+    - - 2.2
+      - 21.62
+    - - 2.5
+      - 20.4
+    xlabel: Payload (kg)
+    ylabel: Duration (min)
+    xmin: 0.3
+    xmax: 2.7
+    ymin: 18
+    ymax: 35
+    scale: 0.76

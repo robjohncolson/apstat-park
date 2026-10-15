@@ -1,0 +1,17 @@
+{
+  "name": "apstat-park",
+  "private": true,
+  "description": "AP Statistics course platform: Pages site (site/), quiz (site/quiz/), roster + relay Railway services (services/). Derived from two parent repos via sync/.",
+  "scripts": {
+    "sync": "node sync/sync.mjs",
+    "sync:check": "node sync/sync.mjs --check",
+    "rebrand": "node scripts/rebrand.mjs",
+    "test": "node -e \"let failed=[];for(const s of ['site','park','quiz','roster','relay']){const r=require('child_process').spawnSync('npm',['run','test:'+s],{stdio:'inherit',shell:true});if(r.status!==0)failed.push(s)}if(failed.length){console.error('FAILED suites: '+failed.join(', '));process.exit(1)}console.log('all suites passed')\"",
+    "test:site": "npm --prefix site test -- --retry=2",
+    "test:park": "npm --prefix site run test:park",
+    "test:quiz": "npm --prefix site/quiz test",
+    "test:roster": "npm --prefix services/roster test -- --retry=2",
+    "test:relay": "npm --prefix services/relay run test:park",
+    "typecheck": "npm --prefix site run typecheck && npm --prefix services/roster run typecheck"
+  }
+}

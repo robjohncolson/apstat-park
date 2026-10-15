@@ -1,0 +1,75 @@
+\documentclass[11pt]{article}
+\usepackage{preamble}
+\renewcommand{\answer}[1]{}
+
+\begin{document}
+
+\ladderheading{AP Statistics \textperiodcentered\ Unit 2 \textperiodcentered\ Topic 2.12}{One Sample Far From the Others}
+
+\focusbanner{THE PROBLEM}
+
+Suppose a class uses a simulator containing a very large population of package weights with population mean $\mu=500$ grams. Each of 20 students independently takes a random sample of $n=10$ packages and records the sample mean $\bar{x}$. The dotplot shows the 20 sample means. Elena's sample mean is 520 grams. She says, ``My sample must be wrong because its mean is far from everyone else's.'' Another student says, ``A random sample can be unusual without being collected incorrectly.''\par
+\begin{center}
+\begin{tikzpicture}
+\begin{axis}[
+  width=0.77\linewidth,
+  height=1.44in,
+  ymin=0, ymax=4, ytick=\empty, axis y line=none, axis x line=bottom,
+  xlabel={Sample mean package weight (grams), n=10}, tick label style={font=\small}, label style={font=\small}
+]
+\addplot[only marks, mark=*, mark size=2.2pt, color=dayblue] coordinates {
+  (492,1)
+  (494,1)
+  (495,1)
+  (496,1)
+  (497,1)
+  (498,1)
+  (499,1)
+  (499,2)
+  (500,1)
+  (500,2)
+  (500,3)
+  (501,1)
+  (501,2)
+  (502,1)
+  (503,1)
+  (504,1)
+  (505,1)
+  (506,1)
+  (508,1)
+  (520,1)
+};
+\end{axis}
+\end{tikzpicture}
+\end{center}
+\begin{firsttakebox}{FIRST TAKE --- one sentence before you work the parts}
+Does the dot at 520 prove Elena made a mistake? Give one reason from the picture.
+\workspace{0.9in}
+\end{firsttakebox}
+
+\begin{callout}{\IconBook\ PARAMETER FIXED, STATISTIC VARIABLE (keep on the page)}{calloutgreen}
+A \textbf{population parameter}, such as $\mu$, describes the entire population and stays fixed.
+A \textbf{sample statistic}, such as $\bar{x}$, is computed from one sample.
+\textbf{Sampling variability} is the natural variation in statistics from different random samples of the same size from one population.
+A graph shows the recorded results; details of data collection help us investigate possible mistakes.
+\end{callout}
+
+\newpage
+\textbf{Work (a)--(c).}\par\smallskip
+
+\dokbadge{1}~\textbf{(a)} Identify the population parameter and Elena's sample statistic, including symbols, values, and units.\par
+\workspace{0.7in}
+
+\dokbadge{2}~\textbf{(b)} Describe the center and overall range of the sample means, and the gap next to 520 grams. Two sentences are enough.\par
+\workspace{1.4in}
+
+\dokbadge{3}~\textbf{(c)} In 3--4 sentences, decide whether the dotplot proves Elena's sample was collected incorrectly. Use the spread or gap as evidence. Explain how the population mean can stay fixed while correctly collected sample means differ.\par
+\workspace{2.0in}
+
+\begin{sentenceframebox}\raggedright\textbf{Frame:} The dotplot does not/does prove a mistake because \blank[2.9in].\end{sentenceframebox}
+
+\begin{sentenceframebox}\raggedright\textbf{Frame:} The population mean \blank[0.8in] stays fixed, while sample means \blank[2.6in].\end{sentenceframebox}
+
+\textbf{Turn this sheet in whenever you finish --- bonus credit. Part (c) is scored E / P / I.}\par
+
+\end{document}

@@ -1,0 +1,38 @@
+# Topic 7.8 — Setting Up a Test for the Difference of Two Population Means
+topic: "7.8"
+ced2026: { unit: 4, topic: "4.9", label: "Setting Up a Test (difference of two means)" }
+title: "Two Test Plans for Cure Time"
+essential_question: "How do the original question and study design control a defensible two-mean test plan?"
+worksheet: "u7_lesson8_live.html"
+
+rules_callout:
+  title: "HYPOTHESES FOR TWO MEANS (keep on the page)"
+  body: |
+    For two independent groups with a quantitative response, use a two-sample $t$ test for
+    $\mu_1-\mu_2$. The null states no population difference: $H_0:\mu_1-\mu_2=0$.
+    Choose $<$ or $>$ only when the research question specified that direction before seeing
+    the data; otherwise use $\neq$. Hypotheses use population parameters, never observed sample
+    means. Check independent random samples or random assignment, both 10 percent conditions
+    when sampling without replacement, and both sample shapes when either $n<30$. Random sampling
+    supports population scope; random assignment is needed to isolate a causal treatment effect.
+
+focus: aps-7.8-d3-1
+reinforcement: []
+space: { first_take: 0.9in, a: 0.7in, b: 1.4in, c: 2.0in }
+
+teacher:
+  questions_to_ask:
+  - Which specific number or study detail supports your choice?
+  - What claim would go beyond the evidence, and why?
+  watch_for:
+  - Choosing a speaker without a reason.
+  - Copying numbers without explaining what they support.
+  first_take_note: Ungraded commitment; accept any evidence-based first impression.
+visuals:
+  sealant_boxplots:
+    kind: boxplot
+    xlabel: "Cure time (min)"
+    scale: 0.72
+    series:
+      - { label: "Line N", five: [34, 38.5, 41, 44, 48.5], outliers: [] }
+      - { label: "Line S", five: [35.5, 40, 44, 48, 52.5], outliers: [] }

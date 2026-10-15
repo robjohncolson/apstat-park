@@ -1,0 +1,70 @@
+topic: "2.7"
+ced2026:
+  unit: 5
+  topic: '5.4'
+  label: Residuals
+title: One Line, Two Model Diagnostics
+essential_question: How should correlation and residuals be reconciled when judging a model for safety
+  planning?
+worksheet: u2_lesson7_live.html
+rules_callout:
+  title: READING A RESIDUAL PLOT (keep on the page)
+  body: 'A residual is $y-\hat y$. A positive residual means the model underpredicted;
+
+    a negative residual means it overpredicted. Plot residuals against $x$ or $\hat y$.
+
+    Random scatter around 0 supports a linear form. Curvature, trends, clusters, or
+
+    changing spread show structure the line missed. Correlation measures the direction
+
+    and strength of linear association, but even a large $|r|$ does not replace checking
+
+    residual locations. Check a replacement model with its own residual plot.
+
+    '
+focus: aps-2.7-d3-1
+reinforcement: []
+space:
+  first_take: 0.85in
+  a: 0.65in
+  b: 1.35in
+  c: 1.9in
+teacher:
+  questions_to_ask:
+  - Which number or visible feature supports your claim?
+  - Why does the other claim go beyond that evidence?
+  - What would you tell someone who chose the other claim?
+  watch_for:
+  - A choice with copied numbers but no explanation of how they support it.
+  - Treating a model or average as a guaranteed individual outcome.
+  first_take_note: Not graded. Students should decide what each diagnostic establishes before judging
+    the line.
+visuals:
+  braking_residuals:
+    kind: scatter
+    points:
+    - - 10
+      - 4
+    - - 15
+      - 1
+    - - 20
+      - -1
+    - - 25
+      - -2
+    - - 30
+      - -4
+    - - 35
+      - -2
+    - - 40
+      - -1
+    - - 45
+      - 1
+    - - 50
+      - 4
+    xlabel: Speed (mph)
+    ylabel: Residual (ft)
+    xmin: 5
+    xmax: 55
+    ymin: -5
+    ymax: 5
+    scale: 0.76

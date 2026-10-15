@@ -1,0 +1,3 @@
+# Mirrored files keep the exact bytes of the parent blobs (sync/README.md). The quiz CSV
+# exports are CRLF / mixed in curriculum_render; do not let autocrlf normalise them.
+content/quiz/csv/** -text

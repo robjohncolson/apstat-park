@@ -1,0 +1,104 @@
+\documentclass[11pt]{article}
+\usepackage{preamble}
+\setlength{\parskip}{4pt}
+
+\begin{document}
+
+\daybanner{AP Statistics \textperiodcentered\ Unit 3 \textperiodcentered\ Topic 3.15 \textperiodcentered\ TEACHER KEY}{Interpreting a Chi-Square Result}
+
+\sectionbanner{CED TETHER}
+
+{\small
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item \textbf{Skill 3.E} --- Calculate a test statistic and find a p-value, provided conditions for inference are met.
+  \item \textbf{Skill 4.B} --- Interpret statistical calculations and findings to assign meaning or assess a claim.
+  \item \textbf{Skill 4.E} --- Justify a claim using a decision based on significance tests.
+  \item \textbf{EU VAR-8} --- The chi-square distribution may be used to model variation.
+  \item \textbf{EU DAT-3} --- Significance testing allows us to make decisions about hypotheses within a particular context.
+  \item \textbf{LO VAR-8.L} --- Calculate the appropriate statistic for a chi-square test for homogeneity or independence. [Skill 3.E]
+  \item \textbf{EK VAR-8.L.1} --- The appropriate test statistic for a chi-square test for homogeneity or independence is the chi-square statistic: $\chi$\textsuperscript{2} = $\sum$ (Observed count - Expected count)\textsuperscript{2} / Expected count, with degrees of freedom equal to (number of rows - 1)(number of columns - 1).
+  \item \textbf{LO VAR-8.M} --- Determine the p-value for a chi-square significance test for independence or homogeneity. [Skill 3.E]
+  \item \textbf{EK VAR-8.M.1} --- The p-value for a chi-square test for independence or homogeneity for a number of degrees of freedom is found using the appropriate table or technology.
+  \item \textbf{EK VAR-8.M.2} --- For a test of independence or homogeneity for a two-way table, the p-value is the proportion of values in a chi-square distribution with appropriate degrees of freedom that are equal to or larger than the test statistic.
+  \item \textbf{LO DAT-3.K} --- Interpret the p-value for the chi-square test for homogeneity or independence. [Skill 4.B]
+  \item \textbf{EK DAT-3.K.1} --- An interpretation of the p-value for the chi-square test for homogeneity or independence is the probability, given the null hypothesis and probability model are true, of obtaining a test statistic as, or more, extreme than the observed value.
+  \item \textbf{LO DAT-3.L} --- Justify a claim about the population based on the results of a chi-square test for homogeneity or independence. [Skill 4.E]
+  \item \textbf{EK DAT-3.L.1} --- A decision to either reject or fail to reject the null hypothesis for a chi-square test for homogeneity or independence is based on comparison of the p-value to the significance level, $\alpha$.
+  \item \textbf{EK DAT-3.L.2} --- The results of a chi-square test for homogeneity or independence can serve as the statistical reasoning to support the answer to a research question about the population that was sampled (independence) or the populations that were sampled (homogeneity).
+\end{itemize}
+}
+\textbf{Essential question:} How do cell contributions and study design control what a significant chi-square result permits us to say?\par
+\textbf{DOK-3 skill:} 4.B \textperiodcentered\ \textbf{FRQ pattern:} {\small\texttt{scaled-\allowbreak{}cell-\allowbreak{}evidence-\allowbreak{}and-\allowbreak{}scope}}\par
+\textbf{DOK rationale:} Part (c) coordinates scaled cell evidence, the overall p-value, sampling scope, and causal limits to adjudicate two accounts and trace both consequences of the rejected reasoning.\par
+
+\textbf{Self-paced bonus sheet.} Students take it when they choose and turn it in when they finish. Everything they need is printed on the sheet. Score part (c) only, E / P / I, by hand --- never AI-graded or auto-scored. (a) and (b) are the ladder up; use them to see where a thin (c) came from.\par
+
+\textbf{Questions to ask}
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item Which specific number or study detail supports your choice?
+  \item What claim would go beyond the evidence, and why?
+\end{itemize}
+
+\begin{callout}{\IconWarn\ LOOK FOR}{calloutred}
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item Choosing a speaker without a reason.
+  \item Copying numbers without explaining what they support.
+\end{itemize}
+\end{callout}
+
+\sectionbanner{SCORING PART (c) --- E / P / I}
+
+\textbf{Expected elements}
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item \textbf{cell-comparison} (required) --- Uses 9.4239 > 6.5761 to explain why raw gaps alone do not determine contribution
+  \item \textbf{population-conclusion} (required) --- Uses p < 0.05 to conclude association in the 6,000-cardholder population
+  \item \textbf{causal-limit} (required) --- Explains why chosen methods leave other personal differences as possible causes
+\end{itemize}
+
+{\small\renewcommand{\arraystretch}{1.25}
+\noindent\begin{tabular}{|p{0.5in}|p{5.9in}|}
+\hline
+\textbf{E} & Justifies the scaled-cell comparison, gives a threshold-based population association conclusion, and explains the causal limit. \\ \hline
+\textbf{P} & Shows substantive valid reasoning for at least one required element, but does not meet all E requirements. Credit correct reasoning even when another claim is wrong. \\ \hline
+\textbf{I} & Shows no substantive valid reasoning for any required element; a name, unsupported choice, or copied number alone does not count. \\ \hline
+\end{tabular}}
+
+\clearpage
+\focusbanner{THE PROBLEM --- annotated}
+
+Suppose a city library takes an SRS of 240 of its 6,000 active adult cardholders. It records each person's chosen notification method and whether the person returned an item late in the previous six months.\par\smallskip \textbf{Nia:} ``Email/Late has the largest raw gap, 13.75; I think that cell drives the statistic and the result shows email prevents late returns.''\par \textbf{Omar:} ``Expected counts differ, so raw gaps may not settle cell influence. I would calculate contributions and examine how notification methods were obtained before interpreting.''\par
+\begin{center}
+\textbf{Late returns}\par\smallskip
+\begin{tabular}{|l|c|c|c|}
+\hline
+\textbf{Method} & \textbf{Late} & \textbf{Not late} & \textbf{Total} \\ \hline
+\textbf{Email} & 15 & 85 & 100 \\ \hline
+\textbf{Text} & 24 & 56 & 80 \\ \hline
+\textbf{None} & 30 & 30 & 60 \\ \hline
+\textbf{Total} & 69 & 171 & 240 \\ \hline
+\end{tabular}
+\end{center}
+\begin{firsttakebox}{FIRST TAKE --- one sentence before you work the parts}
+Can this study show that choosing email causes fewer late returns? Give one reason from how the study was done.\par
+\answer{Ungraded commitment; accept any evidence-based first impression.}
+\end{firsttakebox}
+
+\begin{callout}{\IconBook\ SCALE EACH GAP, THEN BOUND THE CONCLUSION (keep on the page)}{calloutgreen}
+For independence, $H_0$ says the two categorical variables are not associated in the population;
+$H_a$ says they are associated. Use $E=(\text{row total})(\text{column total})/(\text{table total})$,
+and add cell contributions $(O-E)^2/E$ to obtain $\chi^2$.
+With $r$ rows and $c$ columns, excluding totals, $df=(r-1)(c-1)$.
+The p-value is the upper-tail probability assuming $H_0$. Reject $H_0$ if $p\leq\alpha$;
+otherwise fail to reject. Random sampling supports population claims; random assignment supports causation.
+\end{callout}
+
+\dokbadge{1}~\textbf{(a)} State the degrees of freedom, excluding the totals row and column.\par
+\answer{$df=(3-1)(2-1)=2$.}
+
+\dokbadge{2}~\textbf{(b)} Expected counts are 28.75 for Email/Late and 17.25 for None/Late. Calculate these two contributions using $(O-E)^2/E$.\par
+\answer{Email/Late: $(15-28.75)^2/28.75=6.5761$. None/Late: $(30-17.25)^2/17.25=9.4239$.}
+
+\dokbadge{3}~\textbf{(c)} Technology gives $\chi^2=22.5172$ and $p=0.0000129$. In 3--4 sentences, judge the accounts: compare the two contributions, use $\alpha=0.05$ for a population conclusion, and explain why the study does not show prevention.\par
+\answer{Omar is justified: None/Late contributes 9.4239, more than Email/Late's 6.5761, even though its raw gap is smaller. Dividing by the different expected counts changes the comparison. Since $0.0000129<0.05$, reject no association and conclude that chosen method and late return are associated among the 6,000 active adult cardholders. Methods were chosen rather than randomly assigned, so other differences among people could explain the association; email is not shown to prevent late returns.}
+
+\end{document}

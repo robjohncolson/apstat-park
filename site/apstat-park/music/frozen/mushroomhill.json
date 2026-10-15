@@ -1,0 +1,15 @@
+{
+ "id": "mushroomhill",
+ "sampleRate": 44100,
+ "introSeconds": 3.087436,
+ "loopSeconds": 41.165816,
+ "introRows": 36,
+ "loopRows": 480,
+ "renderedFrom": "songs/mushroomhill.json",
+ "songSha1": "918ce9937f642043fc812dbc5c7f8e36a15566d2",
+ "lowPower": null,
+ "renderMaster": 0.27,
+ "engineSha1": "19ad4572deea53a00f0b66a927735736b2d3a4cc",
+ "seamCrossfadeMs": 10,
+ "codec": "vorbis q5"
+}

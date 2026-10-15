@@ -1,0 +1,302 @@
+// @vitest-environment node
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { JSDOM, VirtualConsole } from 'jsdom';
+import { readFileSync } from 'node:fs';
+const html = readFileSync(new URL('../teacher-dashboard.html', import.meta.url), 'utf8');
+const workspace = readFileSync(new URL('../teacher-workspace.js', import.meta.url), 'utf8');
+const desk = readFileSync(new URL('../ap_stats_roadmap_square_mode.html', import.meta.url), 'utf8');
+const doms = [];
+const tick = () => new Promise(r => setTimeout(r, 20));
+const response = data => ({ ok: true, status: 200, json: async () => data });
+const saved = { itemId: 'WS-U1L1-Q1', source: 'worksheet', recordedAt: '2026-09-10T14:00:00Z', score: 1, response: '<img src=x onerror=alert(1)>' };
+const student = { studentId: 's1', username: 'apple_cat', realName: 'Same Name', section: 'PeriodB', schoologyUid: '123', savedWork: { available: true, recent: [saved], pendingGrading: 0 }, gradebook: { quarters: {} } };
+async function make(url = 'https://example.test/teacher-dashboard.html') {
+  const errors = [];
+  const virtualConsole = new VirtualConsole(); virtualConsole.on('jsdomError', e => errors.push(e.message));
+  const dom = new JSDOM(html.replace(/<script[^>]*src=[\s\S]*?<\/script>/g, ''), { url, runScripts: 'dangerously', pretendToBeVisual: true, virtualConsole });
+  doms.push(dom);
+  const w = dom.window;
+  w.fetch = vi.fn(async url => {
+    if (url === 'data/work-manifest.json') return response({ units: [{ lessons: [{ lesson: '1.1', activities: [{ activity: 'worksheet', itemIds: [saved.itemId] }] }] }] });
+    if (url.includes('/recent?')) return response({ ok: true, submissions: [saved] });
+    if (url.includes('/grade')) return response({ ok: true, quarters: {}, units: {}, students: [student] });
+    if (url.includes('/roster/list')) return response({ ok: true, students: [{ ...student, currentPassword: 'private-fixture' }] });
+    return response({ ok: true, rows: [], messages: [], heatmap: {} });
+  });
+  w.rosterClient = { token: () => null, current: () => ({ role: 'teacher' }) };
+  await tick(); w.eval(workspace); await tick();
+  w.teacherWorkspace.loaded({ ok: true, students: [student, { ...student, studentId: 's2', username: 'pear_cat' }] });
+  return { w, doc: w.document, errors };
+}
+afterEach(() => { doms.splice(0).forEach(d => d.window.close()); });
+// These tests boot the dashboard in JSDOM; under full-suite load they can exceed
+// the 5 s default though the file passes alone.
+describe('integrated teacher workspace', { timeout: 20_000 }, () => {
+  it('opens the Messages pane from the unread button without marking messages read', async () => {
+    const { w, doc } = await make();
+    expect([...doc.querySelectorAll('[data-workspace-tab]')].map(el => el.dataset.workspaceTab)).toEqual(['class', 'attention', 'messages', 'recent', 'recovery']);
+    expect(doc.querySelector('[data-workspace-view=messages] #inbox-strip')).not.toBeNull();
+    expect(doc.querySelector('[data-workspace-view=attention] #inbox-strip')).toBeNull();
+    expect(doc.getElementById('workspace-attention-list').textContent).toContain('Check the Messages tab and browser reports below.');
+    w.renderStudentInbox([{ senderUsername: student.username, text: 'What am I missing?', createdAt: saved.recordedAt }]);
+    await tick();
+    const unread = doc.querySelector('button.workspace-unread');
+    const tab = doc.querySelector('[data-workspace-tab=messages]');
+    expect(unread.hidden).toBe(false);
+    expect(unread.querySelector('[role=status]').textContent).toBe('1 student message(s)');
+    expect(tab.textContent).toBe('Messages (1)');
+    unread.click();
+    expect(tab.getAttribute('aria-pressed')).toBe('true');
+    expect(doc.querySelector('[data-workspace-view=messages]').hidden).toBe(false);
+    expect(doc.activeElement).toBe(doc.querySelector('#inbox-list li'));
+    expect(doc.querySelector('#inbox-list li').classList.contains('unread')).toBe(true);
+    expect(w.localStorage.getItem('tsc-inbox-seen-at:all')).toBeNull();
+    doc.getElementById('inbox-mark-read').click();
+    await tick();
+    expect(unread.hidden).toBe(true);
+    expect(unread.textContent).toBe('');
+    expect(tab.textContent).toBe('Messages');
+  });
+  it('organizes tools, filters duplicate names by identity and opens one student panel', async () => {
+    const { w, doc, errors } = await make();
+    expect(errors).toEqual([]);
+    expect(doc.querySelectorAll('[data-workspace-tab]')).toHaveLength(5);
+    expect(doc.querySelector('#workspace-class-details #gb-tbody')).not.toBeNull();
+    const buttons = doc.querySelectorAll('#workspace-roster .student-name');
+    buttons[1].click(); await tick();
+    expect(w._tscCurrentStudentId).toBe('s2');
+    expect(doc.getElementById('tsc-drawer').getAttribute('aria-hidden')).toBe('false');
+    expect(doc.querySelector('[data-student-tab=overview]').getAttribute('aria-pressed')).toBe('true');
+    w.closeTscDrawer();
+    doc.getElementById('workspace-search').value = 'apple';
+    doc.getElementById('workspace-search').dispatchEvent(new w.Event('input'));
+    expect(doc.querySelectorAll('#workspace-roster .student-name')).toHaveLength(1);
+  });
+  it('opens the same panel from pacing, grades, gradebook, rewards, triage and messages', async () => {
+    const { w, doc } = await make();
+    const payload = { ok: true, students: [student] };
+    w.lastGradesPayload = payload; w.lastPacingPayload = payload;
+    w.WalletLogic = { walletReadiness: () => null }; w._summerScheduleData = { lessons: [] };
+    w.renderPacingOverview(payload); w.renderGradesTable(payload);
+    w.renderTrainerPractice({ ...payload, students: [{ ...student, trainer: { procedures: 2, avgScore: .8 } }] });
+    w.managedStudents = [student]; w.renderManagedStudents();
+    w._paintWalletProposals([{ studentId: student.studentId, studentName: student.realName, username: student.username }]);
+    w.renderTriage({ heatmap: { A: { weak: 1, total: 1, pctWeak: 100 } }, students: [{ ...student, weakSkills: ['A'] }] });
+    w.renderStudentInbox([{ senderUsername: student.username, text: 'hello', createdAt: saved.recordedAt }]);
+    for (const selector of ['#pacing-tbody', '#grades-tbody', '#trainer-tbody', '#manage-students-tbody', '#triage-list', '#inbox-list']) {
+      const name = doc.querySelector(selector + ' .student-name');
+      expect(name, selector).not.toBeNull();
+      name.click(); await tick(); expect(w._tscCurrentStudentId).toBe('s1'); w.closeTscDrawer();
+    }
+    expect(w.fetch.mock.calls.some(([url]) => url.includes('/lesson-unlocks'))).toBe(false);
+  });
+  it('loads through the public button, opts into metadata and uses the selected period', async () => {
+    const { w, doc } = await make();
+    w.rosterClient.token = () => 'teacher-fixture';
+    const select = doc.getElementById('workspace-period'); select.value = 'PeriodE';
+    select.dispatchEvent(new w.Event('change'));
+    expect(select.disabled).toBe(true);
+    await tick();
+    expect(w.fetch.mock.calls.some(([url]) => url.includes('/class/grades?section=PeriodE&includeSavedWork=1'))).toBe(true);
+    expect(select.disabled).toBe(false);
+  });
+  it('saves an explicitly entered Schoology link for the selected ID only', async () => {
+    const { w, doc } = await make();
+    doc.querySelectorAll('#workspace-roster .student-name')[1].click(); await tick();
+    const form = doc.querySelector('#workspace-account form');
+    form.querySelector('input').value = '987654';
+    form.dispatchEvent(new w.Event('submit', { cancelable: true })); await tick();
+    const call = w.fetch.mock.calls.find(([, options]) => options && options.method === 'PATCH');
+    expect(call[0]).toContain('/roster/s2/schoology-uid');
+    expect(JSON.parse(call[1].body)).toEqual({ schoologyUid: '987654' });
+  });
+  it('distinguishes failed data, pending grading, missing grade and a real zero', async () => {
+    const { w, doc } = await make();
+    const s = { ...student, savedWork: { available: true, recent: [], pendingGrading: 2 }, gradebook: { quarters: { Q1: { columns: [{ key: 'missing', title: 'Due lesson', due: true }, { key: 'zero', due: true }, { key: 'unknown' }], cells: { missing: null, zero: 0 } } } } };
+    w.teacherWorkspace.loaded({ ok: true, students: [s] });
+    expect(doc.getElementById('workspace-attention-list').textContent).toContain('2 response(s) awaiting grading');
+    expect(doc.getElementById('workspace-attention-list').textContent).toContain('1 due items without a grade');
+    w.teacherWorkspace.failed();
+    expect(doc.getElementById('workspace-feed').textContent).toContain('unavailable');
+    expect(doc.getElementById('workspace-feed').textContent).not.toContain('No saved submissions');
+  });
+  it('shows safe saved responses and opens a read-only worksheet separately from the student app', async () => {
+    const { w, doc } = await make();
+    doc.querySelector('#workspace-roster .student-name').click(); await tick();
+    expect(doc.querySelector('#tsc-recent-list pre').textContent).toBe(saved.response);
+    expect(doc.querySelector('#tsc-recent-list img')).toBeNull();
+    doc.querySelector('#tsc-recent-list button').click();
+    expect(doc.querySelector('#workspace-worksheet iframe').getAttribute('src')).toBe('u1_lesson1_live.html?viewAsUserId=s1');
+    expect(doc.getElementById('tsc-action-view-as').textContent).toBe('View student app');
+    w.closeTscDrawer();
+    expect(doc.querySelector('#workspace-worksheet iframe')).toBeNull();
+  });
+  it('fetches passwords only on explicit reveal and removes them on close', async () => {
+    const { w, doc } = await make();
+    doc.querySelector('#workspace-roster .student-name').click(); await tick();
+    expect(w.fetch.mock.calls.some(([url]) => url.includes('/roster/list'))).toBe(false);
+    Array.from(doc.querySelectorAll('#workspace-account button')).find(b => b.textContent === 'Reveal current sign-in password').click(); await tick();
+    expect(doc.getElementById('workspace-account').textContent).toContain('private-fixture');
+    w.closeTscDrawer(); expect(doc.body.textContent).not.toContain('private-fixture');
+  });
+  it('embeds the dashboard, gates teachers and routes deprecated review to recent work', () => {
+    const block = desk.slice(desk.indexOf('var _teacherWorkspaceFocus'), desk.indexOf('var _GRADE_CHECKIN_KEY'));
+    expect(block).toContain("typeof _deskIsTeacher !== 'function' || !_deskIsTeacher()");
+    expect(block).toContain('teacher-dashboard.html?workspace=1&view=');
+    expect(block).not.toContain('window.open');
+    expect(block).not.toContain('teacher-classroom.html');
+    expect(block).not.toContain('teacher-code-generator.html');
+    expect(block).toContain('event.source !== frame.contentWindow');
+    expect(desk).toContain("function openNightlyReview() {\n    openTeacherTools('recent');");
+  });
+});
+
+
+describe('skill evidence navigation', () => {
+  function evidence(skill, answer = '<img src=x onerror=alert(1)>') {
+    return { ok: true, skill, summary: { observations: 1, correct: 1 }, flagged: true, frqThreshold: .5,
+      submissions: [{ ...saved, source: 'curriculum_quiz', correct: true, response: answer, expectedAnswer: 'B',
+        question: { prompt: 'Which variable is categorical?', attachments: { choices: [{ key: 'B', value: 'Color' }], table: [['Variable'], ['Color']] } } }] };
+  }
+  it('opens the clicked skill and exact student, showing the question, choices and saved answer safely', async () => {
+    const { w, doc } = await make();
+    const original = w.fetch;
+    w.fetch = vi.fn(url => url.includes('recent?skill=') ? Promise.resolve(response(evidence('2.B'))) : original(url));
+    w.renderTriage({ heatmap: { '2.B': { weak: 1, total: 1, pctWeak: 100 } }, students: [{ ...student, studentId: 's2', weakSkills: ['2.B'] }] });
+    doc.querySelector('#triage-list .student-name').click(); await tick();
+    expect(w.fetch.mock.calls.some(([url]) => url.includes('/student/s2/recent?skill=2.B'))).toBe(true);
+    const pane = doc.getElementById('workspace-evidence');
+    expect(pane.hidden).toBe(false);
+    expect(pane.textContent).toContain('Which variable is categorical?');
+    expect(pane.textContent).toContain('B. Color');
+    expect(pane.textContent).toContain(saved.response);
+    expect(pane.textContent).toContain('Counted correct');
+    expect(pane.textContent).toContain('tentative flag');
+    expect(pane.querySelector('img')).toBeNull();
+    w.teacherWorkspace.recent({ ok: true, submissions: [saved] });
+    expect(pane.hidden).toBe(false);
+    expect(pane.textContent).toContain('Which variable');
+  });
+  it('ignores stale evidence after switching students and provides a retry on failure', async () => {
+    const { w, doc } = await make();
+    const original = w.fetch; let finish;
+    w.fetch = vi.fn(url => url.includes('recent?skill=') ? new Promise(resolve => { finish = resolve; }) : original(url));
+    w.openTscDrawer(student, '2.B'); await tick();
+    w.openTscDrawer({ ...student, studentId: 's2' });
+    finish(response(evidence('2.B', 'Old student answer'))); await tick();
+    expect(doc.getElementById('workspace-evidence').textContent).not.toContain('Old student answer');
+    w.fetch = vi.fn(url => url.includes('recent?skill=') ? Promise.reject(new Error('offline')) : original(url));
+    w.openTscDrawer(student, '2.B'); await tick();
+    expect(doc.getElementById('workspace-evidence').textContent).toContain('Could not load');
+    w.fetch = vi.fn(url => url.includes('recent?skill=') ? Promise.resolve(response(evidence('2.B'))) : original(url));
+    doc.querySelector('#workspace-evidence button').click(); await tick();
+    expect(doc.getElementById('workspace-evidence').textContent).toContain('Counted correct');
+  });
+  it('shows missing prompts and FRQ scores without hiding the saved response', async () => {
+    const { w, doc } = await make(); const original = w.fetch;
+    const payload = evidence('1.A'); payload.submissions[0] = { ...saved, source: 'frq', correct: true, score: .5, question: null };
+    w.fetch = vi.fn(url => url.includes('recent?skill=') ? Promise.resolve(response(payload)) : original(url));
+    w.openTscDrawer(student, '1.A'); await tick();
+    expect(doc.getElementById('workspace-evidence').textContent).toContain('Question text unavailable');
+    expect(doc.getElementById('workspace-evidence').textContent).toContain('Saved FRQ score: 50%');
+    expect(doc.getElementById('workspace-evidence').textContent).toContain(saved.response);
+  });
+});
+
+// Pico Desk skin (teacher 2026-10-10): the same workspace, the same nodes, a different look.
+describe('Pico skin', { timeout: 20_000 }, () => {
+  const PICO_URL = 'https://example.test/teacher-dashboard.html?workspace=1&pico=1';
+  const snapshot = (doc) => ({
+    tabs: [...doc.querySelectorAll('[data-workspace-tab]')].map((b) => [b.dataset.workspaceTab, b.textContent]),
+    roster: [...doc.querySelectorAll('#workspace-roster .workspace-row')].map((r) => r.textContent),
+    rosterButtons: [...doc.querySelectorAll('#workspace-roster button')].map((b) => b.textContent),
+    attention: [...doc.querySelectorAll('#workspace-attention-list .workspace-row')].map((r) => r.textContent),
+    feed: [...doc.querySelectorAll('#workspace-feed .workspace-row')].map((r) => r.textContent),
+    count: doc.getElementById('workspace-count').textContent,
+    studentTabs: [...doc.querySelectorAll('[data-student-tab]')].map((b) => [b.dataset.studentTab, b.textContent]),
+    snapshotHeading: doc.querySelector('#workspace-snapshot-section > h2').textContent,
+  });
+  it('is on only when asked (the Pico Desk parent or ?pico=1); the classic skin is untouched', async () => {
+    const classic = await make();
+    expect(classic.doc.documentElement.hasAttribute('data-pico')).toBe(false);
+    const pico = await make(PICO_URL);
+    expect(pico.doc.documentElement.hasAttribute('data-pico')).toBe(true);
+    expect(pico.errors).toEqual([]);
+    // The skin is CSS scoped to html[data-pico]; every new rule in the stylesheet is scoped.
+    const css = readFileSync(new URL('../teacher-workspace.css', import.meta.url), 'utf8');
+    const picoPart = css.slice(css.lastIndexOf('/*', css.indexOf('Pico Desk skin')));
+    const selectors = picoPart.replace(/\/\*[\s\S]*?\*\//g, '').split('}').map((r) => r.split('{')[0].trim()).filter(Boolean);
+    for (const sel of selectors) for (const one of sel.split(',')) expect(one.trim(), one).toMatch(/^html\[data-pico\]/);
+  });
+  it('renders the same students, rows, buttons, tabs and counts in both skins', async () => {
+    const withRows = async (url) => {
+      const made = await make(url);
+      const s = { ...student, studentId: 's3', username: 'plum_cat', schoologyUid: null, quarters: { Q1: { quarterGrade: 81 } },
+        savedWork: { available: true, recent: [saved], pendingGrading: 1 },
+        gradebook: { quarters: { Q1: { columns: [{ key: 'm', title: 'Due lesson', due: true }], cells: { m: null } } } } };
+      made.w.teacherWorkspace.loaded({ ok: true, students: [student, s] });
+      made.w.renderStudentInbox([{ senderUsername: student.username, text: 'hi', createdAt: saved.recordedAt }]);
+      await tick();
+      return made;
+    };
+    const classic = await withRows();
+    const pico = await withRows(PICO_URL);
+    const a = snapshot(classic.doc), b = snapshot(pico.doc);
+    expect(b).toEqual(a);
+    expect(b.tabs.find(([k]) => k === 'attention')[1]).toBe('Needs attention (3)');
+    expect(b.tabs.find(([k]) => k === 'messages')[1]).toBe('Messages (1)');
+    expect(b.rosterButtons).toContain('plot');
+    expect(pico.doc.querySelector('.workspace-view-strip [data-workspace-tab=class]')).not.toBeNull();
+    expect(pico.doc.querySelector('.workspace-student-tabs [data-student-tab=overview]')).not.toBeNull();
+    // Same student pane from a tile.
+    pico.doc.querySelectorAll('#workspace-roster .student-name')[1].click(); await tick();
+    expect(pico.w._tscCurrentStudentId).toBe('s3');
+    expect(pico.doc.querySelector('[data-student-tab=overview]').getAttribute('aria-pressed')).toBe('true');
+  });
+  it('opening Messages (tab or unread button) marks nothing read', async () => {
+    const { w, doc } = await make(PICO_URL);
+    w.renderStudentInbox([{ senderUsername: student.username, text: 'What am I missing?', createdAt: saved.recordedAt }]);
+    await tick();
+    doc.querySelector('[data-workspace-tab=messages]').click();
+    expect(doc.querySelector('[data-workspace-view=messages]').hidden).toBe(false);
+    doc.querySelector('button.workspace-unread').click();
+    expect(doc.querySelector('#inbox-list li').classList.contains('unread')).toBe(true);
+    expect(w.localStorage.getItem('tsc-inbox-seen-at:all')).toBeNull();
+    expect(doc.querySelector('[data-workspace-tab=messages]').textContent).toBe('Messages (1)');
+    expect(w.fetch.mock.calls.some(([, o]) => o && o.method && o.method !== 'GET')).toBe(false);
+  });
+  it('keys: Left / Right move views (wrapping); Esc closes the student pane first, then the window', async () => {
+    const { w, doc } = await make(PICO_URL);
+    const key = (target, k) => target.dispatchEvent(new w.KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true }));
+    const classTab = doc.querySelector('[data-workspace-tab=class]');
+    classTab.focus();
+    key(classTab, 'ArrowRight');
+    expect(doc.activeElement).toBe(doc.querySelector('[data-workspace-tab=attention]'));
+    expect(doc.querySelector('[data-workspace-view=attention]').hidden).toBe(false);
+    key(doc.activeElement, 'ArrowLeft');
+    key(doc.activeElement, 'ArrowLeft');
+    expect(doc.activeElement).toBe(doc.querySelector('[data-workspace-tab=recovery]'));
+    expect(doc.querySelector('[data-workspace-tab=recovery]').getAttribute('aria-pressed')).toBe('true');
+
+    const close = vi.fn();
+    w.teacherWorkspace.requestClose = close;
+    doc.querySelector('#workspace-roster .student-name').click(); await tick();
+    expect(doc.getElementById('tsc-drawer').classList.contains('tsc-open')).toBe(true);
+    key(doc.activeElement || doc.body, 'Escape');
+    expect(doc.getElementById('tsc-drawer').classList.contains('tsc-open')).toBe(false);
+    expect(close).not.toHaveBeenCalled();
+    key(doc.activeElement || doc.body, 'Escape');
+    expect(close).toHaveBeenCalledTimes(1);
+  });
+  it('classic skin: arrows and Esc keep their old behaviour (no view change, no window close)', async () => {
+    const { w, doc } = await make();
+    const close = vi.fn();
+    w.teacherWorkspace.requestClose = close;
+    const classTab = doc.querySelector('[data-workspace-tab=class]');
+    classTab.focus();
+    classTab.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true }));
+    expect(classTab.getAttribute('aria-pressed')).toBe('true');
+    doc.body.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    expect(close).not.toHaveBeenCalled();
+  });
+});

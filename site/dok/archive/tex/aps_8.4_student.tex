@@ -1,0 +1,54 @@
+\documentclass[11pt]{article}
+\usepackage{preamble}
+\renewcommand{\answer}[1]{}
+
+\begin{document}
+
+\ladderheading{AP Statistics \textperiodcentered\ Unit 3 \textperiodcentered\ Topic 3.14}{A Two-Way Table Before Inference}
+
+\focusbanner{THE PROBLEM}
+
+Suppose a membership association has 5,000 new members and takes an SRS of 120. Each member is classified by orientation status and preferred support channel. The association may test whether the variables are associated.\par\smallskip \textbf{Nico:} ``Every observed cell is at least 6, and the data came from an SRS, so the usual chi-square setup is ready.''\par \textbf{Priya:} ``The margins may produce a different boundary check; I would calculate that table before deciding.''\par
+\begin{center}
+\textbf{Support channel}\par\smallskip
+\begin{tabular}{|l|c|c|c|c|}
+\hline
+\textbf{Status} & \textbf{Chat} & \textbf{Email} & \textbf{Phone} & \textbf{Total} \\ \hline
+\textbf{Done} & 42 & 34 & 24 & 100 \\ \hline
+\textbf{Not done} & 8 & 6 & 6 & 20 \\ \hline
+\textbf{Total} & 50 & 40 & 30 & 120 \\ \hline
+\end{tabular}
+\end{center}
+\begin{firsttakebox}{FIRST TAKE --- one sentence before you work the parts}
+Would you decide from the recorded counts alone or also work out what the totals predict? Explain in one sentence.
+\workspace{0.9in}
+\end{firsttakebox}
+
+\begin{callout}{\IconBook\ EXPECTED COUNTS UNDER NO ASSOCIATION (keep on the page)}{calloutgreen}
+Expected counts describe the table under no relationship between the variables.
+For an interior cell, $E=(\text{row total})(\text{column total})/(\text{table total})$.
+Expected counts keep the same row and column totals; they need not be whole numbers.
+For this problem, use the course's conservative chi-square check: every expected count must be
+greater than 5. This check concerns expected counts, not observed counts. If it fails, gather more
+random data and recheck; a larger sample does not guarantee that every new expected count will pass.
+\end{callout}
+
+\newpage
+\textbf{Work (a)--(c).}\par\smallskip
+
+\dokbadge{1}~\textbf{(a)} Which row total, column total, and table total are needed for Not done/Phone?\par
+\workspace{0.7in}
+
+\dokbadge{2}~\textbf{(b)} Calculate the expected counts for Done/Chat and Not done/Phone. The other four expected counts are all greater than 5.\par
+\workspace{1.4in}
+
+\dokbadge{3}~\textbf{(c)} In 3--4 sentences, decide whose claim follows the printed rule. Compare observed 6 with the expected Phone count, explain why the kind of count matters, and suggest one next step that keeps the same support-channel categories.\par
+\workspace{2.0in}
+
+\begin{sentenceframebox}\raggedright\textbf{Frame:} The recorded count is \blank[0.6in], but the rule checks \blank[1.4in]. The computed count \blank[1.2in] the printed rule.\end{sentenceframebox}
+
+\begin{sentenceframebox}\raggedright\textbf{Frame:} I would next \blank[2.1in] while keeping \blank[1.8in] the same.\end{sentenceframebox}
+
+\textbf{Turn this sheet in whenever you finish --- bonus credit. Part (c) is scored E / P / I.}\par
+
+\end{document}

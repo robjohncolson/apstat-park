@@ -1,0 +1,52 @@
+topic: "3.3"
+ced2026:
+  unit: 1
+  topic: '1.11'
+  label: Random Sampling
+title: Three Ways to Sample Students
+essential_question: Which random sampling method best matches the structure of the population and the
+  question?
+worksheet: u3_lesson3_live.html
+rules_callout:
+  title: THREE RANDOM METHODS (keep on the page)
+  body: An \textbf{SRS of size $n$} gives every possible group of $n$ individuals an equal chance. A \textbf{systematic
+    random sample} uses a random start and a fixed interval. A \textbf{stratified random sample} divides
+    the population into groups and takes an SRS within every group. Compare methods by how they select
+    people and how well the method fits the population and question.
+focus: aps-3.3-d3-1
+reinforcement: []
+space:
+  first_take: 0.9in
+  a: 0.7in
+  b: 1.4in
+  c: 2.0in
+teacher:
+  questions_to_ask:
+  - What does Method 3 require in every sample?
+  - Could the hat produce no students from one grade?
+  - Does a random start make every group of 50 possible?
+  - Why does grade matter for this question?
+  watch_for:
+  - Calling every random method an SRS
+  - Calling sampling within every grade cluster sampling
+  - Claiming an SRS guarantees equal grade counts
+  first_take_note: Not graded. Expect the word random to make the three methods look equivalent at first.
+visuals:
+  methods_table:
+    kind: two_way_table
+    col_label: Three proposed samples
+    row_label: \#
+    cols:
+    - Selection rule
+    - Total
+    rows:
+    - '1'
+    - '2'
+    - '3'
+    cells:
+    - - Every 24th
+      - '50'
+    - - Names from hat
+      - '50'
+    - - Names within grades
+      - '50'

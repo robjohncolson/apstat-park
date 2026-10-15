@@ -1,0 +1,41 @@
+# Topic 8.5 — Setting Up a Chi-Square Test for Homogeneity or Independence
+topic: "8.5"
+ced2026: { unit: 3, topic: "3.14", label: "Setting Up a Chi-Square Test (homogeneity/independence)" }
+title: "One Table, Two Study Designs"
+essential_question: "Why can identical counts require different chi-square procedure names and hypotheses?"
+worksheet: "u8_lesson5_live.html"
+
+rules_callout:
+  title: "LET DATA COLLECTION NAME THE TEST (keep on the page)"
+  body: |
+    Use chi-square homogeneity to compare one categorical distribution across independently sampled
+    populations or randomized treatments: $H_0$ says the distributions are the same, and $H_a$ says at least one differs.
+    Use chi-square independence for one random sample with two categorical variables: $H_0$ says there is no association,
+    and $H_a$ says there is an association. Both use
+    $E=(\text{row total})(\text{column total})/(\text{table total})$.
+    Check the random design, each 10 percent condition when sampling without replacement, and every expected count $>5$.
+
+focus: aps-8.5-d3-1
+reinforcement: []
+space: { first_take: 0.9in, a: 0.7in, b: 1.4in, c: 2.0in }
+
+teacher:
+  questions_to_ask:
+  - Which specific number or study detail supports your choice?
+  - What claim would go beyond the evidence, and why?
+  watch_for:
+  - Choosing a speaker without a reason.
+  - Copying numbers without explaining what they support.
+  first_take_note: Ungraded commitment; accept any evidence-based first impression.
+visuals:
+  ticket_table:
+    kind: two_way_table
+    col_label: "Ticket method"
+    row_label: "Route"
+    cols: ["Mobile", "Card", "Cash", "Total"]
+    rows: ["North", "East", "West", "Total"]
+    cells:
+      - ["60", "25", "15", "100"]
+      - ["48", "32", "20", "100"]
+      - ["42", "33", "25", "100"]
+      - ["150", "90", "60", "300"]

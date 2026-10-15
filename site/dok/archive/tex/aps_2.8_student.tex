@@ -1,0 +1,52 @@
+\documentclass[11pt]{article}
+\usepackage{preamble}
+\renewcommand{\answer}[1]{}
+
+\begin{document}
+
+\ladderheading{AP Statistics \textperiodcentered\ Unit 5 \textperiodcentered\ Topic 5.5}{Which Regression Line Fits?}
+
+\focusbanner{THE PROBLEM}
+
+Suppose a solar-farm analyst uses sunshine hours $x$ to predict daily generation $y$ in megawatt-hours (MWh). The table summarizes 12 observed days.\par\smallskip \textbf{Quinn:} ``Using $b=r(s_y/s_x)$ gives $\hat y=5.6+3.2x$. It passes through $(7,28)$, so it must be the LSRL. It explains 80 percent of the variation.''\par \textbf{Rowan:} ``Using $b=r(s_x/s_y)$ gives $\hat y=26.6+0.2x$. It also passes through $(7,28)$, so it is equally good. Explained variation is 64 percent.''\par
+\begin{center}
+\textbf{Solar-farm summary (12 observed days)}\par\smallskip
+\resizebox{0.98\linewidth}{!}{%
+\begin{tabular}{|c|c|c|c|c|c|}
+\hline
+$x$ range & $\bar x$ & $\bar y$ & $s_x$ & $s_y$ & $r$ \\ \hline
+4--10 h & 7 h & 28 MWh & 1.5 h & 6 MWh & 0.80 \\ \hline
+\end{tabular}}
+\end{center}
+\begin{firsttakebox}{FIRST TAKE --- one sentence before you work the parts}
+The two lines agree at 7 sunshine hours. Does that make them equally useful at other times? Give your first thought in one sentence.
+\workspace{0.65in}
+\end{firsttakebox}
+
+\begin{callout}{\IconBook\ MAKE THE REGRESSION PROPERTIES AGREE (keep on the page)}{calloutgreen}
+The least-squares regression line (LSRL) minimizes the sum of squared residuals and contains
+$(\bar x,\bar y)$. Its slope is $b=r(s_y/s_x)$, its intercept is
+$a=\bar y-b\bar x$, and $r^2$ is the proportion of response variation explained by the
+linear model. Interpret slope as a predicted response change per unit of $x$. The intercept
+predicts at $x=0$, which may be outside the observed range and unsupported in context.
+\end{callout}
+
+\newpage
+\textbf{Work (a)--(c).}\par\smallskip
+
+\dokbadge{1}~\textbf{(a)} State the mean point that every least-squares regression line must contain.\par
+\workspace{0.55in}
+
+\dokbadge{2}~\textbf{(b)} Calculate the regression slope and intercept, and $r^2$. Give the slope's units.\par
+\workspace{1.0in}
+
+\dokbadge{3}~\textbf{(c)} Which parts of Quinn's and Rowan's claims should a report keep? Use the slope formula to choose a line, explain why their shared mean point does not make both lines correct, and interpret the correct percent of variation explained. Write 3--4 sentences.\par
+\workspace{1.45in}
+
+\begin{sentenceframebox}\raggedright\textbf{Frame:} I would keep \blank[1.6in] from Quinn and \blank[1.6in] from Rowan because \blank[1.7in].\end{sentenceframebox}
+
+\begin{sentenceframebox}\raggedright\textbf{Frame:} Sharing $(7,28)$ is not enough because \blank[2.0in]; the model explains \blank[0.6in] percent of variation in \blank[1.4in].\end{sentenceframebox}
+
+\textbf{Turn this sheet in whenever you finish --- bonus credit. Part (c) is scored E / P / I.}\par
+
+\end{document}

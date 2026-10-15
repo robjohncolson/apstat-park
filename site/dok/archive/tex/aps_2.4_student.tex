@@ -1,0 +1,66 @@
+\documentclass[11pt]{article}
+\usepackage{preamble}
+\renewcommand{\answer}[1]{}
+
+\begin{document}
+
+\ladderheading{AP Statistics \textperiodcentered\ Unit 5 \textperiodcentered\ Topic 5.1}{One Plot, Two Reporting Strategies}
+
+\focusbanner{THE PROBLEM}
+
+Suppose a test kitchen measures dough volume for ten batches at assigned times after mixing. The scatterplot shows the paired measurements.\par\smallskip \textbf{Jules:} Use a straight-line summary because volume generally increases with time. Treat the 50-minute batch as ordinary variation.\par \textbf{Ravi:} Decide the form from how the rate changes, and report the 50-minute batch separately if it departs from nearby values.\par Selected measurements (minutes, mL): $(0,420)$, $(20,590)$, $(70,770)$, $(90,785)$.\par
+\begin{center}
+\begin{tikzpicture}
+\begin{axis}[
+  width=0.70\linewidth,
+  height=1.89in,
+  xmin=0, xmax=90, ymin=380, ymax=820,
+  xlabel={Minutes after mixing}, ylabel={Dough volume (mL)}, grid=major,
+  tick label style={font=\small}, label style={font=\small}
+]
+\addplot[only marks, mark=*, mark size=1.8pt, color=dayblue] coordinates {
+  (0,420)
+  (10,510)
+  (20,590)
+  (30,650)
+  (40,695)
+  (50,600)
+  (60,750)
+  (70,770)
+  (80,780)
+  (90,785)
+};
+\end{axis}
+\end{tikzpicture}
+\end{center}
+\begin{firsttakebox}{FIRST TAKE --- one sentence before you work the parts}
+Which reporting strategy seems more defensible, Jules's or Ravi's? Cite one graph feature.
+\workspace{0.85in}
+\end{firsttakebox}
+
+\begin{callout}{\IconBook\ BUILD A COMPLETE SCATTERPLOT DESCRIPTION (keep on the page)}{calloutgreen}
+Put the explanatory variable on the $x$-axis and the response on the $y$-axis.
+Describe direction, form, strength, and unusual features in context. Linear form has
+an approximately constant rate; nonlinear form may curve or change rate. Report an
+unusual point without letting that one point erase the pattern followed by the rest.
+\end{callout}
+
+\newpage
+\textbf{Work (a)--(c).}\par\smallskip
+
+\dokbadge{1}~\textbf{(a)} Name the explanatory and response variables, with units.\par
+\workspace{0.55in}
+
+\dokbadge{2}~\textbf{(b)} Find the volume increase from 0 to 20 minutes and from 70 to 90 minutes. Is the 50-minute batch above or below the nearby batches?\par
+\workspace{1.1in}
+
+\dokbadge{3}~\textbf{(c)} Whose reporting strategy is supported? Describe the direction, form, strength, and unusual point in context, using your two increases. Explain how a straight-line summary could mislead someone predicting later growth. Write 3--4 sentences.\par
+\workspace{1.7in}
+
+\begin{sentenceframebox}\raggedright\textbf{Frame:} I choose \blank[0.7in]: the pattern is \blank[1.0in] in direction, \blank[1.0in] in form, and \blank[1.0in] in strength.\end{sentenceframebox}
+
+\begin{sentenceframebox}\raggedright\textbf{Frame:} The two increases, \blank[0.6in] and \blank[0.6in] mL, show \blank[1.6in]; a straight line could mislead by \blank[1.8in].\end{sentenceframebox}
+
+\textbf{Turn this sheet in whenever you finish --- bonus credit. Part (c) is scored E / P / I.}\par
+
+\end{document}

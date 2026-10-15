@@ -1,0 +1,111 @@
+# Single-host teacher-laptop daily batch for the grade -> Schoology hop
+# (GRADE_PIPELINE_E2E_SPEC.md section 4). Two steps:
+#   1. build_schoology_fixture.py  -- GET /class/grades -> a temp fixture.
+#   2. schoology_sync_section.py   -- push that fixture into Schoology.
+#
+# DEFAULTS TO DRY-RUN BY DESIGN. Step 2 always passes --dry-run UNLESS -Live is
+# given. Flip to -Live ONLY once SY26-27 marking periods exist -- the live dated
+# sync is PARKED to ~Sept-2026 (see SCHOOLOGY_SYNC_V1_BUILD.md P2b gate).
+#
+# The teacher secret is read from the environment (ROSTER_TEACHER_SECRET), never
+# the CLI, so the scheduled task can run headless. The teacher just keeps Edge
+# signed into Schoology (~90-day cookie).
+#
+# Register as a daily Scheduled Task with register_schoology_sync_task.ps1.
+
+param(
+  [string]$Section = 'PeriodB',
+  [switch]$Live,
+  [string]$Base = '',
+  [string]$LogDir = ''
+)
+
+$ErrorActionPreference = 'Continue'
+
+# This script lives in tools/; the repo root is its parent.
+$toolsDir = $PSScriptRoot
+$repo     = Split-Path -Parent $toolsDir
+
+if (-not $LogDir) { $LogDir = Join-Path $toolsDir '.schoology-sync-logs' }
+if (-not (Test-Path $LogDir)) { New-Item -ItemType Directory -Force -Path $LogDir | Out-Null }
+
+$stamp   = Get-Date -Format 'yyyyMMdd-HHmmss'
+$log     = Join-Path $LogDir "sync-$Section-$stamp.log"
+$fixture = Join-Path $LogDir "fixture-$Section-$stamp.json"
+
+function Write-Log {
+  param([string]$Message)
+  $line = "[" + (Get-Date -Format 'HH:mm:ss') + "] $Message"
+  Write-Output $line
+  Add-Content -Path $log -Value $line
+}
+
+$mode = if ($Live) { 'LIVE' } else { 'DRY-RUN' }
+Write-Log "=== daily_schoology_sync started ($mode) section=$Section ==="
+
+# The secret must come from the environment -- never accept it on the CLI.
+if (-not $env:ROSTER_TEACHER_SECRET) {
+  Write-Log "ERROR: ROSTER_TEACHER_SECRET is not set in the environment."
+  Write-Log "       Set it once for the scheduled-task account, e.g.:"
+  Write-Log "         setx ROSTER_TEACHER_SECRET <secret>"
+  Write-Log "       then re-run. The secret is NEVER passed on the command line."
+  exit 1
+}
+
+# Build the python argument lists. --base is optional (the producer + connector
+# both default to the prod URL when it is omitted).
+$buildArgs = @(
+  (Join-Path $toolsDir 'build_schoology_fixture.py'),
+  '--section', $Section,
+  '--out', $fixture,
+  '--granularity', 'component'   # SY2627: fine-grained columns = the Desk's "Schoology today"
+)
+if ($Base) { $buildArgs += @('--base', $Base) }
+
+$syncArgs = @(
+  (Join-Path $toolsDir 'schoology_sync_section.py'),
+  '--sync-section', $Section,
+  '--grades-fixture', $fixture,
+  '--granularity', 'component'   # must match step 1; --through defaults to today (NY)
+)
+# schoology_sync_section.py defaults to DRY-RUN since 5c283fc5 (2026-09-26): omitting --dry-run is no longer
+# enough -- a live run must pass --apply. (9/26-9/28 daily runs silently pushed nothing.)
+if ($Live) { $syncArgs += '--apply' } else { $syncArgs += '--dry-run' }
+# Grade-cell comments on lagged zeros ("Not a permanent 0. Missing: ...") -- teacher said
+# yes 2026-09-29, alongside quiz zeros (QUIZ_ZEROS_FROM in schoology_components.py).
+# Passed on dry runs too so a preview shows the "comment: would write ..." plan.
+$syncArgs += '--comments'
+
+# Step 1 -- producer.
+Write-Log "STEP 1: build_schoology_fixture.py --section $Section --out $fixture"
+& python @buildArgs 2>&1 | Tee-Object -FilePath $log -Append
+$buildCode = $LASTEXITCODE
+if ($buildCode -ne 0) {
+  Write-Log "STEP 1 FAILED (exit $buildCode) -- aborting before any Schoology write."
+  exit $buildCode
+}
+
+# Step 2 -- connector (dry-run unless -Live).
+Write-Log "STEP 2: schoology_sync_section.py --sync-section $Section --grades-fixture <fixture>$(if ($Live) { ' --apply' } else { ' --dry-run' }) --comments"
+& python @syncArgs 2>&1 | Tee-Object -FilePath $log -Append
+$syncCode = $LASTEXITCODE
+if ($syncCode -ne 0) {
+  Write-Log "STEP 2 FAILED (exit $syncCode)."
+  exit $syncCode
+}
+
+# Step 3 -- official quarter grade (OFFICIAL_GRADE_SYNC_SPEC.md): recompute from tonight's
+# Schoology grades, write each student's marking-period override, publish to the Desk.
+# Runs after step 2 so it reads the grades just pushed. Dry-run unless -Live.
+$officialArgs = @((Join-Path $toolsDir 'schoology_official.py'), '--section', $Section)
+if ($Live) { $officialArgs += '--apply' }
+Write-Log "STEP 3: schoology_official.py --section $Section$(if ($Live) { ' --apply' } else { '' })"
+& python @officialArgs 2>&1 | Tee-Object -FilePath $log -Append
+$officialCode = $LASTEXITCODE
+if ($officialCode -ne 0) {
+  Write-Log "STEP 3 FAILED (exit $officialCode) -- grades were pushed; official overrides need a rerun."
+  exit $officialCode
+}
+
+Write-Log "=== daily_schoology_sync done ($mode) -- log: $log ==="
+exit 0

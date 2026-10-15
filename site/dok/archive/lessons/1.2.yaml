@@ -1,0 +1,78 @@
+topic: "1.2"
+ced2026:
+  unit: 1
+  topic: '1.2'
+  label: 'The Language of Variation: Variables'
+title: 'Getting to School: Survey Data'
+essential_question: When is a number a quantity, and when is it just a label?
+worksheet: u1_lesson2_live.html
+rules_callout:
+  title: VARIABLES (keep on the page)
+  body: An \textbf{individual} is a person or thing the data describe. A \textbf{variable} is a characteristic
+    that can change between individuals. An identifier only names an individual. \textbf{Categorical}
+    values are category names or group labels, even when written with digits. \textbf{Quantitative} values
+    are numbers for a measured or counted quantity. State units for measurements. Before averaging, ask
+    what quantity the values measure or count.
+focus: aps-1.2-d3-1
+reinforcement:
+- aps-1.2-d2-1
+space:
+  first_take: 0.9in
+  a: 0.8in
+  b: 1.3in
+  c: 1.9in
+teacher:
+  questions_to_ask:
+  - What does a zip code measure? What does it count?
+  - If I averaged two zip codes, what place would I get?
+  - Do equal one-star steps represent equal changes in what is being measured? State your assumption.
+  - Which column would you sort to find the `biggest'? Which column has no `biggest'?
+  watch_for:
+  - '`It has digits, so it''s quantitative'' --- confuses how a value is written with what it measures'
+  - Saying zip code is categorical `because you can't add them' without saying WHY (it measures/counts
+    nothing)
+  - Treating Rating as obviously quantitative because the quiz app computes an average star rating
+  - Naming the individuals as `the newspaper' or `the school' instead of the six students
+  first_take_note: Not graded. Most will say `yes, it's a number'; that is the hook.
+visuals:
+  survey_table:
+    kind: two_way_table
+    col_label: Getting-to-school survey (minutes; 1--5 stars)
+    row_label: Name
+    cols:
+    - Lunch
+    - ZIP
+    - Min
+    - Stars
+    rows:
+    - Aiden
+    - Bea
+    - Cruz
+    - Dev
+    - Elise
+    - Fiona
+    cells:
+    - - A
+      - 01902
+      - '12'
+      - '4'
+    - - B
+      - 01905
+      - '35'
+      - '2'
+    - - A
+      - 01902
+      - '8'
+      - '5'
+    - - C
+      - 01904
+      - '22'
+      - '3'
+    - - B
+      - 01905
+      - '41'
+      - '1'
+    - - A
+      - 01901
+      - '15'
+      - '4'

@@ -1,0 +1,52 @@
+\documentclass[11pt]{article}
+\usepackage{preamble}
+\renewcommand{\answer}[1]{}
+
+\begin{document}
+
+\ladderheading{AP Statistics \textperiodcentered\ Unit 2 \textperiodcentered\ Topic 2.7}{Overlap Does Not Decide Independence}
+
+\focusbanner{THE PROBLEM}
+
+Suppose a school surveys 200 students about whether they own at least one pet and whether they play a musical instrument. Let $P$ be the event that a randomly selected surveyed student owns a pet and $I$ the event that the student plays an instrument.\par\smallskip \textbf{Aaliyah:} \emph{The events overlap because 84 students do both. Since they are not mutually exclusive, they must be independent.}\par \textbf{Marcus:} \emph{Overlap does not decide independence; the relevant probabilities must be compared.}\par
+\begin{center}
+\textbf{Pet ownership and instrument playing}\par\smallskip
+\begin{tabular}{|l|c|c|c|}
+\hline
+\textbf{Pet?} & \textbf{Plays} & \textbf{Does not} & \textbf{Total} \\ \hline
+\textbf{Yes} & 84 & 36 & 120 \\ \hline
+\textbf{No} & 16 & 64 & 80 \\ \hline
+\textbf{Total} & 100 & 100 & 200 \\ \hline
+\end{tabular}
+\end{center}
+\begin{firsttakebox}{FIRST TAKE --- one sentence before you work the parts}
+Does owning a pet seem to change the chance that a student plays an instrument? Give one table detail in one sentence.
+\workspace{0.9in}
+\end{firsttakebox}
+
+\begin{callout}{\IconBook\ INDEPENDENCE, INTERSECTION, AND UNION (keep on the page)}{calloutgreen}
+Events $A$ and $B$ are \textbf{independent} exactly when knowing one does not change the probability of the other:
+$P(A\mid B)=P(A)$. Equivalently, $P(A\cap B)=P(A)P(B)$. Establish independence before using that product.
+\textbf{Mutually exclusive} events have no overlap, so $P(A\cap B)=0$; this is a different relationship.
+For any two events, $P(A\cup B)=P(A)+P(B)-P(A\cap B)$. To calculate a conditional probability from a table, divide the count in both events by the total for the given group.
+\end{callout}
+
+\newpage
+\textbf{Work (a)--(c).}\par\smallskip
+
+\dokbadge{1}~\textbf{(a)} State the counts for $P$, $I$, and $P\cap I$.\par
+\workspace{0.7in}
+
+\dokbadge{2}~\textbf{(b)} Find $P(I)$, $P(I\mid P)$, and $P(P\cup I)$. Show the fractions or setup.\par
+\workspace{1.4in}
+
+\dokbadge{3}~\textbf{(c)} Whose reasoning is supported? Decide independence using the two instrument-playing probabilities. Explain why the 84 students in both groups settle mutual exclusivity but do not settle independence. Write 3--4 sentences.\par
+\workspace{2.0in}
+
+\begin{sentenceframebox}\raggedright\textbf{Frame:} The events are \blank[0.9in] because $P(I\mid P)=\blank[0.5in]$ while $P(I)=\blank[0.5in]$.\end{sentenceframebox}
+
+\begin{sentenceframebox}\raggedright\textbf{Frame:} Mutually exclusive means \blank[1.8in], whereas independent means \blank[2.0in].\end{sentenceframebox}
+
+\textbf{Turn this sheet in whenever you finish --- bonus credit. Part (c) is scored E / P / I.}\par
+
+\end{document}

@@ -1,0 +1,104 @@
+\documentclass[11pt]{article}
+\usepackage{preamble}
+\setlength{\parskip}{4pt}
+
+\begin{document}
+
+\daybanner{AP Statistics \textperiodcentered\ Unit 3 \textperiodcentered\ Topic 3.3 \textperiodcentered\ TEACHER KEY}{Six Activations in Twelve Users}
+
+\sectionbanner{CED TETHER}
+
+{\small
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item \textbf{VAR-1.H} Identify questions suggested by variation in the shapes of distributions of samples taken from the same population. \textbf{[Skill 1.A]}
+  \item \textbf{VAR-1.H.1} Variation in shapes of data distributions may be random or not.
+\end{itemize}
+}
+\textbf{Essential question:} When should a simulated sampling distribution be trusted more than a normal approximation?\par
+\textbf{DOK-3 skill:} 4.B \textperiodcentered\ \textbf{FRQ pattern:} {\small\texttt{normal-\allowbreak{}approximation-\allowbreak{}vs-\allowbreak{}simulation-\allowbreak{}for-\allowbreak{}a-\allowbreak{}skewed-\allowbreak{}tail}}\par
+\textbf{DOK rationale:} Part (c) coordinates an expected-count check, the simulated distribution's shape, and two tail estimates to choose a defensible method, bound the evidence, and explain the consequence of the rejected analysis.\par
+
+\textbf{Self-paced bonus sheet.} Students take it when they choose and turn it in when they finish. Everything they need is printed on the sheet. Score part (c) only, E / P / I, by hand --- never AI-graded or auto-scored. (a) and (b) are the ladder up; use them to see where a thin (c) came from.\par
+
+\textbf{Questions to ask}
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item What does one bar in this simulated distribution count?
+  \item Which expected count warns you that a symmetric curve may miss the tail?
+  \item Why do simulated samples with more than six activations still count?
+  \item Can the two methods disagree in size yet lead to the same 5 percent decision?
+\end{itemize}
+
+\begin{callout}{\IconWarn\ LOOK FOR}{calloutred}
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item Treating every sampling distribution as normal regardless of expected counts.
+  \item Counting exactly six activations instead of six or more.
+  \item Saying a small chance probability proves why the activation rate differs.
+\end{itemize}
+\end{callout}
+
+\sectionbanner{SCORING PART (c) --- E / P / I}
+
+\textbf{Expected elements}
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item \textbf{judgment-1} (required) --- Chooses the simulation using failed expected counts 2.4 and 9.6 or the right-skewed shape.
+  \item \textbf{judgment-2} (required) --- Uses 4/200=0.020 below 0.05 as evidence against the model, without claiming proof.
+  \item \textbf{judgment-3} (required) --- Explains that 0.005 makes the result seem four times rarer and overstates the evidence.
+\end{itemize}
+
+{\small\renewcommand{\arraystretch}{1.25}
+\noindent\begin{tabular}{|p{0.5in}|p{5.9in}|}
+\hline
+\textbf{E} & Meets all three checks with correct contextual reasoning; equivalent wording is acceptable. \\ \hline
+\textbf{P} & Shows at least one substantive correct check, but has an omission or error that prevents E. \\ \hline
+\textbf{I} & Shows none of the three checks with substantive correct reasoning; a choice alone is insufficient. \\ \hline
+\end{tabular}}
+
+\textbf{Common mistakes}
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item Using $6/12=0.50$ as the chance probability
+  \item Counting only the bar at 6 without recognizing that all larger results would also be at least as extreme
+  \item Checking observed successes and failures instead of expected counts under $p_0$ for this model
+  \item Calling the two percent estimate proof that the developer intentionally misstated the rate
+\end{itemize}
+
+\clearpage
+\focusbanner{THE PROBLEM --- annotated}
+
+Suppose a developer's model says $p_0=0.20$ of new app users activate voice commands. An SRS of 12 users includes 6 activations, so $\hat p=0.50$. The chart shows 200 simulated samples of 12 independent users under this model.\par\smallskip \textbf{Mara:} ``A normal model for $\hat p$ gives $P(\hat p\ge 0.50)\approx0.005$, so that is the chance probability I would report.''\par \textbf{Jules:} ``The simulated distribution is not very normal. I would estimate the chance probability directly from its tail.''\par
+\begin{center}
+\begin{tikzpicture}
+\begin{axis}[
+  width=0.98\linewidth,height=1.75in,
+  ybar,bar width=10pt,xmin=-0.6,xmax=6.6,ymin=0,ymax=70,
+  xtick={0,1,2,3,4,5,6},ytick={0,20,40,60},
+  xlabel={Activations in a sample of 12},ylabel={Simulated samples},
+  tick label style={font=\small},label style={font=\small},
+  nodes near coords,nodes near coords style={font=\scriptsize},
+  axis lines*=left
+]
+\addplot[draw=dayblue,fill=dayblue!20] coordinates {(0,14) (1,40) (2,58) (3,47) (4,25) (5,12) (6,4)};
+\end{axis}
+\end{tikzpicture}
+\end{center}
+\begin{firsttakebox}{FIRST TAKE --- one sentence before you work the parts}
+Whose method would you trust more, Mara's smooth curve or Jules's repeated trials? Give one reason from the picture.\par
+\answer{Not graded. Preserve the normal-model versus matched-simulation tension.}
+\end{firsttakebox}
+
+\begin{callout}{\IconBook\ CHECK THE SHAPE BEFORE USING NORMAL (keep on the page)}{calloutgreen}
+Under a proposed proportion $p_0$, check expected counts $np_0\geq10$ and $n(1-p_0)\geq10$ before using a normal approximation.
+A matched simulation estimates the chance probability by the number of simulated results at least as large as the observed result, divided by the total simulations.
+For this task, a chance probability below $5\%$ counts as convincing evidence against the proposed model.
+Evidence against a model does not prove a particular cause.
+\end{callout}
+
+\dokbadge{1}~\textbf{(a)} State the most common number of activations in the simulated samples and describe the distribution as roughly symmetric, skewed left, or skewed right.\par
+\answer{Two activations is most common (58 simulations). The distribution is skewed right.}
+
+\dokbadge{2}~\textbf{(b)} Use the chart to estimate $P(\hat p\ge0.50)$ under $p_0=0.20$. Then calculate $np_0$ and $n(1-p_0)$ and assess the expected-count condition for a normal approximation.\par
+\answer{The simulated tail is $4/200=0.020$. Expected counts $12(0.20)=2.4$ and $12(0.80)=9.6$ both fall below 10, so the normal condition fails.}
+
+\dokbadge{3}~\textbf{(c)} In 3--4 sentences, choose a method using the simulated tail and either the shape or expected counts. Apply the $5\%$ evidence rule. Explain how reporting 0.005 instead of 0.020 would change a reader's impression.\par
+\answer{Use Jules's simulation: the failed expected counts and right skew weaken the normal approximation. The tail $0.020<0.05$ gives evidence against the model, without proving a cause. Reporting $0.005$ makes the result seem four times rarer and overstates the evidence.}
+
+\end{document}

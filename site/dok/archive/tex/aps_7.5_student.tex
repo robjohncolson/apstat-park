@@ -1,0 +1,56 @@
+\documentclass[11pt]{article}
+\usepackage{preamble}
+\renewcommand{\answer}[1]{}
+
+\begin{document}
+
+\ladderheading{AP Statistics \textperiodcentered\ Unit 4 \textperiodcentered\ Topic 4.5}{A Test of Mean Resolution Time}
+
+\focusbanner{THE PROBLEM}
+
+Suppose a help desk closed 1,200 tickets in a quarter. To investigate whether their population mean resolution time was below 12 hours, an analyst took an SRS of 24 and used $\alpha=0.05$.\par\smallskip \textbf{Leah:} ``The lower-tail test gives $t=-1.5747$, $df=23$, and $p\approx0.0645$. I would state what evidence this does and does not provide.''\par \textbf{Damon:} ``Because $p>0.05$, accept $H_0$. The test proves the population mean was exactly 12 hours and the observed difference was only chance.''\par
+\begin{center}
+\textbf{Ticket sample}\par\smallskip
+\begin{tabular}{|l|c|}
+\hline
+\textbf{Summary} & \textbf{Value} \\ \hline
+\textbf{Population} & 1200 \\ \hline
+\textbf{$n$} & 24 \\ \hline
+\textbf{Mean (h)} & 11.1 \\ \hline
+\textbf{SD (h)} & 2.8 \\ \hline
+\textbf{Shape} & Symmetric; no outliers \\ \hline
+\end{tabular}
+\end{center}
+\begin{firsttakebox}{FIRST TAKE --- one sentence before you work the parts}
+Does this small study seem able to prove that the average was exactly 12 hours? Explain in one sentence.
+\workspace{0.9in}
+\end{firsttakebox}
+
+\begin{callout}{\IconBook\ COMPARE EVIDENCE TO THE PRESET THRESHOLD (keep on the page)}{calloutgreen}
+For a one-sample mean test with unknown population standard deviation,
+$t=(\bar x-\mu_0)/(s/\sqrt n)$ has $df=n-1$. The $p$-value is the probability, assuming $H_0$ is true,
+of a test statistic at least as extreme as the observed statistic in the direction of $H_a$.
+If $p\leq\alpha$, reject $H_0$; if $p>\alpha$, fail to reject $H_0$. Failing to reject says the sample
+does not provide convincing evidence for $H_a$ at that significance level. It does not prove the null value,
+and the conclusion must concern the population represented by the random sample.
+\end{callout}
+
+\newpage
+\textbf{Work (a)--(c).}\par\smallskip
+
+\dokbadge{1}~\textbf{(a)} State $H_0$ and $H_a$ for the population mean resolution time.\par
+\workspace{0.7in}
+
+\dokbadge{2}~\textbf{(b)} Using $\bar x=11.1$, $s=2.8$, and $n=24$, calculate $t$. Use the supplied $p=0.0645$; you do not need to find it again.\par
+\workspace{1.5in}
+
+\dokbadge{3}~\textbf{(c)} In 3--4 sentences, decide whose account is justified. Compare the p-value with 0.05, state the conclusion for all 1,200 tickets, and explain why failure to reject does not prove equality or that chance was the only explanation.\par
+\workspace{2.0in}
+
+\begin{sentenceframebox}\raggedright\textbf{Frame:} The numerical comparison is $p$ \blank[0.6in] $\alpha$, so the formal decision is \blank[1.5in] and the population conclusion is \blank[2.1in].\end{sentenceframebox}
+
+\begin{sentenceframebox}\raggedright\textbf{Frame:} That decision \blank[0.8in] establish \blank[1.8in] because the p-value is calculated assuming \blank[1.8in].\end{sentenceframebox}
+
+\textbf{Turn this sheet in whenever you finish --- bonus credit. Part (c) is scored E / P / I.}\par
+
+\end{document}

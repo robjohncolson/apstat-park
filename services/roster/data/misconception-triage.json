@@ -1,0 +1,227 @@
+{
+  "schema": "apstats-misconception-triage/v1",
+  "entries": {
+    "label:connects the number to the real question of whether flint s water was safe to drink or whether the threshold was exceeded": {
+      "label": "connects the number to the real question of whether flint s water was safe to drink or whether the threshold was exceeded",
+      "sheet": "1.1+1.2+1.4+1.7",
+      "sheetTitle": "Screen Time, Two Deletions",
+      "triagedAt": "2026-09-12",
+      "students": 0,
+      "sections": [
+        "PeriodB",
+        "PeriodE"
+      ]
+    },
+    "variable-vs-individual": {
+      "label": "Confuses the individuals with the variables",
+      "sheet": "1.1+1.2+1.4+1.7",
+      "sheetTitle": "Screen Time, Two Deletions",
+      "triagedAt": "2026-09-12",
+      "students": 0,
+      "sections": [
+        "PeriodB",
+        "PeriodE"
+      ]
+    },
+    "counts-vs-percents": {
+      "label": "Compares unequal groups using counts instead of percentages",
+      "sheet": "1.1+1.2+1.4+1.7",
+      "sheetTitle": "Screen Time, Two Deletions",
+      "triagedAt": "2026-09-12",
+      "students": 0,
+      "sections": [
+        "PeriodB",
+        "PeriodE"
+      ]
+    },
+    "mean-resistant": {
+      "label": "Treats the mean as resistant to outliers",
+      "sheet": "1.1+1.2+1.4+1.7",
+      "sheetTitle": "Screen Time, Two Deletions",
+      "triagedAt": "2026-09-12",
+      "students": 0,
+      "sections": [
+        "PeriodB",
+        "PeriodE"
+      ]
+    },
+    "label:states that unusual features are one of the important characteristics in a full distribution description": {
+      "label": "states that unusual features are one of the important characteristics in a full distribution description",
+      "sheet": "1.1+1.2+1.4+1.7",
+      "sheetTitle": "Screen Time, Two Deletions",
+      "triagedAt": "2026-09-12",
+      "students": 0,
+      "sections": [
+        "PeriodB",
+        "PeriodE"
+      ]
+    },
+    "label:identifies the context as lead level in water samples or mentions units such as parts per billion or percent of samples": {
+      "label": "Identifies the context as lead level in water samples or mentions units such as parts per billion or percent of samples",
+      "sheet": "1.1+1.2",
+      "sheetTitle": "Tile Thickness: Which Records Belong?",
+      "triagedAt": "2026-09-20",
+      "students": 9,
+      "sections": [
+        "PeriodB",
+        "PeriodE"
+      ]
+    },
+    "label:explains that grade level really stands for labels such as freshman sophomore junior or senior": {
+      "label": "Explains that grade level really stands for labels such as freshman, sophomore, junior, or senior",
+      "sheet": "1.1+1.2",
+      "sheetTitle": "Tile Thickness: Which Records Belong?",
+      "triagedAt": "2026-09-20",
+      "students": 7,
+      "sections": [
+        "PeriodB",
+        "PeriodE"
+      ]
+    },
+    "label:explains that the percent above 15 ppb changed from 11 3 8 of 71 to 8 7 6 of 69": {
+      "label": "Explains that the percent above 15 ppb changed from 11.3% (8 of 71) to 8.7% (6 of 69)",
+      "sheet": "1.1+1.2",
+      "sheetTitle": "Tile Thickness: Which Records Belong?",
+      "triagedAt": "2026-09-20",
+      "students": 7,
+      "sections": [
+        "PeriodB",
+        "PeriodE"
+      ]
+    },
+    "label:explains that zip code represents a location or category of place": {
+      "label": "Explains that zip code represents a location or category of place",
+      "sheet": "1.1+1.2",
+      "sheetTitle": "Tile Thickness: Which Records Belong?",
+      "triagedAt": "2026-09-20",
+      "students": 6,
+      "sections": [
+        "PeriodB",
+        "PeriodE"
+      ]
+    },
+    "label:explains that the data vary because different students got different amounts of sleep": {
+      "label": "Explains that the data vary because different students got different amounts of sleep",
+      "sheet": "1.1+1.2",
+      "sheetTitle": "Tile Thickness: Which Records Belong?",
+      "triagedAt": "2026-09-20",
+      "students": 5,
+      "sections": [
+        "PeriodB",
+        "PeriodE"
+      ]
+    },
+    "label:explains that a histogram groups data into intervals or bins": {
+      "label": "Explains that a histogram groups data into intervals or bins",
+      "sheet": "1.4+1.5+1.6+1.8",
+      "sheetTitle": "Candle Tests: Choosing the Evidence",
+      "triagedAt": "2026-09-25",
+      "students": 4,
+      "sections": [
+        "PeriodB",
+        "PeriodE"
+      ]
+    },
+    "label:uses the superpower context or a correct category example such as telepathy fly or freeze time": {
+      "label": "Uses the superpower context or a correct category example such as telepathy, fly, or freeze time",
+      "sheet": "1.4+1.5+1.6+1.8",
+      "sheetTitle": "Candle Tests: Choosing the Evidence",
+      "triagedAt": "2026-09-25",
+      "students": 3,
+      "sections": [
+        "PeriodE"
+      ]
+    },
+    "label:explains that a dotplot or stem and leaf plot shows each individual value": {
+      "label": "Explains that a dotplot or stem-and-leaf plot shows each individual value",
+      "sheet": "1.4+1.5+1.6+1.8",
+      "sheetTitle": "Candle Tests: Choosing the Evidence",
+      "triagedAt": "2026-09-25",
+      "students": 2,
+      "sections": [
+        "PeriodB"
+      ]
+    },
+    "label:states that both graphs display the same superpower categories or same distribution": {
+      "label": "States that both graphs display the same superpower categories or same distribution",
+      "sheet": "1.4+1.5+1.6+1.8",
+      "sheetTitle": "Candle Tests: Choosing the Evidence",
+      "triagedAt": "2026-09-25",
+      "students": 2,
+      "sections": [
+        "PeriodE"
+      ]
+    },
+    "label:uses context by referring to flint lead levels or flint water samples": {
+      "label": "Uses context by referring to Flint lead levels or Flint water samples",
+      "sheet": "1.4+1.5+1.6+1.8",
+      "sheetTitle": "Candle Tests: Choosing the Evidence",
+      "triagedAt": "2026-09-25",
+      "students": 2,
+      "sections": [
+        "PeriodB"
+      ]
+    }
+  },
+  "weeklyRuns": [
+    {
+      "at": "2026-09-20T21:00:00.000Z",
+      "keys": [
+        "label:connects the number to the real question of whether flint s water was safe to drink or whether the threshold was exceeded",
+        "label:describes how statistics can help by collecting data analyzing the data and interpreting the results to answer the principal s question",
+        "label:describes the variable as the number of hours of sleep the night before the exam",
+        "label:distinguishes that mean and median describe center while iqr describes variability",
+        "label:explains that a dotplot or stem and leaf plot shows each individual value",
+        "label:explains that a frequency table records the number of cases in each category",
+        "label:explains that a histogram groups data into intervals or bins",
+        "label:explains that a histogram would group the data into intervals and hide the exact values for this small set",
+        "label:explains that a variable is a characteristic recorded for each individual that can change from one property to another",
+        "label:explains that grade level really stands for labels such as freshman sophomore junior or senior",
+        "label:explains that percentile is the percent of values less than or equal to a given value",
+        "label:explains that the data vary because different students got different amounts of sleep",
+        "label:explains that the percent above 15 ppb changed from 11 3 8 of 71 to 8 7 6 of 69",
+        "label:explains that zip code represents a location or category of place",
+        "label:gives at least one example of a variable from the charleston data set such as price year built pool or zip code",
+        "label:identifies the context as lead level in water samples or mentions units such as parts per billion or percent of samples",
+        "label:states that a positive z score means above the mean and a negative z score means below the mean",
+        "label:states that both graphs display the same superpower categories or same distribution",
+        "label:states that the conclusion changed from not safe to safe when the two samples were removed",
+        "label:uses the superpower context or a correct category example such as telepathy fly or freeze time",
+        "label:uses the superpower survey context or a correct category example such as fly telepathy or invisibility",
+        "mean-resistant"
+      ]
+    },
+    {
+      "at": "2026-09-25T21:00:00.000Z",
+      "keys": [
+        "categorical-quantitative",
+        "counts-vs-percents",
+        "discrete-vs-continuous",
+        "iqr-vs-range",
+        "label:chose a on u1 l7 q04",
+        "label:chose b on u1 l7 q06",
+        "label:chose c on u1 l4 q05",
+        "label:chose d on u1 l8 q02",
+        "label:connects the number to the real question of whether flint s water was safe to drink or whether the threshold was exceeded",
+        "label:distinguishes that mean and median describe center while iqr describes variability",
+        "label:explains that a dotplot or stem and leaf plot shows each individual value",
+        "label:explains that a histogram groups data into intervals or bins",
+        "label:explains that percentile is the percent of values less than or equal to a given value",
+        "label:gives at least one example of a variable from the charleston data set such as price year built pool or zip code",
+        "label:includes at least one correct numerical value from the lesson such as mean 7 31 median 3 iqr 5 q1 2 or q3 7",
+        "label:states that a positive z score means above the mean and a negative z score means below the mean",
+        "label:states that both graphs display the same superpower categories or same distribution",
+        "label:states that the conclusion changed from not safe to safe when the two samples were removed",
+        "label:states that the flint distribution is skewed right or has large high outliers",
+        "label:states that unusual features are one of the important characteristics in a full distribution description",
+        "label:supports the reason for corporation a with a box plot feature such as the high outliers or the fact that at least 3 of 30 salaries at a are above the maximum at b",
+        "label:supports the reason for corporation b with a box plot feature such as the higher minimum or the absence of salaries still at the starting value",
+        "label:uses context by referring to flint lead levels or flint water samples",
+        "label:uses the superpower context or a correct category example such as telepathy fly or freeze time",
+        "label:uses the superpower survey context or a correct category example such as fly telepathy or invisibility",
+        "mean-resistant",
+        "zscore-percent"
+      ]
+    }
+  ]
+}

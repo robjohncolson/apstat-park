@@ -1,0 +1,107 @@
+\documentclass[11pt]{article}
+\usepackage{preamble}
+\setlength{\parskip}{4pt}
+
+\begin{document}
+
+\daybanner{AP Statistics \textperiodcentered\ Unit 4 \textperiodcentered\ Topic 4.2 \textperiodcentered\ TEACHER KEY}{Two Interfaces, Twelve Specialists}
+
+\sectionbanner{CED TETHER}
+
+{\small
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item \textbf{UNC-4.O / EK O.1, O.3 [Skill 1.D]} Use a one-sample $t$ interval for a mean with unknown population SD. Matched-pair differences form one sample.
+  \item \textbf{UNC-4.P / EK P.1 [Skill 4.C]} Check random sampling or assignment, the 10 percent condition, and shape on the differences.
+  \item \textbf{UNC-4.Q / EK Q.1--Q.3 [Skill 3.D]} With $df=n-1$, $SE=s_d/\sqrt n$ and margin of error is $t^*SE$.
+  \item \textbf{UNC-4.R / EK R.1--R.2 [Skill 3.D]} Use $\bar d$ as the estimate and calculate $\bar d\pm t^*SE$ for the population mean difference.
+\end{itemize}
+}
+\textbf{Essential question:} How do linked measurements choose an interval and bound a causal claim?\par
+\textbf{DOK-3 skill:} 4.C \textperiodcentered\ \textbf{FRQ pattern:} {\small\texttt{paired-\allowbreak{}vs-\allowbreak{}independent-\allowbreak{}interval-\allowbreak{}and-\allowbreak{}scope}}\par
+\textbf{DOK rationale:} Part (c) selects a procedure from the pairing, uses interval and SRS scope, diagnoses fixed-order confounding, and traces the independence and causal consequences.\par
+
+\textbf{Self-paced bonus sheet.} Students take it when they choose and turn it in when they finish. Everything they need is printed on the sheet. Score part (c) only, E / P / I, by hand --- never AI-graded or auto-scored. (a) and (b) are the ladder up; use them to see where a thin (c) came from.\par
+
+\textbf{Questions to ask}
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item Which specific number or study detail supports your choice?
+  \item What claim would go beyond the evidence, and why?
+\end{itemize}
+
+\begin{callout}{\IconWarn\ LOOK FOR}{calloutred}
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item Choosing a speaker without a reason.
+  \item Copying numbers without explaining what they support.
+\end{itemize}
+\end{callout}
+
+\sectionbanner{SCORING PART (c) --- E / P / I}
+
+\textbf{Expected elements}
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=2pt]
+  \item \textbf{preserves-pairs} (required) --- Chooses Priya and explains the within-person link
+  \item \textbf{interprets-interval} (required) --- Interprets the positive interval for the 180 specialists under this sequence
+  \item \textbf{bounds-cause} (required) --- Explains a practice/time alternative from fixed order and no comparison group
+\end{itemize}
+
+{\small\renewcommand{\arraystretch}{1.25}
+\noindent\begin{tabular}{|p{0.5in}|p{5.9in}|}
+\hline
+\textbf{E} & Justifies paired analysis, interprets the mean interval in context, and explains the practice/time limit on causation. \\ \hline
+\textbf{P} & Shows substantive valid reasoning for at least one required element, but does not meet all E requirements. Credit correct reasoning even when another claim is wrong. \\ \hline
+\textbf{I} & Shows no substantive valid reasoning for any required element; a name, unsupported choice, or copied number alone does not count. \\ \hline
+\end{tabular}}
+
+\clearpage
+\focusbanner{THE PROBLEM --- annotated}
+
+Suppose a hospital randomly samples 12 of its 180 billing specialists. Each does the same task on the current computer screen and, one week later, on a redesigned screen. Everyone uses the current screen first; there is no comparison group. Let $d=\text{current}-\text{redesigned}$ time in seconds. The plot shows the differences; $\bar d=2.000$, $s_d=1.6514$, and the 95\% critical value is $t^*=2.201$.\par\smallskip \textbf{Priya:} ``Use one sample of paired differences. Doing the tasks in a fixed order limits a cause-and-effect claim.''\par \textbf{Mateo:} ``Two columns require two independent samples. A positive interval proves the redesign caused faster work.''\par
+\begin{center}
+\begin{tikzpicture}
+\begin{axis}[
+  width=0.68\linewidth,
+  height=1.28in,
+  ymin=0, ymax=5, ytick=\empty, axis y line=none, axis x line=bottom,
+  xlabel={Current time minus redesigned time (seconds)}, tick label style={font=\small}, label style={font=\small}
+]
+\addplot[only marks, mark=*, mark size=1.9pt, color=dayblue] coordinates {
+  (-1,1)
+  (0,1)
+  (1,1)
+  (1,2)
+  (2,1)
+  (2,2)
+  (2,3)
+  (2,4)
+  (3,1)
+  (3,2)
+  (4,1)
+  (5,1)
+};
+\end{axis}
+\end{tikzpicture}
+\end{center}
+\begin{firsttakebox}{FIRST TAKE --- one sentence before you work the parts}
+Which seems more useful here: each person's change in time or two separate groups of times? Explain in one sentence.\par
+\answer{Ungraded commitment; accept any evidence-based first impression.}
+\end{firsttakebox}
+
+\begin{callout}{\IconBook\ ONE-SAMPLE MEAN INTERVALS (keep on the page)}{calloutgreen}
+For paired measurements, define every difference in the same order and treat the $n$ pairs as
+one sample: $\bar d\pm t^*(s_d/\sqrt n)$ with $df=n-1$. Check conditions on the differences:
+random sampling or random assignment, $n\leq0.10N$ when sampling without replacement, and,
+for $n<30$, no strong skew or outliers. Two readings from each person are not two independent
+samples. Random sampling supports generalization to the sampled population; random assignment
+or an adequate randomized comparison is needed to isolate causation from practice or time effects.
+\end{callout}
+
+\dokbadge{1}~\textbf{(a)} How many paired differences are there, and what does a positive difference mean?\par
+\answer{There are 12 paired differences. A positive current-minus-redesigned difference means the later task took less time.}
+
+\dokbadge{2}~\textbf{(b)} Use the supplied summaries to calculate the 95\% interval $\bar d\pm t^*(s_d/\sqrt n)$. Show one calculation.\par
+\answer{$2.000\pm2.201(1.6514/\sqrt{12})=2.000\pm1.0493=(0.9507,3.0493)$ seconds (small rounding differences accepted).}
+
+\dokbadge{3}~\textbf{(c)} In 3--4 sentences, choose an analysis and justify it from the linked measurements. Interpret the interval for the 180 specialists, then explain why practice or the fixed order limits a causal claim.\par
+\answer{Priya is better supported because each specialist supplies two linked measurements, so the 12 differences form one sample. Treating the columns as independent loses that link and changes the standard error. We are 95\% confident the mean current-minus-redesigned time for the 180 specialists under this sequence is about 0.95 to 3.05 seconds. Because the current screen always came first and there was no comparison group, practice or time could explain the improvement; the redesign alone is not shown to cause it.}
+
+\end{document}

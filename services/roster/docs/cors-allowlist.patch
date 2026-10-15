@@ -1,0 +1,60 @@
+# cors-allowlist.patch — harden roster-server CORS from wildcard-open to an
+# explicit origin allowlist (Desk Roster Alignment spec, teacher decision #5).
+#
+# PREPARED, NOT DEPLOYED. app.use(cors()) is intentionally wildcard-open today;
+# apply this only when convenient. Pushing to master deploys to Railway.
+#
+# HOW TO APPLY (from the repo root, /home/mrcolson/repos/apstats-live-worksheet):
+#
+#   git apply --check roster-server/docs/cors-allowlist.patch   (dry run, no changes)
+#   git apply         roster-server/docs/cors-allowlist.patch
+#   cd roster-server && npm test                                 (suite must stay green)
+#   git add roster-server/server.js && git commit && git push    (push = Railway deploy)
+#
+# WHAT TO TEST AFTER DEPLOY (each is a different dependent origin — see the
+# "Dependent origins (CORS)" section in CLAUDE.md):
+#
+#   1. The Desk loads and signs in (https://robjohncolson.github.io/apstat-park/
+#      ap_stats_roadmap_square_mode.html) — roster verify, Do Now card, gradebook.
+#   2. The Equation Trainer signs in STANDALONE at https://tmux-trainer.vercel.app
+#      (MORE tab → sign in) and its cloud save round-trips (/trainer/state).
+#   3. The quiz app works (https://robjohncolson.github.io/apstat-park/quiz/ —
+#      same github.io origin as the Desk, listed once).
+#   4. The Desk signs in from the Vercel mirror at
+#      https://apstats-live-worksheet.vercel.app (fallback rail for GH Pages
+#      outages).
+#
+# If any of those break with a CORS console error, the failing origin is
+# missing from the list below — add it and redeploy; git revert also works.
+#
+# NOTE (2026-08-07): the course site now ALSO deploys to a Vercel mirror at
+#   https://apstats-live-worksheet.vercel.app   (fallback rail for GH Pages
+# outages; `npx vercel deploy --prod --yes` from the repo root). That origin
+# is included in the allowlist below.
+#
+--- a/roster-server/server.js
++++ b/roster-server/server.js
+@@ -112,7 +112,22 @@ export function createApp(db, ledgerDb, loadManifest, loadAnswerKey, loadSkillMa
+   };
+
+   const app = express();
+-  app.use(cors());
++  // Explicit CORS allowlist -- every dependent origin MUST be listed here.
++  // See "Dependent origins (CORS)" in CLAUDE.md before changing this list.
++  app.use(cors({
++    origin: [
++      'https://robjohncolson.github.io',  // GH Pages: Desk, worksheets, study guide, quiz app
++      'https://tmux-trainer.vercel.app',  // Equation Trainer (external Vercel app)
++      'https://apstats-live-worksheet.vercel.app',  // Vercel mirror of the Desk/worksheets (GH Pages fallback rail)
++      // Local dev origins:
++      'http://localhost:3000',
++      'http://localhost:5173',
++      'http://localhost:8080',
++      'http://127.0.0.1:3000',
++      'http://127.0.0.1:5173',
++      'http://127.0.0.1:8080',
++    ],
++  }));
+   // 8mb (vs Express's 100kb default): the trainer-state kanji payload (~90–120 KB) must fit
+   // through PUT /trainer/state, and the grade-ledger snapshot a teacher posts to
+   // /admin/verify or /admin/restore grows to a few MB across a full class-year.

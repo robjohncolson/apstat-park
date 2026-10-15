@@ -1,0 +1,56 @@
+\documentclass[11pt]{article}
+\usepackage{preamble}
+\renewcommand{\answer}[1]{}
+
+\begin{document}
+
+\ladderheading{AP Statistics \textperiodcentered\ Unit 4 \textperiodcentered\ Topic 4.3}{One Interval, Two Cutoffs}
+
+\focusbanner{THE PROBLEM}
+
+Suppose a library wants the mean setup time for all 800 kiosk transactions in a month below 45 seconds and hopes to advertise a mean below 42 seconds. An SRS of 25 has the shown summary. A 95\% one-sample $t$-interval is $(39.923,44.877)$ seconds.\par\smallskip \textbf{Mina:} ``I would compare each cutoff with the full interval and keep the conclusion about the population mean.''\par \textbf{Gabe:} ``Because the interval contains times below both cutoffs, I think it supports both claims; I also read 95\% as the share of transaction times inside it.''\par
+\begin{center}
+\textbf{Kiosk sample}\par\smallskip
+\begin{tabular}{|l|c|}
+\hline
+\textbf{Summary} & \textbf{Value} \\ \hline
+\textbf{Population} & 800 \\ \hline
+\textbf{$n$} & 25 \\ \hline
+\textbf{Mean (s)} & 42.4 \\ \hline
+\textbf{SD (s)} & 6.0 \\ \hline
+\textbf{Shape} & Symmetric; no outliers \\ \hline
+\end{tabular}
+\end{center}
+\begin{firsttakebox}{FIRST TAKE --- one sentence before you work the parts}
+Does the range 39.923 to 44.877 make both time claims believable? Give one reason.
+\workspace{0.9in}
+\end{firsttakebox}
+
+\begin{callout}{\IconBook\ LET THE ENTIRE INTERVAL GOVERN THE CLAIM (keep on the page)}{calloutgreen}
+A $C\%$ confidence interval estimates a population mean, not the spread of individual observations.
+We are $C\%$ confident that the interval captures the population mean represented by the random sample;
+the fixed interval either contains that mean or it does not. A value inside the interval remains plausible.
+To support $\mu<c$, the entire interval must lie below $c$; an endpoint merely falling below $c$ is not enough.
+With other features held fixed, a larger sample tends to narrow a mean interval, while a higher confidence
+level widens it.
+\end{callout}
+
+\newpage
+\textbf{Work (a)--(c).}\par\smallskip
+
+\dokbadge{1}~\textbf{(a)} Locate 42 and 45 relative to the interval.\par
+\workspace{0.7in}
+
+\dokbadge{2}~\textbf{(b)} Interpret the supplied 95\% interval in one sentence about the mean setup time for all 800 transactions.\par
+\workspace{1.4in}
+
+\dokbadge{3}~\textbf{(c)} In 3--4 sentences, decide whose approach is justified. Use the interval to judge each cutoff, then explain what Gabe gets wrong about individual transaction times.\par
+\workspace{2.0in}
+
+\begin{sentenceframebox}\raggedright\textbf{Frame:} Relative to the interval, 42 is \blank[1.0in] and 45 is \blank[1.0in]; together, those locations support \blank[2.5in].\end{sentenceframebox}
+
+\begin{sentenceframebox}\raggedright\textbf{Frame:} The interval estimates \blank[2.0in] rather than \blank[1.9in], so the advertisement should \blank[2.0in].\end{sentenceframebox}
+
+\textbf{Turn this sheet in whenever you finish --- bonus credit. Part (c) is scored E / P / I.}\par
+
+\end{document}

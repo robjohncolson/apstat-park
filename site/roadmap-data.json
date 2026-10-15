@@ -1,0 +1,2630 @@
+{
+  "generatedAt": "2026-06-01T20:06:27.691Z",
+  "registryVersion": "fea687eb92ec",
+  "lessons": {
+    "8.1": {
+      "topic": "Topic 8.1",
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u8_lesson1_live.html",
+        "drills": "https://lrsl-driller.vercel.app/platform/app.html?c=apstats-u8-unexpected-results&level=l01-topic-8-1-observed-vs-expected",
+        "quiz": null,
+        "blooket": "https://dashboard.blooket.com/set/69b6cdd37e3edc6f469fe78d",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": "2026-04-06",
+          "schoologyFolder": "https://lynnschools.schoology.com/course/7945275782/materials?f=987745452",
+          "posted": true,
+          "verified": false
+        },
+        "E": {
+          "date": "2026-04-10",
+          "schoologyFolder": "https://lynnschools.schoology.com/course/7945275798/materials?f=987801140",
+          "posted": true,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 3,
+        "newTopic": "3.14",
+        "newLabel": "Setting Up a Chi-Square Test (homogeneity/independence)",
+        "bonusUnit": null,
+        "migrationNote": "intro folded"
+      }
+    },
+    "8.2": {
+      "topic": "Topic 8.2",
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u8_lesson2_live.html",
+        "drills": "https://lrsl-driller.vercel.app/platform/app.html?c=apstats-u8-unexpected-results&level=l06-chi-square-gof-procedure",
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=8&l=2",
+        "blooket": "https://dashboard.blooket.com/set/69b783b70641400d44478430",
+        "videos": []
+      },
+      "status": "ready",
+      "periods": {
+        "B": {
+          "date": "2026-04-07",
+          "schoologyFolder": "https://lynnschools.schoology.com/course/7945275782/materials?f=987876008",
+          "posted": true,
+          "verified": false
+        },
+        "E": {
+          "date": "2026-04-13",
+          "schoologyFolder": "https://lynnschools.schoology.com/course/7945275798/materials?f=987904192",
+          "posted": true,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "bonus",
+        "newUnit": null,
+        "newTopic": null,
+        "newLabel": "Beyond the Exam: Chi-square goodness-of-fit",
+        "bonusUnit": 3
+      }
+    },
+    "8.3": {
+      "topic": "Topic 8.3",
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u8_lesson3_live.html",
+        "drills": "https://lrsl-driller.vercel.app/platform/app.html?c=apstats-u8-unexpected-results&level=l10-expected-from-proportions",
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=8&l=3",
+        "blooket": "https://dashboard.blooket.com/set/69b81f452209798f94f22801",
+        "videos": []
+      },
+      "status": "ready",
+      "periods": {
+        "B": {
+          "date": "2026-04-09",
+          "schoologyFolder": "https://lynnschools.schoology.com/course/7945275782/materials?f=988059802",
+          "posted": true,
+          "verified": false
+        },
+        "E": {
+          "date": "2026-04-15",
+          "schoologyFolder": "https://lynnschools.schoology.com/course/7945275798/materials?f=988061148",
+          "posted": true,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "bonus",
+        "newUnit": null,
+        "newTopic": null,
+        "newLabel": "Beyond the Exam: Chi-square goodness-of-fit",
+        "bonusUnit": 3
+      }
+    },
+    "8.4": {
+      "topic": "Topic 8.4",
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u8_lesson4_live.html",
+        "drills": "https://lrsl-driller.vercel.app/platform/app.html?c=apstats-u8-unexpected-results&level=l15-two-way-table-totals",
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=8&l=4",
+        "blooket": "https://dashboard.blooket.com/set/69c098310774a12931de3d19",
+        "videos": []
+      },
+      "status": "ready",
+      "periods": {
+        "B": {
+          "date": "2026-04-10",
+          "schoologyFolder": "https://lynnschools.schoology.com/course/7945275782/materials?f=989165947",
+          "posted": true,
+          "verified": false
+        },
+        "E": {
+          "date": "2026-04-15",
+          "schoologyFolder": "https://lynnschools.schoology.com/course/7945275798/materials?f=988061148",
+          "posted": true,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 3,
+        "newTopic": "3.14",
+        "newLabel": "Setting Up a Chi-Square Test (homogeneity/independence)",
+        "bonusUnit": null,
+        "migrationNote": "expected counts (also feeds 3.15)"
+      }
+    },
+    "8.5": {
+      "topic": "Topic 8.5",
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u8_lesson5_live.html",
+        "drills": "https://lrsl-driller.vercel.app/platform/app.html?c=apstats-u8-unexpected-results&level=l19-identify-test-type",
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=8&l=5",
+        "blooket": "https://dashboard.blooket.com/set/69c0a4560774a12931de3f76",
+        "videos": []
+      },
+      "status": "ready",
+      "periods": {
+        "B": {
+          "date": "2026-04-13",
+          "schoologyFolder": "https://lynnschools.schoology.com/course/7945275782/materials?f=989177841",
+          "posted": true,
+          "verified": false
+        },
+        "E": {
+          "date": "2026-04-17",
+          "schoologyFolder": "https://lynnschools.schoology.com/course/7945275798/materials?f=989178189",
+          "posted": true,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 3,
+        "newTopic": "3.14",
+        "newLabel": "Setting Up a Chi-Square Test (homogeneity/independence)",
+        "bonusUnit": null
+      }
+    },
+    "8.6": {
+      "topic": "Topic 8.6",
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u8_lesson6_live.html",
+        "drills": "https://lrsl-driller.vercel.app/platform/app.html?c=apstats-u8-unexpected-results&level=l23-chi-square-twoway",
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=8&l=6",
+        "blooket": "https://dashboard.blooket.com/set/69c35c8f0774a12931df155c",
+        "videos": []
+      },
+      "status": "ready",
+      "periods": {
+        "B": {
+          "date": "2026-04-14",
+          "schoologyFolder": "https://lynnschools.schoology.com/course/7945275782/materials?f=989911631",
+          "posted": true,
+          "verified": false
+        },
+        "E": {
+          "date": "2026-04-27",
+          "schoologyFolder": "https://lynnschools.schoology.com/course/7945275798/materials?f=989911716",
+          "posted": true,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 3,
+        "newTopic": "3.15",
+        "newLabel": "Carrying Out a Chi-Square Test (homogeneity/independence)",
+        "bonusUnit": null,
+        "migrationNote": "also sources from old 8.4 (expected-count formula EK, not 3.14) -- cross-attribution confirmed 2026-08-07 (crosswalk Part C)"
+      }
+    },
+    "9.1": {
+      "topic": "Topic 9.1",
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u9_lesson1_live.html",
+        "drills": "https://lrsl-driller.vercel.app/platform/app.html?c=apstats-u9-regression-slopes&level=l01-population-vs-sample",
+        "quiz": null,
+        "blooket": "https://dashboard.blooket.com/set/69c3da020e37da3c048cccf4",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": "2026-04-16",
+          "schoologyFolder": "https://lynnschools.schoology.com/course/7945275782/materials?f=989947170",
+          "posted": true,
+          "verified": false
+        },
+        "E": {
+          "date": "2026-04-29",
+          "schoologyFolder": "https://lynnschools.schoology.com/course/7945275798/materials?f=989948070",
+          "posted": true,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "bonus",
+        "newUnit": null,
+        "newTopic": null,
+        "newLabel": "Beyond the Exam: Slope inference",
+        "bonusUnit": 5
+      }
+    },
+    "9.2": {
+      "topic": "Topic 9.2",
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u9_lesson2_live.html",
+        "drills": "https://lrsl-driller.vercel.app/platform/app.html?c=apstats-u9-regression-slopes&level=l05-conditions-for-inference",
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=9&l=2",
+        "blooket": "https://dashboard.blooket.com/set/69c3e33a0e37da3c048cd1ab",
+        "videos": []
+      },
+      "status": "ready",
+      "periods": {
+        "B": {
+          "date": "2026-04-17",
+          "schoologyFolder": "https://lynnschools.schoology.com/course/7945275782/materials?f=989969199",
+          "posted": true,
+          "verified": false
+        },
+        "E": {
+          "date": "2026-04-29",
+          "schoologyFolder": "https://lynnschools.schoology.com/course/7945275798/materials?f=989948070",
+          "posted": true,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "bonus",
+        "newUnit": null,
+        "newTopic": null,
+        "newLabel": "Beyond the Exam: Slope inference",
+        "bonusUnit": 5
+      }
+    },
+    "9.3": {
+      "topic": "Topic 9.3",
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u9_lesson3_live.html",
+        "drills": "https://lrsl-driller.vercel.app/platform/app.html?c=apstats-u9-justify-slope-claims-ci&level=l93-interpret-slope-ci",
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=9&l=3",
+        "blooket": "https://dashboard.blooket.com/set/69c3f1c846f993a1257e896d",
+        "videos": []
+      },
+      "status": "ready",
+      "periods": {
+        "B": {
+          "date": "2026-04-27",
+          "schoologyFolder": "https://lynnschools.schoology.com/course/7945275782/materials?f=989987878",
+          "posted": true,
+          "verified": false
+        },
+        "E": {
+          "date": "2026-05-01",
+          "schoologyFolder": "https://lynnschools.schoology.com/course/7945275798/materials?f=989988622",
+          "posted": true,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "bonus",
+        "newUnit": null,
+        "newTopic": null,
+        "newLabel": "Beyond the Exam: Slope inference",
+        "bonusUnit": 5
+      }
+    },
+    "9.4": {
+      "topic": "Topic 9.4",
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u9_lesson4_live.html",
+        "drills": "https://lrsl-driller.vercel.app/platform/app.html?c=apstats-u9-setting-up-slope-tests&level=l94-state-null-hypothesis",
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=9&l=4",
+        "blooket": "https://dashboard.blooket.com/set/69c550b73930eb3d0972b753",
+        "videos": []
+      },
+      "status": "ready",
+      "periods": {
+        "B": {
+          "date": "2026-04-28",
+          "schoologyFolder": "https://lynnschools.schoology.com/course/7945275782/materials?f=990208247",
+          "posted": true,
+          "verified": false
+        },
+        "E": {
+          "date": "2026-05-04",
+          "schoologyFolder": "https://lynnschools.schoology.com/course/7945275798/materials?f=990208861",
+          "posted": true,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "bonus",
+        "newUnit": null,
+        "newTopic": null,
+        "newLabel": "Beyond the Exam: Slope inference",
+        "bonusUnit": 5
+      }
+    },
+    "9.5": {
+      "topic": "Topic 9.5",
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u9_lesson5_live.html",
+        "drills": "https://lrsl-driller.vercel.app/platform/app.html?c=apstats-u9-carrying-out-slope-tests&level=l95-calculate-test-statistic",
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=9&l=5",
+        "blooket": "https://dashboard.blooket.com/set/69c550daa37834f1b9c642d8",
+        "videos": []
+      },
+      "status": "ready",
+      "periods": {
+        "B": {
+          "date": "2026-04-30",
+          "schoologyFolder": "https://lynnschools.schoology.com/course/7945275782/materials?f=990209566",
+          "posted": true,
+          "verified": false
+        },
+        "E": {
+          "date": "2026-05-06",
+          "schoologyFolder": "https://lynnschools.schoology.com/course/7945275798/materials?f=990210153",
+          "posted": true,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "bonus",
+        "newUnit": null,
+        "newTopic": null,
+        "newLabel": "Beyond the Exam: Slope inference",
+        "bonusUnit": 5
+      }
+    },
+    "3.6": {
+      "topic": null,
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u3_lesson6-7_live.html",
+        "drills": null,
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=3&l=6",
+        "blooket": "https://dashboard.blooket.com/set/69612c55f522b6ed3e3233c7",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 1,
+        "newTopic": "1.13",
+        "newLabel": "Experimental Design",
+        "bonusUnit": null
+      }
+    },
+    "3.7": {
+      "topic": null,
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u3_lesson6-7_live.html",
+        "drills": null,
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=3&l=7",
+        "blooket": "https://dashboard.blooket.com/set/69612c55f522b6ed3e3233c7",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "bonus",
+        "newUnit": null,
+        "newTopic": null,
+        "newLabel": "Beyond the Exam: Simulation-Based Significance (is the treatment difference real or due to chance?)",
+        "bonusUnit": 1,
+        "migrationNote": "Inference&Experiments: pull sim-significance segment -- RETAG 2026-08-07: demoted from core/1.13 to bonus. Crosswalk Part C: this segment is NOT in new 1.13's EK -- College Board moved it to later formal inference. The design content (old 3.5+3.6) fully covers 1.13 without it."
+      }
+    },
+    "4.1": {
+      "topic": null,
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u4_lesson1-2_live.html",
+        "drills": null,
+        "quiz": null,
+        "blooket": "https://dashboard.blooket.com/set/696edcfa2761a89ccdaf2fdc",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 2,
+        "newTopic": "2.3",
+        "newLabel": "Estimating Probabilities Using Simulation",
+        "bonusUnit": null,
+        "migrationNote": "intro folded"
+      }
+    },
+    "4.2": {
+      "topic": null,
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u4_lesson1-2_live.html",
+        "drills": null,
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=4&l=2",
+        "blooket": "https://dashboard.blooket.com/set/696edcfa2761a89ccdaf2fdc",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 2,
+        "newTopic": "2.3",
+        "newLabel": "Estimating Probabilities Using Simulation",
+        "bonusUnit": null
+      }
+    },
+    "4.3": {
+      "topic": null,
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u4_lesson3-4-5_live.html",
+        "drills": null,
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=4&l=3",
+        "blooket": "https://dashboard.blooket.com/set/6970461b0b6fcb7e199c7134",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 2,
+        "newTopic": "2.4",
+        "newLabel": "Introduction to Probability",
+        "bonusUnit": null,
+        "migrationNote": "also feeds new 2.3 (long-run-relative-frequency EK) -- cross-attribution confirmed 2026-08-07 (crosswalk Part C); primary home stays new 2.4"
+      }
+    },
+    "4.4": {
+      "topic": null,
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u4_lesson3-4-5_live.html",
+        "drills": null,
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=4&l=4",
+        "blooket": "https://dashboard.blooket.com/set/6970461b0b6fcb7e199c7134",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 2,
+        "newTopic": "2.5",
+        "newLabel": "Mutually Exclusive Events",
+        "bonusUnit": null
+      }
+    },
+    "4.5": {
+      "topic": null,
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u4_lesson3-4-5_live.html",
+        "drills": null,
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=4&l=5",
+        "blooket": "https://dashboard.blooket.com/set/6970461b0b6fcb7e199c7134",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 2,
+        "newTopic": "2.6",
+        "newLabel": "Conditional Probability",
+        "bonusUnit": null
+      }
+    },
+    "4.6": {
+      "topic": null,
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u4_lesson6_live.html",
+        "drills": null,
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=4&l=6",
+        "blooket": "https://dashboard.blooket.com/set/69719a57390d28db6d7edfa9",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 2,
+        "newTopic": "2.7",
+        "newLabel": "Independent Events & Unions",
+        "bonusUnit": null
+      }
+    },
+    "4.7": {
+      "topic": null,
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u4_lesson7-8_live.html",
+        "drills": null,
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=4&l=7",
+        "blooket": "https://dashboard.blooket.com/set/6a28bb3d1e7a675c780d361f",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 2,
+        "newTopic": "2.8",
+        "newLabel": "Introduction to Random Variables",
+        "bonusUnit": null
+      }
+    },
+    "4.8": {
+      "topic": null,
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u4_lesson7-8_live.html",
+        "drills": null,
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=4&l=8",
+        "blooket": "https://dashboard.blooket.com/set/6a28bb601e7a675c780d3623",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 2,
+        "newTopic": "2.9",
+        "newLabel": "Parameters of Random Variables",
+        "bonusUnit": null
+      }
+    },
+    "4.9": {
+      "topic": null,
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u4_lesson9_live.html",
+        "drills": null,
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=4&l=9",
+        "blooket": "https://dashboard.blooket.com/set/6a28bb731e7a675c780d3627",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "bonus",
+        "newUnit": null,
+        "newTopic": null,
+        "newLabel": "Beyond the Exam: Combining random variables",
+        "bonusUnit": 2
+      }
+    },
+    "4.10": {
+      "topic": null,
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u4_lesson10-12_live.html",
+        "drills": null,
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=4&l=10",
+        "blooket": "https://dashboard.blooket.com/set/6a28bb868b718c8f0cf3c5af",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 2,
+        "newTopic": "2.10",
+        "newLabel": "The Binomial Distribution",
+        "bonusUnit": null
+      }
+    },
+    "4.11": {
+      "topic": null,
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u4_lesson10-12_live.html",
+        "drills": null,
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=4&l=11",
+        "blooket": "https://dashboard.blooket.com/set/6a28bb9a37d04217db27244c",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 2,
+        "newTopic": "2.10",
+        "newLabel": "The Binomial Distribution",
+        "bonusUnit": null,
+        "migrationNote": "merged into Binomial"
+      }
+    },
+    "4.12": {
+      "topic": null,
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u4_lesson10-12_live.html",
+        "drills": null,
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=4&l=12",
+        "blooket": "https://dashboard.blooket.com/set/6a28bbad8b718c8f0cf3c5b7",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "bonus",
+        "newUnit": null,
+        "newTopic": null,
+        "newLabel": "Beyond the Exam: Geometric distribution",
+        "bonusUnit": 2
+      }
+    },
+    "5.1": {
+      "topic": null,
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u5_lesson1-2_live.html",
+        "drills": null,
+        "quiz": null,
+        "blooket": "https://dashboard.blooket.com/set/6a28bbc037d04217db272452",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 2,
+        "newTopic": "2.12",
+        "newLabel": "Sampling Distributions & the CLT",
+        "bonusUnit": null,
+        "migrationNote": "intro folded"
+      }
+    },
+    "5.2": {
+      "topic": null,
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u5_lesson1-2_live.html",
+        "drills": null,
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=5&l=2",
+        "blooket": "https://dashboard.blooket.com/set/6a28bbd48b718c8f0cf3c5bc",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 2,
+        "newTopic": "2.11",
+        "newLabel": "The Normal Distribution",
+        "bonusUnit": null,
+        "migrationNote": "Normal, merged"
+      }
+    },
+    "5.3": {
+      "topic": null,
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u5_lesson3_live.html",
+        "drills": null,
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=5&l=3",
+        "blooket": "https://dashboard.blooket.com/set/69b4885f958376ccb014dd33",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 2,
+        "newTopic": "2.12",
+        "newLabel": "Sampling Distributions & the CLT",
+        "bonusUnit": null
+      }
+    },
+    "5.4": {
+      "topic": null,
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u5_lesson4_live.html",
+        "drills": null,
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=5&l=4",
+        "blooket": "https://dashboard.blooket.com/set/69b47bb2f54efd7ead727e76",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 3,
+        "newTopic": "3.1",
+        "newLabel": "Estimators",
+        "bonusUnit": null
+      }
+    },
+    "5.5": {
+      "topic": null,
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u5_lesson5_live.html",
+        "drills": null,
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=5&l=5",
+        "blooket": "https://dashboard.blooket.com/set/69b48942958376ccb014dd6f",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 3,
+        "newTopic": "3.2",
+        "newLabel": "Sampling Distributions for Sample Proportions",
+        "bonusUnit": null
+      }
+    },
+    "5.6": {
+      "topic": null,
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u5_lesson6_live.html",
+        "drills": null,
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=5&l=6",
+        "blooket": "https://dashboard.blooket.com/set/69b489c7e9d56f0ba512cc56",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 3,
+        "newTopic": "3.9",
+        "newLabel": "Sampling Distributions (difference of proportions)",
+        "bonusUnit": null
+      }
+    },
+    "5.7": {
+      "topic": null,
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u5_lesson7_live.html",
+        "drills": null,
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=5&l=7",
+        "blooket": "https://dashboard.blooket.com/set/69b48a4b958376ccb014ddb4",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 4,
+        "newTopic": "4.1",
+        "newLabel": "Sampling Distributions for Sample Means",
+        "bonusUnit": null
+      }
+    },
+    "5.8": {
+      "topic": null,
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u5_lesson8_live.html",
+        "drills": null,
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=5&l=8",
+        "blooket": "https://dashboard.blooket.com/set/69b48acf958376ccb014ddd0",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 4,
+        "newTopic": "4.6",
+        "newLabel": "Sampling Distributions (difference of two means)",
+        "bonusUnit": null
+      }
+    },
+    "6.1": {
+      "topic": null,
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u6_lesson1-2_live.html",
+        "drills": null,
+        "quiz": null,
+        "blooket": "https://dashboard.blooket.com/set/69a5060cbabf217ed24a3364",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": "2026-03-02",
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": "2026-03-06",
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 3,
+        "newTopic": "3.3",
+        "newLabel": "Constructing a CI for a Proportion",
+        "bonusUnit": null,
+        "migrationNote": "intro folded"
+      }
+    },
+    "6.2": {
+      "topic": null,
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u6_lesson1-2_live.html",
+        "drills": null,
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=6&l=2",
+        "blooket": "https://dashboard.blooket.com/set/69a5060cbabf217ed24a3364",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": "2026-03-02",
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": "2026-03-06",
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 3,
+        "newTopic": "3.3",
+        "newLabel": "Constructing a CI for a Proportion",
+        "bonusUnit": null
+      }
+    },
+    "6.3": {
+      "topic": null,
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u6_lesson3_live.html",
+        "drills": null,
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=6&l=3",
+        "blooket": "https://dashboard.blooket.com/set/69a665f28e7de9a574a989e5",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": "2026-03-03",
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": "2026-03-09",
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 3,
+        "newTopic": "3.4",
+        "newLabel": "Justifying a Claim (CI, proportion)",
+        "bonusUnit": null
+      }
+    },
+    "6.4": {
+      "topic": null,
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u6_lesson4_live.html",
+        "drills": null,
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=6&l=4",
+        "blooket": "https://dashboard.blooket.com/set/69b09491958376ccb01393d9",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": "2026-03-05",
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": "2026-03-11",
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 3,
+        "newTopic": "3.5",
+        "newLabel": "Setting Up a Test for a Proportion",
+        "bonusUnit": null
+      }
+    },
+    "6.5": {
+      "topic": null,
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u6_lesson5_live.html",
+        "drills": null,
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=6&l=5",
+        "blooket": "https://dashboard.blooket.com/set/69aa45856790eef16f71aebb",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": "2026-03-06",
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": "2026-03-11",
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 3,
+        "newTopic": "3.6",
+        "newLabel": "p-Values",
+        "bonusUnit": null
+      }
+    },
+    "6.6": {
+      "topic": null,
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u6_lesson6_live.html",
+        "drills": null,
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=6&l=6",
+        "blooket": "https://dashboard.blooket.com/set/69ab037ffb99ffa131a2e07d",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": "2026-03-09",
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": "2026-03-13",
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 3,
+        "newTopic": "3.7",
+        "newLabel": "Carrying Out a Test for a Proportion",
+        "bonusUnit": null
+      }
+    },
+    "6.7": {
+      "topic": null,
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u6_lesson7_live.html",
+        "drills": null,
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=6&l=7",
+        "blooket": "https://dashboard.blooket.com/set/69ab32e0d721c5ea7bb4c56e",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": "2026-03-10",
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": "2026-03-16",
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 3,
+        "newTopic": "3.8",
+        "newLabel": "Potential Errors When Performing Tests",
+        "bonusUnit": null
+      }
+    },
+    "6.8": {
+      "topic": null,
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u6_lesson8_live.html",
+        "drills": null,
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=6&l=8",
+        "blooket": "https://dashboard.blooket.com/set/69abad096790eef16f72126f",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": "2026-03-12",
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": "2026-03-18",
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 3,
+        "newTopic": "3.10",
+        "newLabel": "CI (difference of two proportions)",
+        "bonusUnit": null
+      }
+    },
+    "6.9": {
+      "topic": null,
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u6_lesson9_live.html",
+        "drills": null,
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=6&l=9",
+        "blooket": "https://dashboard.blooket.com/set/69ac522756de72a066cbf492",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": "2026-03-13",
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": "2026-03-18",
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 3,
+        "newTopic": "3.11",
+        "newLabel": "Justifying a Claim (CI, 2 proportions)",
+        "bonusUnit": null
+      }
+    },
+    "6.10": {
+      "topic": null,
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u6_lesson10_live.html",
+        "drills": null,
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=6&l=10",
+        "blooket": "https://dashboard.blooket.com/set/69ad1cce0d5874349dbbf688",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": "2026-03-16",
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": "2026-03-20",
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 3,
+        "newTopic": "3.12",
+        "newLabel": "Setting Up a Test (difference of two proportions)",
+        "bonusUnit": null
+      }
+    },
+    "6.11": {
+      "topic": null,
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u6_lesson11_live.html",
+        "drills": null,
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=6&l=11",
+        "blooket": "https://dashboard.blooket.com/set/69ade09c572efa156e0e3402",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": "2026-03-17",
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": "2026-03-23",
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 3,
+        "newTopic": "3.13",
+        "newLabel": "Carrying Out a Test (difference of two proportions)",
+        "bonusUnit": null
+      }
+    },
+    "7.1": {
+      "topic": null,
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u7_lesson1_live.html",
+        "drills": null,
+        "quiz": null,
+        "blooket": "https://dashboard.blooket.com/set/69aef69b0d5874349dbc4f74",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": "2026-03-19",
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": "2026-03-25",
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 4,
+        "newTopic": "4.2",
+        "newLabel": "Constructing a CI for a Mean or Mean Difference",
+        "bonusUnit": null,
+        "migrationNote": "intro folded"
+      }
+    },
+    "7.2": {
+      "topic": null,
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u7_lesson2_live.html",
+        "drills": null,
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=7&l=2",
+        "blooket": "https://dashboard.blooket.com/set/69aee24b0d5874349dbc4469",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": "2026-03-20",
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": "2026-03-25",
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 4,
+        "newTopic": "4.2",
+        "newLabel": "Constructing a CI for a Mean or Mean Difference",
+        "bonusUnit": null,
+        "migrationNote": "+matched-pairs supplement"
+      }
+    },
+    "7.3": {
+      "topic": null,
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u7_lesson3_live.html",
+        "drills": null,
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=7&l=3",
+        "blooket": "https://dashboard.blooket.com/set/69b23ce2f54efd7ead71c8de",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": "2026-03-23",
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": "2026-03-27",
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 4,
+        "newTopic": "4.3",
+        "newLabel": "Justifying a Claim (CI, mean/mean difference)",
+        "bonusUnit": null
+      }
+    },
+    "7.4": {
+      "topic": null,
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u7_lesson4_live.html",
+        "drills": null,
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=7&l=4",
+        "blooket": "https://dashboard.blooket.com/set/69b38a00958376ccb0148f2c",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": "2026-03-24",
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": "2026-03-30",
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 4,
+        "newTopic": "4.4",
+        "newLabel": "Setting Up a Test for a Mean or Mean Difference",
+        "bonusUnit": null,
+        "migrationNote": "+matched-pairs supplement"
+      }
+    },
+    "7.5": {
+      "topic": null,
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u7_lesson5_live.html",
+        "drills": null,
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=7&l=5",
+        "blooket": "https://dashboard.blooket.com/set/69b43541958376ccb014ba86",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": "2026-03-26",
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": "2026-04-01",
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 4,
+        "newTopic": "4.5",
+        "newLabel": "Carrying Out a Test for a Mean or Mean Difference",
+        "bonusUnit": null
+      }
+    },
+    "7.6": {
+      "topic": null,
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u7_lesson6_live.html",
+        "drills": null,
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=7&l=6",
+        "blooket": "https://dashboard.blooket.com/set/69b4a8c1e9d56f0ba512d275",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": "2026-03-27",
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": "2026-04-01",
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 4,
+        "newTopic": "4.7",
+        "newLabel": "CI (difference of two means)",
+        "bonusUnit": null
+      }
+    },
+    "7.7": {
+      "topic": null,
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u7_lesson7_live.html",
+        "drills": null,
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=7&l=7",
+        "blooket": "https://dashboard.blooket.com/set/69b573932209798f94f1c912",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": "2026-03-30",
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": "2026-04-06",
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 4,
+        "newTopic": "4.8",
+        "newLabel": "Justifying a Claim (CI, 2 means)",
+        "bonusUnit": null
+      }
+    },
+    "7.8": {
+      "topic": null,
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u7_lesson8_live.html",
+        "drills": null,
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=7&l=8",
+        "blooket": "https://dashboard.blooket.com/set/69b60f747e3edc6f469fd91a",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": "2026-03-31",
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": "2026-04-08",
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 4,
+        "newTopic": "4.9",
+        "newLabel": "Setting Up a Test (difference of two means)",
+        "bonusUnit": null
+      }
+    },
+    "7.9": {
+      "topic": null,
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u7_lesson9_live.html",
+        "drills": null,
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=7&l=9",
+        "blooket": "https://dashboard.blooket.com/set/69b61c9a2209798f94f1de47",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": "2026-04-02",
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": "2026-04-08",
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 4,
+        "newTopic": "4.10",
+        "newLabel": "Carrying Out a Test (difference of two means)",
+        "bonusUnit": null
+      }
+    },
+    "1.3": {
+      "topic": "Topic 1.3",
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u1_lesson3_live.html",
+        "drills": null,
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=1&l=3",
+        "blooket": "https://dashboard.blooket.com/set/6a08aa2b93e4e9542dfc8365",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 1,
+        "newTopic": "1.3",
+        "newLabel": "Tabular Representation & Summary Statistics (1 categorical)",
+        "bonusUnit": null
+      }
+    },
+    "1.1": {
+      "topic": "Topic 1.1",
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u1_lesson1_live.html",
+        "drills": null,
+        "quiz": null,
+        "blooket": "https://dashboard.blooket.com/set/6a089df893e4e9542dfc81db",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 1,
+        "newTopic": "1.1",
+        "newLabel": "What Can We Learn from Data?",
+        "bonusUnit": null
+      }
+    },
+    "1.2": {
+      "topic": "Topic 1.2",
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u1_lesson2_live.html",
+        "drills": null,
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=1&l=2",
+        "blooket": "https://dashboard.blooket.com/set/6a08a5ec93e4e9542dfc82d6",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 1,
+        "newTopic": "1.2",
+        "newLabel": "Variables",
+        "bonusUnit": null
+      }
+    },
+    "1.4": {
+      "topic": "Topic 1.4",
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u1_lesson4_live.html",
+        "drills": null,
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=1&l=4",
+        "blooket": "https://dashboard.blooket.com/set/6a08ae0554234f801d61cea6",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 1,
+        "newTopic": "1.4",
+        "newLabel": "Graphical Representations (1 categorical)",
+        "bonusUnit": null
+      }
+    },
+    "1.5": {
+      "topic": "Topic 1.5",
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u1_lesson5_live.html",
+        "drills": null,
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=1&l=5",
+        "blooket": "https://dashboard.blooket.com/set/6a08b14254234f801d61cf15",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 1,
+        "newTopic": "1.5",
+        "newLabel": "Graphical Representations (1 quantitative)",
+        "bonusUnit": null
+      }
+    },
+    "1.6": {
+      "topic": "Topic 1.6",
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u1_lesson6_live.html",
+        "drills": null,
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=1&l=6",
+        "blooket": "https://dashboard.blooket.com/set/6a08b8e854234f801d61d014",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 1,
+        "newTopic": "1.6",
+        "newLabel": "Descriptions for 1-Quantitative Distributions",
+        "bonusUnit": null
+      }
+    },
+    "1.8": {
+      "topic": "Topic 1.8",
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u1_lesson8_live.html",
+        "drills": null,
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=1&l=8",
+        "blooket": "https://dashboard.blooket.com/set/6a08c14654234f801d61d13b",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 1,
+        "newTopic": "1.8",
+        "newLabel": "Graphical Representations of Summary Statistics",
+        "bonusUnit": null
+      }
+    },
+    "1.7": {
+      "topic": "Topic 1.7",
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u1_lesson7_live.html",
+        "drills": null,
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=1&l=7",
+        "blooket": "https://dashboard.blooket.com/set/6a08bd35753b45cd2933c8eb",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 1,
+        "newTopic": "1.7",
+        "newLabel": "Summary Statistics (1 quantitative)",
+        "bonusUnit": null
+      }
+    },
+    "1.9": {
+      "topic": "Topic 1.9",
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u1_lesson9_live.html",
+        "drills": null,
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=1&l=9",
+        "blooket": "https://dashboard.blooket.com/set/6a08c51a54234f801d61d1d3",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 1,
+        "newTopic": "1.9",
+        "newLabel": "Comparisons of Distributions",
+        "bonusUnit": null
+      }
+    },
+    "1.10": {
+      "topic": "Topic 1.10",
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u1_lesson10_live.html",
+        "drills": null,
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=1&l=10",
+        "blooket": "https://dashboard.blooket.com/set/6a081a2954234f801d61c07c",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 2,
+        "newTopic": "2.11",
+        "newLabel": "The Normal Distribution",
+        "bonusUnit": null,
+        "migrationNote": "Normal Dist. moved to Unit 2"
+      }
+    },
+    "2.2": {
+      "topic": "Topic 2.2",
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u2_lesson2_live.html",
+        "drills": null,
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=2&l=2",
+        "blooket": "https://dashboard.blooket.com/set/6a08db6793e4e9542dfc8989",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 2,
+        "newTopic": "2.1",
+        "newLabel": "Two Categorical Variables: Tables & Graphs",
+        "bonusUnit": null,
+        "migrationNote": "also feeds new 2.2 (joint-relative-frequency EK) -- cross-attribution confirmed 2026-08-07 (crosswalk Part C); primary home stays new 2.1"
+      }
+    },
+    "2.1": {
+      "topic": "Topic 2.1",
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u2_lesson1_live.html",
+        "drills": null,
+        "quiz": null,
+        "blooket": "https://dashboard.blooket.com/set/6a08ee78753b45cd2933cf1b",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 2,
+        "newTopic": "2.1",
+        "newLabel": "Two Categorical Variables: Tables & Graphs",
+        "bonusUnit": null,
+        "migrationNote": "intro folded"
+      }
+    },
+    "2.3": {
+      "topic": "Topic 2.3",
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u2_lesson3_live.html",
+        "drills": null,
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=2&l=3",
+        "blooket": "https://dashboard.blooket.com/set/6a08f201753b45cd2933cf97",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 2,
+        "newTopic": "2.2",
+        "newLabel": "Two Categorical Variables: Summary Statistics",
+        "bonusUnit": null
+      }
+    },
+    "2.4": {
+      "topic": "Topic 2.4",
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u2_lesson4_live.html",
+        "drills": null,
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=2&l=4",
+        "blooket": "https://dashboard.blooket.com/set/6a08f5db93e4e9542dfc8c96",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 5,
+        "newTopic": "5.1",
+        "newLabel": "Graphical Representations (two quantitative variables)",
+        "bonusUnit": null
+      }
+    },
+    "2.5": {
+      "topic": "Topic 2.5",
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u2_lesson5_live.html",
+        "drills": null,
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=2&l=5",
+        "blooket": "https://dashboard.blooket.com/set/6a09008c753b45cd2933d12a",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 5,
+        "newTopic": "5.2",
+        "newLabel": "Correlation",
+        "bonusUnit": null
+      }
+    },
+    "2.6": {
+      "topic": "Topic 2.6",
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u2_lesson6_live.html",
+        "drills": null,
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=2&l=6",
+        "blooket": "https://dashboard.blooket.com/set/6a090556753b45cd2933d1d2",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 5,
+        "newTopic": "5.3",
+        "newLabel": "Linear Regression Models",
+        "bonusUnit": null
+      }
+    },
+    "2.7": {
+      "topic": "Topic 2.7",
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u2_lesson7_live.html",
+        "drills": null,
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=2&l=7",
+        "blooket": "https://dashboard.blooket.com/set/6a0915cb753b45cd2933d3d4",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 5,
+        "newTopic": "5.4",
+        "newLabel": "Residuals",
+        "bonusUnit": null
+      }
+    },
+    "2.8": {
+      "topic": "Topic 2.8",
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u2_lesson8_live.html",
+        "drills": null,
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=2&l=8",
+        "blooket": "https://dashboard.blooket.com/set/6a09199d93e4e9542dfc90a6",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 5,
+        "newTopic": "5.5",
+        "newLabel": "Least-Squares Regression",
+        "bonusUnit": null
+      }
+    },
+    "2.9": {
+      "topic": "Topic 2.9",
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u2_lesson9_live.html",
+        "drills": null,
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=2&l=9",
+        "blooket": "https://dashboard.blooket.com/set/6a091d2293e4e9542dfc910c",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "bonus",
+        "newUnit": null,
+        "newTopic": null,
+        "newLabel": "Beyond the Exam: Departures from linearity (outliers/high-leverage/influential points in a scatterplot)",
+        "bonusUnit": 5
+      }
+    },
+    "3.1": {
+      "topic": "Topic 3.1",
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u3_lesson1_live.html",
+        "drills": null,
+        "quiz": null,
+        "blooket": "https://dashboard.blooket.com/set/6a09234354234f801d61dc71",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 1,
+        "newTopic": "1.10",
+        "newLabel": "Investigative Question & Data Collection",
+        "bonusUnit": null,
+        "migrationNote": "collecting-data folds into Unit 1"
+      }
+    },
+    "3.2": {
+      "topic": "Topic 3.2",
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u3_lesson2_live.html",
+        "drills": null,
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=3&l=2",
+        "blooket": "https://dashboard.blooket.com/set/6a09269d93e4e9542dfc921f",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 1,
+        "newTopic": "1.10",
+        "newLabel": "Investigative Question & Data Collection",
+        "bonusUnit": null
+      }
+    },
+    "3.3": {
+      "topic": "Topic 3.3",
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u3_lesson3_live.html",
+        "drills": null,
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=3&l=3",
+        "blooket": "https://dashboard.blooket.com/set/6a092a4293e4e9542dfc9273",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 1,
+        "newTopic": "1.11",
+        "newLabel": "Random Sampling",
+        "bonusUnit": null
+      }
+    },
+    "3.4": {
+      "topic": "Topic 3.4",
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u3_lesson4_live.html",
+        "drills": null,
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=3&l=4",
+        "blooket": "https://dashboard.blooket.com/set/6a092ead753b45cd2933d677",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 1,
+        "newTopic": "1.12",
+        "newLabel": "Potential Problems with Sampling",
+        "bonusUnit": null
+      }
+    },
+    "3.5": {
+      "topic": "Topic 3.5",
+      "urls": {
+        "worksheet": "https://robjohncolson.github.io/apstat-park/u3_lesson5_live.html",
+        "drills": null,
+        "quiz": "https://robjohncolson.github.io/apstat-park/quiz/?u=3&l=5",
+        "blooket": "https://dashboard.blooket.com/set/6a0932d7753b45cd2933d6e0",
+        "videos": []
+      },
+      "status": "partial",
+      "periods": {
+        "B": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        },
+        "E": {
+          "date": null,
+          "schoologyFolder": null,
+          "posted": false,
+          "verified": false
+        }
+      },
+      "ced2026": {
+        "status": "core",
+        "newUnit": 1,
+        "newTopic": "1.13",
+        "newLabel": "Experimental Design",
+        "bonusUnit": null
+      }
+    }
+  },
+  "progressChecks": {
+    "1": {
+      "unit": 1,
+      "title": "Unit 1 Progress Check",
+      "kind": "pc",
+      "duration": {
+        "adminDays": 2,
+        "reviewDays": 1
+      },
+      "periods": {
+        "B": "2026-09-24",
+        "E": "2026-09-24"
+      },
+      "adminDay2": "2026-09-25"
+    },
+    "2": {
+      "unit": 2,
+      "title": "Unit 2 Progress Check",
+      "kind": "pc",
+      "duration": {
+        "adminDays": 2,
+        "reviewDays": 1
+      },
+      "periods": {
+        "B": "2026-10-13",
+        "E": "2026-10-13"
+      },
+      "adminDay2": "2026-10-14"
+    },
+    "3": {
+      "unit": 3,
+      "title": "Unit 3 Progress Check",
+      "kind": "pc",
+      "duration": {
+        "adminDays": 2,
+        "reviewDays": 1
+      },
+      "periods": {
+        "B": "2026-10-26",
+        "E": "2026-10-26"
+      },
+      "adminDay2": "2026-10-27"
+    },
+    "4": {
+      "unit": 4,
+      "title": "Unit 4 Progress Check",
+      "kind": "pc",
+      "duration": {
+        "adminDays": 2,
+        "reviewDays": 1
+      },
+      "periods": {
+        "B": "2026-11-09",
+        "E": "2026-11-09"
+      },
+      "adminDay2": "2026-11-10"
+    },
+    "5": {
+      "unit": 5,
+      "title": "Unit 5 Progress Check",
+      "kind": "pc",
+      "duration": {
+        "adminDays": 2,
+        "reviewDays": 1
+      },
+      "periods": {
+        "B": "2026-11-24",
+        "E": "2026-11-24"
+      },
+      "adminDay2": "2026-11-25"
+    },
+    "6": {
+      "unit": 6,
+      "title": "Unit 6 Progress Check",
+      "kind": "pc",
+      "duration": {
+        "adminDays": 2,
+        "reviewDays": 1
+      },
+      "periods": {
+        "B": "2026-12-15",
+        "E": "2026-12-15"
+      },
+      "adminDay2": "2026-12-16"
+    },
+    "7": {
+      "unit": 7,
+      "title": "Unit 7 Progress Check",
+      "kind": "pc",
+      "duration": {
+        "adminDays": 2,
+        "reviewDays": 1
+      },
+      "periods": {
+        "B": "2027-01-11",
+        "E": "2027-01-11"
+      },
+      "adminDay2": "2027-01-12"
+    },
+    "8": {
+      "unit": 8,
+      "title": "Unit 8 Progress Check",
+      "kind": "pc",
+      "duration": {
+        "adminDays": 2,
+        "reviewDays": 1
+      },
+      "periods": {
+        "B": "2027-01-25",
+        "E": "2027-01-25"
+      },
+      "adminDay2": "2027-01-26"
+    },
+    "9": {
+      "unit": 9,
+      "title": "Unit 9 Progress Check",
+      "kind": "pc",
+      "duration": {
+        "adminDays": 2,
+        "reviewDays": 1
+      },
+      "periods": {
+        "B": "2027-02-04",
+        "E": "2027-02-04"
+      },
+      "adminDay2": "2027-02-05"
+    }
+  },
+  "posters": {
+    "1": {
+      "unit": 1,
+      "title": "Unit 1 Poster",
+      "kind": "poster",
+      "duration": {
+        "longBlocks": 1,
+        "shortBlocks": 2
+      },
+      "periods": {
+        "B": "2026-10-08",
+        "E": "2026-10-09"
+      }
+    }
+  }
+}

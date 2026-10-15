@@ -1,0 +1,51 @@
+\documentclass[11pt]{article}
+\usepackage{preamble}
+\renewcommand{\answer}[1]{}
+
+\begin{document}
+
+\ladderheading{AP Statistics \textperiodcentered\ Unit 3 \textperiodcentered\ Topic 3.5}{Which Test Answers the Question Asked?}
+
+\focusbanner{THE PROBLEM}
+
+A district of 2{,}400 students had bus ridership $p_0=0.40$ before a new route. Before collecting data, the director asks whether the current proportion $p$ has \emph{increased}. An SRS of 180 current students finds 84 riders.\par\smallskip \textbf{Maya:} ``Use $H_0:p=0.40$ versus $H_a:p>0.40$ and a one-sample $z$-test. Check large counts with 72 and 108.''\par \textbf{Theo:} ``Use $H_a:p\neq0.40$ because samples can differ either way. Check large counts with the observed 84 and 96.''\par
+\begin{center}
+\textbf{Current SRS counts}\par\smallskip
+\begin{tabular}{|l|c|c|c|}
+\hline
+\textbf{Group} & \textbf{Bus} & \textbf{Other} & \textbf{Total} \\ \hline
+\textbf{Students} & 84 & 96 & 180 \\ \hline
+\end{tabular}
+\end{center}
+\begin{firsttakebox}{FIRST TAKE --- one sentence before you work the parts}
+Does the director want to detect any change, or only more bus riders? Use a phrase from the study.
+\workspace{0.9in}
+\end{firsttakebox}
+
+\begin{callout}{\IconBook\ SET UP THE QUESTION BEFORE USING THE SAMPLE (keep on the page)}{calloutgreen}
+Define $p$ as the \textbf{population proportion}. For a benchmark $p_0$, use $H_0:p=p_0$.
+Choose $H_a:p>p_0$, $p<p_0$, or $p\neq p_0$ from the research question stated \emph{before} seeing data;
+$\hat p$ is sample evidence and never belongs in the hypotheses. For one categorical variable and one sample,
+use a one-sample $z$-test for a population proportion. Verify random data, $n\leq0.10N$ when sampling without
+replacement, and the null-expected counts $np_0\geq10$ and $n(1-p_0)\geq10$.
+\end{callout}
+
+\newpage
+\textbf{Work (a)--(c).}\par\smallskip
+
+\dokbadge{1}~\textbf{(a)} Define the population parameter $p$ in context and identify the null value $p_0$.\par
+\workspace{0.7in}
+
+\dokbadge{2}~\textbf{(b)} Compute $\hat p$, name the testing procedure, and verify the random, 10 percent, and large-counts conditions using the appropriate values.\par
+\workspace{1.4in}
+
+\dokbadge{3}~\textbf{(c)} In 3--4 sentences, choose a setup using the director's word increased. Explain why the count check uses 72 and 108 rather than 84 and 96. State what different question Theo's alternative would answer.\par
+\workspace{2.0in}
+
+\begin{sentenceframebox}\raggedright\textbf{Frame:} The warranted alternative is $H_a:p\blank[0.4in]0.40$ because the director asked whether \blank[2.2in].\end{sentenceframebox}
+
+\begin{sentenceframebox}\raggedright\textbf{Frame:} The large-counts check uses \blank[0.8in] and \blank[0.8in], not \blank[1.0in], because \blank[2.4in].\end{sentenceframebox}
+
+\textbf{Turn this sheet in whenever you finish --- bonus credit. Part (c) is scored E / P / I.}\par
+
+\end{document}

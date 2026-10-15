@@ -1,0 +1,44 @@
+# Topic 8.1 — Introducing Statistics: Are My Results Unexpected?
+topic: "8.1"
+ced2026: { unit: 3, topic: "3.14", label: "Setting Up a Chi-Square Test (homogeneity/independence)" }
+title: "Two Simulations for Mystery Tokens"
+essential_question: "What must a simulation vary to decide whether observed categorical discrepancies are surprising?"
+worksheet: "u8_lesson1_live.html"
+
+rules_callout:
+  title: "EXPECTED COUNTS AND SIMULATION (keep on the page)"
+  body: |
+    For a model probability $p_i$ and sample size $n$, the expected count is $E_i=np_i$.
+    The chi-square statistic adds the relative squared gaps: $\chi^2=\sum (O-E)^2/E$.
+    To model chance variation, generate new samples of the same size using the claimed probabilities.
+    Compute the statistic each time. The fraction at least as large as the observed statistic estimates
+    how often such a mismatch occurs if the model is true. A fraction at or below a stated cutoff is
+    evidence against the model; a larger fraction does not prove the model.
+
+focus: aps-8.1-d3-1
+reinforcement: []
+space: { first_take: 0.9in, a: 0.7in, b: 1.4in, c: 2.0in }
+
+teacher:
+  questions_to_ask:
+  - Which specific number or study detail supports your choice?
+  - What claim would go beyond the evidence, and why?
+  watch_for:
+  - Choosing a speaker without a reason.
+  - Copying numbers without explaining what they support.
+  first_take_note: Ungraded commitment; accept any evidence-based first impression.
+tether:
+  - '\textbf{VAR-1.J} Identify questions suggested by variation between observed and expected counts in categorical data. \textbf{[Skill 1.A]}'
+  - '\textbf{VAR-1.J.1} Variation between what we find and what we expect to find may be random or not.'
+
+visuals:
+  token_table:
+    kind: two_way_table
+    col_label: "Token sample"
+    row_label: "Color"
+    cols: ["Claim", "Observed"]
+    rows: ["Red", "Teal", "Gold"]
+    cells:
+      - ["$0.50$", "32"]
+      - ["$0.30$", "30"]
+      - ["$0.20$", "18"]

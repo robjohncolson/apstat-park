@@ -1,0 +1,47 @@
+\documentclass[11pt]{article}
+\usepackage{preamble}
+\renewcommand{\answer}[1]{}
+
+\begin{document}
+
+\ladderheading{AP Statistics \textperiodcentered\ Unit 2 \textperiodcentered\ Topic 2.10}{Unusual Does Not Mean Impossible}
+
+\focusbanner{THE PROBLEM}
+
+Suppose the same 70 percent free-throw shooter takes 100 attempts under comparable conditions and makes 58. Let $X$ be the number of makes if the career-rate model still applies.\par\smallskip \textbf{Coach:} ``Anything under 60 makes is impossible for a 70 percent shooter, so 58 proves the career rate no longer applies.''\par \textbf{Analyst:} ``A result can be unusual without being impossible; compare 58 with the model's mean and standard deviation.''\par The binomial model gives a chance of about $0.0072$ for 58 or fewer makes; use this provided value.\par
+\begin{center}
+\textbf{Career-rate model}\par\smallskip
+\begin{tabular}{|l|c|c|c|}
+\hline
+\textbf{Set} & \textbf{Attempts} & \textbf{Rate} & \textbf{Makes} \\ \hline
+\textbf{Tonight} & 100 & 0.70 & 58 \\ \hline
+\end{tabular}
+\end{center}
+\begin{firsttakebox}{FIRST TAKE --- one sentence before you work the parts}
+Whose statement is more defensible, the coach's or the analyst's? Name one quantity you would check.
+\workspace{0.9in}
+\end{firsttakebox}
+
+\begin{callout}{\IconBook\ CENTER, SPREAD, AND UNUSUAL COUNTS (keep on the page)}{calloutgreen}
+For a binomial count, $\mu_X=np$ and $\sigma_X=\sqrt{np(1-p)}$, both in count units. The mean is an average over many comparable sets of trials. The standard deviation describes a typical distance from that mean. A result far from the mean may be unusual, but a small positive probability does not mean impossible or prove that the model changed.
+\end{callout}
+
+\newpage
+\textbf{Work (a)--(c).}\par\smallskip
+
+\dokbadge{1}~\textbf{(a)} State $n$ and $p$ for this model.\par
+\workspace{0.8in}
+
+\dokbadge{2}~\textbf{(b)} Calculate the binomial mean and standard deviation. Interpret the mean for many sets of 100 shots.\par
+\workspace{1.3in}
+
+\dokbadge{3}~\textbf{(c)} Whose statement is supported? Compare 58 with the mean and standard deviation, and use the given probability to distinguish unusual from impossible. Explain what the coach's claim could make a reader wrongly believe. Write 3--4 sentences.\par
+\workspace{2.0in}
+
+\begin{sentenceframebox}\raggedright\textbf{Frame:} The result 58 is \blank[0.6in] makes below the mean, compared with an SD of about \blank[0.6in] makes.\end{sentenceframebox}
+
+\begin{sentenceframebox}\raggedright\textbf{Frame:} A chance of $0.0072$ means \blank[1.5in], not \blank[1.0in], so the coach's claim could mislead by \blank[1.8in].\end{sentenceframebox}
+
+\textbf{Turn this sheet in whenever you finish --- bonus credit. Part (c) is scored E / P / I.}\par
+
+\end{document}
