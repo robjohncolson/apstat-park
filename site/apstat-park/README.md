@@ -55,7 +55,103 @@ all 48 transitions and wraparound, retry, reconnect, and membership. These are
 integration checks, not proof that every puzzle has been manually completed or
 that the recovered engine has exact native-game parity.
 
-## Calculator Solo (deep link, protocol 13)
+## The trainer is retired (ABSORB_SPEC §8, 2026-10-16)
+
+APStat Park is the only calculator surface. `calculator-solo.html` (repo root, beside the Desk,
+because the board imports `./apstat-park/...` relative to the page) mounts the same Live
+Classroom board the Desk mounts and opens `#room=calc-solo`; the Desk's `ti84` app window and
+chip, the resource panel's Calculator Skill row, `index.html` and `start-here.html` all point
+there, and every worksheet's "Practice on the TI-84" link was rewired by
+`scripts/wire-park-calculator-links.mjs` (pattern-guarded, idempotent, dry-run default) to
+`ap_stats_roadmap_square_mode.html#room=calc-solo&topic=<t>` (the park resolves the topic through
+`data/ti84-lesson-map.json`). The native JavaScript engine moved from `ti84-trainer-v2/native/`
+to `apstat-park/calculator-native/` (the relay's byte-identical copy is unchanged;
+`scripts/sync-park-calculator.mjs` keeps it so); the WebCEmu ROM harness (`wasm/`, `bridge.js`,
+`CEMU_BUILD.md`) moved to `tools/ti84-rom/` as a teacher/dev verification tool;
+`ti84-procedures-data.json` moved to `data/` because `scripts/build-park-curriculum.mjs` still
+generates the catalogue from it. `ti84-plot.js` keeps its plain-script copy of the screen renderer
+(the Live Classroom loads it without a module loader). Deleted, living on in git history: the v1
+and v2 trainers, the QA harness, the state machine, the 16 TI84_* specs, the ti84-*-spec.md files,
+the three codex-ti84 prompts and the trainer-internal tests. Tests:
+`tests/park-calculator-links.test.js`, `tests/calculator-solo-entry.test.js`,
+`tests/desk-ti84-skill-link.test.js`.
+
+## Calculator handheld check (ABSORB_SPEC §7, protocol 16)
+
+The v2 trainer's "type the result from your real calculator" verification, without the
+emulator. After a solo clear the relay offers the round's headline value (the challenge's
+first numeric answer with its label: Minimum, z statistic, Lower bound, Probability...) as
+`calculator_state.handheld { label, attempts, status }`; the expected value never leaves the
+relay. The room shows one small box ("On your real TI-84, same data: <label> = ?"); Enter
+sends `calculator_handheld { value }`. `calculator-handheld.mjs` (shared) ports the trainer's
+tolerance exactly from `ti84-trainer-v2/app.js` lines 1024-1066 (any rounding or truncation at
+the typed decimals, whole numbers only for |x| >= 1, backstop 0.5% / 0.0005; `native/stat-math.js`
+has no tolerance of its own). Pass: the skill is mastered (§5), which pays the solo door's bonus
+point on the first mastery (§6). Miss: one retry, then the check closes and nothing is
+recorded. Not offered in team rounds, nor once the skill is already mastered. Where the
+trainer and the hardware differ, the goal phrases already say "real CE: ENTER again"
+(`CALCULATOR_GOALS_REVIEW.md`). Tests: `calculator-handheld.test.mjs` on both sides.
+
+## Calculator rewards: keys and the solo door's bonus point (ABSORB_SPEC §6)
+
+Two rewards on rails that already exist; nothing touches a grade. **Keys:** a solo clear pays
++1 campaign key through the same wallet path as a team clear (`awardKeys`, once per round
+epoch). **The solo door:** the scenery says it in one line ("MASTER A SKILL HERE - BANK ONE
+BONUS POINT"). On the round that flips a skill to `mastered` (§5), the relay's `onMastery`
+hook runs `calculator-bonus.mjs`: it asks roster-server which quarter is open
+(`GET /class/quarter/current`, a new teacher route in `roster-server/class.js`) and posts
+`POST /class/bonus` with `sheetId 'TI84-<skillId>'`, `title 'Calculator: <skill title>'`,
+one entry `{ username, grade: 'I' }` (1 point). The ledger row upserts at attempt 1, so a
+repeat is a no-op: one point per skill per student, forever. Auth is roster-server's teacher
+key in `x-teacher-secret`, held by the relay as `ROSTER_TEACHER_KEY` (`.env.example`, the
+teacher-switch wizard's relay schema). One retry, then a log line; the celebration is never
+blocked, `park_calc_srs.mastered` stays true, and the teacher-run
+`railway-server/scripts/park-bonus-sweep.mjs` (dry-run by default, `--apply` to post)
+re-posts any mastered skill still missing its row. The Desk's bonus-bank card lists it like
+any other banked sheet. Team rounds pay keys only. Tests: `calculator-bonus.test.mjs` (relay:
+the roster mock, one retry, the acceptance case: mastering one-var-stats banks one row and a
+second clear changes neither), `roster-server/tests/class-quarter-current.test.js`.
+
+## Calculator Recall (spaced repetition, protocol 15)
+
+The v2 trainer's SM-2 schedule, ported to the relay so it follows the student
+(APSTAT_PARK_TRAINER_ABSORB_SPEC §5). `calculator-srs.mjs` (shared) holds the pure port: the
+numbers are cited from `ti84-trainer-v2/app.js` lines 3115-3140 (interval 1, 6, then
+round(interval x ease); below quality 3 back to 1; ease floor 1.3). The quality of a round is
+5, minus one per wrong key beyond the first, minus one for a time-up restart, minus one for a
+wrong recognition pick (floor 0); `wrongKeys` and `timeoutCount` ride in `calculator_state`
+and survive a restart. On every completed round the relay advances each member's record
+(`calculator-srs-state.mjs`, memory-first; `park_calc_srs`, migration cr 0009, teacher-run,
+zero RLS policies; memory-only while the table is missing) and the packet carries `review`
+(quality, interval, next review, mastered), which the clear celebration shows. `mastered`
+flips on the first solo clear at hint rung 2 with quality >= 4 (the handheld check is the
+other way in); the relay's `onMastery` hook fires once per student and skill (Phase 4 pays the
+bonus point there). `GET /park/calc/due?section&username&skills=` (relay) lists the due skills
+most overdue first, then today's skills the Desk passes from its lesson map; the Desk's
+resource panel shows "N skills due" on the Calculator Skill row and opens the solo room, and
+a solo join with no skill plays the most overdue due skill before the rotation. Tests:
+`calculator-srs.test.mjs` (relay: acceptance cases, fast-check property, state/store,
+service), `calculator-srs.test.mjs` (client mirror), `tests/desk-calc-due.test.js`.
+
+## Calculator Recognition (protocol 14)
+
+Before the route, a round can open with the v2 trainer's "which procedure?" step
+(APSTAT_PARK_TRAINER_ABSORB_SPEC §4): a canonical word problem and four procedure tiles, the
+right one plus three distractors ranked from the confusion pairs (same unit first) and then the
+unit. Data: `ti84-pattern-recognition-data.json` is the source; `node
+scripts/build-calculator-patterns.mjs` writes `calculator-patterns.mjs` on both sides (`--check`
+in the tests), and `calculator-recognition.mjs` (shared) ranks distractors and words the
+one-sentence discriminator from the first differing signature field (parameter, question,
+sample structure, data type). The relay judges the pick (`calculator_pick`), the clock starts at
+the pick, a wrong pick is told its sentence and the route starts on the right skill anyway; the
+wrong pick stays on the round for the SRS quality. The skill name and its data are hidden until
+the pick. Solo rounds always open with the step when the skill has a canonical problem; team
+rounds only after the teacher's `calculator_recognition { on: true }` (panel `setRecognition`),
+from the next round (teacher decision 2: off by default). Tests:
+`calculator-recognition.test.mjs` and `calculator-room-recognition.test.mjs` (client),
+`calculator-recognition.test.mjs` (relay).
+
+## Calculator Solo (deep link, protocol 14)
 
 The same room with `mode: 'solo'` (`calculator-room.mjs`, one switch, no second file):
 `#room=calc-solo&skill=<skillId>` opens the student's own round on that skill at once,
@@ -220,7 +316,7 @@ the verified scope.
 
 The production calculator is ordinary JavaScript. ROM analysis supplies evidence
 for translating its behavior; the room and relay do not load or execute a ROM.
-The first static contract is `ti84-trainer-v2/native/stat-rom-contract.json`.
+The first static contract is `apstat-park/calculator-native/stat-rom-contract.json`.
 Regenerate it in the sibling `ti84-transpile` repo with
 `node TI-84_Plus_CE/semantic/extract-stat-menu.mjs`, or verify the saved artifact
 with `--check`. The extractor reads the local ROM and SDK definitions, decodes in
@@ -354,7 +450,7 @@ keyboard block travel with production section names; `PARK_SECTION` selects
 activity without bypassing eligibility. `calculator-browser-smoke.mjs` separately exercises real team
 block travel, timer failures, checkpoints, and door navigation. Relay
 `calculator-rotation.test.mjs` checks date gating and shared round lifecycle.
-Run native tests from `ti84-trainer-v2/native` with
+Run native tests from `apstat-park/calculator-native` with
 `../../node_modules/.bin/vitest.cmd run --config vitest.config.js`.
 
 Pico goal completion fades the scene objects toward white while preserving the

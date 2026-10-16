@@ -4,7 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
-import { nativeScriptFilenames } from '../ti84-trainer-v2/native/manifest.mjs';
+import { nativeScriptFilenames } from './calculator-native/manifest.mjs';
 import { CALCULATOR_PROBLEMS, challengeFor } from './calculator-curriculum.mjs';
 import { varyProblem, solveProblem, RANDINT_SKILLS, VARIED_SKILLS } from './calculator-variation.mjs';
 import { createMission, missionFor } from './calculator-mission.mjs';
@@ -14,7 +14,7 @@ import { CALCULATOR_PROTOCOL } from './calculator-lobby.mjs';
 const sandbox = { window: {}, console };
 vm.createContext(sandbox);
 for (const file of nativeScriptFilenames) {
-  vm.runInContext(readFileSync(new URL('../ti84-trainer-v2/native/' + file, import.meta.url), 'utf8'), sandbox, { filename: file });
+  vm.runInContext(readFileSync(new URL('./calculator-native/' + file, import.meta.url), 'utf8'), sandbox, { filename: file });
 }
 const createCalculator = sandbox.window.TI84Native.create;
 
@@ -31,8 +31,8 @@ const randIntProblems = CALCULATOR_PROBLEMS.filter(problem => RANDINT_SKILLS.has
 const drawOf = level => level.finalView.at(-1).replace(/[{}]/g, '').split(' ').map(Number);
 const digits = value => String(value).length;
 
-test('protocol 13: the round packet carries the templated route (11), the solo mode (12), the waiting reset (13)', () => {
-  assert.equal(CALCULATOR_PROTOCOL, 13);
+test('protocol 15: the round packet carries the templated route (11), the solo mode (12), the waiting reset (13), the recognition step (14)', () => {
+  assert.equal(CALCULATOR_PROTOCOL, 16);
 });
 
 test('the catalogue has the five randIntNoRep problems, all varied', () => {

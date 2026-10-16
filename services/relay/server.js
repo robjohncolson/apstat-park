@@ -11,6 +11,9 @@ import { createClassroomRegistry } from './classroom.js';
 import { createParkService } from './apstat-park/service.mjs';
 import { createSupabaseKeyStore } from './apstat-park/campaign-key-store.mjs';
 import { createSupabaseClearsStore } from './apstat-park/calculator-clears-store.mjs';
+import { createSupabaseSrsStore } from './apstat-park/calculator-srs-store.mjs';
+import { createBonusRail } from './apstat-park/calculator-bonus.mjs';
+import { CALCULATOR_LEVELS } from './apstat-park/calculator-curriculum.mjs';
 import { createKeyGrantHandler } from './apstat-park/campaign-key-grant.mjs';
 import { applyWrongMcqCap, getReceiptIssuer, initReceipts, issueReceipt, issueReviewGrant } from './receipts.js';
 import { verifyToken } from './token.js';
@@ -199,12 +202,33 @@ const classroomRegistry = createClassroomRegistry();
 // service-key client; without SUPABASE_SERVICE_KEY they stay in memory (lost on restart).
 const parkKeyStore = createSupabaseKeyStore(quizReviewsSupabase);
 if (!parkKeyStore) console.info('Park campaign keys are memory-only: SUPABASE_SERVICE_KEY is not configured.');
+// APSTAT_PARK_TRAINER_ABSORB_SPEC §6: the solo door's bonus point. On the round that flips a
+// calculator skill to mastered, the relay banks one bonus point (grade I) through roster-server's
+// teacher route POST /class/bonus, with the open quarter asked of roster-server. ROSTER_TEACHER_KEY
+// is the teacher key roster-server's requireTeacher accepts (x-teacher-secret). Without it the
+// mastery is logged and scripts/park-bonus-sweep.mjs re-posts it later.
+const parkBonusRail = createBonusRail({ rosterUrl: ROSTER_SERVICE_URL, teacherKey: process.env.ROSTER_TEACHER_KEY,
+  skillTitle: id => CALCULATOR_LEVELS.find(level => level.id === id)?.title || id });
+if (!parkBonusRail.enabled) console.info('Park calculator bonus points are not banked automatically: ROSTER_TEACHER_KEY is not configured (run scripts/park-bonus-sweep.mjs).');
 const classroomPark = createParkService({
   registry: classroomRegistry,
   send: (ws, payload) => { if (ws.readyState === 1) ws.send(JSON.stringify(payload)); },
   keyStore: parkKeyStore,
+  onMastery: event => { parkBonusRail.post(event); },
   // Calculator clears behind the hint rungs persist in park_calc_clears (migration 0008), same client.
   clearsStore: createSupabaseClearsStore(quizReviewsSupabase),
+  // Calculator spaced-recall records persist in park_calc_srs (migration 0009), same client.
+  srsStore: createSupabaseSrsStore(quizReviewsSupabase),
+});
+// APSTAT_PARK_TRAINER_ABSORB_SPEC §5: the student's due calculator skills (most overdue first) and
+// today's skills (the Desk resolves its lesson-map topics and passes skill ids). Read-only; the
+// same identity the park itself trusts (section + username, no grades).
+app.get('/park/calc/due', (req, res) => {
+  const section = String(req.query.section || '').trim(), username = String(req.query.username || '').trim();
+  if (!section || !username) return res.status(400).json({ ok: false, error: 'section and username required' });
+  const skills = String(req.query.skills || '').split(',').map(s => s.trim()).filter(Boolean);
+  try { res.json({ ok: true, ...classroomPark.calcDue(section, username, skills) }); }
+  catch (error) { res.status(500).json({ ok: false, error: error.message }); }
 });
 // A campaign key bought with candy: roster-server calls this server-to-server after debiting the
 // candy (shared secret PARK_KEY_GRANT_SECRET; idempotent on receiptId). Migration 0006.

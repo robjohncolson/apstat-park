@@ -1,25 +1,34 @@
 import { randomUUID } from 'node:crypto';
-import { createMission, advanceMission, pressMissionKey, WORLD, timeLimitFor } from './calculator-mission.mjs';
+import { createMission, advanceMission, pressMissionKey, pickRecognition, recognitionPending, missionFor, WORLD, timeLimitFor } from './calculator-mission.mjs';
+import { recognitionFor } from './calculator-recognition.mjs';
+import { handheldFor, handheldMatches, HANDHELD_ATTEMPTS } from './calculator-handheld.mjs';
 import { createCalculatorRuntime, varyLevel } from './calculator-runtime.mjs';
 import { createLobby, advanceLobby, CALCULATOR_PROTOCOL, TEAM_BLOCK } from './calculator-lobby.mjs';
 import { createCalculatorRtc } from './calculator-rtc.mjs';
 import { createSnapshotPublisher } from './snapshot-publisher.mjs';
 import { createCampaignWallet } from './campaign-wallet.mjs';
 import { createCalculatorClears, rungFor } from './calculator-clears.mjs';
+import { createCalculatorSrs } from './calculator-srs-state.mjs';
+import { qualityFor, isMasteryClear } from './calculator-srs.mjs';
 
 import { eligibleLevels, schoolDate, createLevelRotation, levelById, CALCULATOR_PROBLEMS } from './calculator-curriculum.mjs';
 
-const TYPES = new Set(['calculator_lobby', 'calculator_join', 'calculator_pose', 'calculator_press', 'calculator_leave', 'calculator_restart', 'calculator_rtc_signal']);
+const TYPES = new Set(['calculator_lobby', 'calculator_join', 'calculator_pose', 'calculator_press', 'calculator_pick', 'calculator_recognition', 'calculator_handheld', 'calculator_leave', 'calculator_restart', 'calculator_rtc_signal']);
 export const DEATH_MS = 1000;
 // Independent rooms on the existing classroom connection. No grade writes.
 // wallet (campaign-wallet.mjs): campaign key counts, cleared stages and open stages, shared with
 // the campaign service. Without one (direct tests) the service keeps a memory-only wallet.
 // clears (calculator-clears.mjs): per student and skill, the completed rounds behind the hint rung.
 // varyData (protocol 10): list-based problems get random data each round (calculator-variation.mjs).
+// srs (calculator-srs-state.mjs, protocol 15): per student and skill, the spaced-recall record
+// advanced on every completed round; a solo join with no skill opens the first due skill.
+// onMastery({ section, username, skillId }): called once per student and skill, on the round that
+// flips mastered (ABSORB_SPEC §6 pays the solo door's bonus point there; Phase 4).
 export function createCalculatorService({ registry, send, now = () => performance.now(), wallNow = Date.now, random = Math.random, available = eligibleLevels, varyProblems = available === eligibleLevels,
-  varyData = varyProblems, wallet = null, clears = null, log = (...args) => console.warn(...args) }) {
+  varyData = varyProblems, wallet = null, clears = null, srs = null, onMastery = () => {}, log = (...args) => console.warn(...args) }) {
   wallet ||= createCampaignWallet({ now, log });
   clears ||= createCalculatorClears({ now, log });
+  srs ||= createCalculatorSrs({ now, log });
   // rooms: one team room per section. soloRooms (protocol 12, ABSORB_SPEC §3): one room per
   // student, keyed by section + name; the same round machinery with a roster of one.
   const rooms = new Map(), soloRooms = new Map(), bindings = new Map();
@@ -46,7 +55,8 @@ export function createCalculatorService({ registry, send, now = () => performanc
     const member = registry.stateFor(who.section, 'student', who.username)?.members
       ?.find(member => member.username === who.username);
     if (!member || member.online === false) throw new Error('Classroom member is offline.');
-    return who;
+    // The socket index carries section and name; the role lives on the classroom member.
+    return { ...who, role: member.role };
   }
   // The next round's problem from the rotation; with varyData, list data is new every round.
   function nextLevel(room) {
@@ -54,17 +64,27 @@ export function createCalculatorService({ registry, send, now = () => performanc
     if (!level || !varyData) return level;
     return varyLevel(level, random);
   }
+  // Protocol 14 (ABSORB_SPEC §4): the recognition step opens a round when the skill has a canonical
+  // problem. Solo rounds always; team rounds only with the teacher's toggle (room.recognition,
+  // teacher decision 2, 2026-10-15: off by default, it adds a step before the shared clock).
+  // One problem and one tile order per round (every member of a team sees the same four tiles).
+  function setLevel(room, level) {
+    room.level = level;
+    const wanted = room.mode === 'solo' || room.recognition === true;
+    room.recognitionRound = wanted && level ? recognitionFor(level.skillId, random) : null;
+  }
   function roomFor(section) {
     if (!rooms.has(section)) {
       const room = {
         epoch: randomUUID(), attempts: new Map(), members: new Map(), touched: now(), failure: null, resetReason: null,
         lobby: createLobby(now()), section, rotation: createLevelRotation(random, { varyProblems }), keysAwardedEpoch: null,
-        level: null,
+        level: null, recognition: false, recognitionRound: null,
       };
-      room.level = nextLevel(room);
+      setLevel(room, nextLevel(room));
       rooms.set(section, room);
       wallet.ensure(section);
       clears.ensure(section);
+      srs.ensure(section);
     }
     return rooms.get(section);
   }
@@ -80,15 +100,23 @@ export function createCalculatorService({ registry, send, now = () => performanc
     return level && level.id === level.skillId ? skillId : null;
   }
   // The solo round's problem: a pinned skill plays its catalogue problems in turn (never the same
-  // one twice in a row), with random data like a team round; otherwise the section's rotation.
+  // one twice in a row), with random data like a team round; with no pin, the first skill the
+  // recall schedule says is due (protocol 15, §5), else the section's rotation.
   function soloLevel(room) {
-    if (!room.skillId) return nextLevel(room);
-    const variants = CALCULATOR_PROBLEMS.filter(problem => problem.skillId === room.skillId);
+    const skillId = room.skillId || firstDueSkill(room);
+    if (!skillId) return nextLevel(room);
+    const variants = CALCULATOR_PROBLEMS.filter(problem => problem.skillId === skillId);
     const fresh = variants.filter(problem => problem.id !== room.lastProblemId);
     const choices = fresh.length ? fresh : variants;
     const level = choices[Math.min(choices.length - 1, Math.floor(random() * choices.length))];
     room.lastProblemId = level.id;
     return varyData ? varyLevel(level, random) : level;
+  }
+  // The most overdue skill with a catalogue level, or null. Skills no longer taught (not in the
+  // section's eligible list) still count: a review is a review.
+  function firstDueSkill(room) {
+    const due = srs.due(room.section, room.name, schoolDate(wallNow()));
+    return due.find(entry => pinnedSkillFor(entry.skillId))?.skillId || null;
   }
   // The student's solo room, created on the first join. Joining with a different pinned skill
   // starts a fresh round on it; joining with none, or the same one, resumes the round in progress.
@@ -113,13 +141,14 @@ export function createCalculatorService({ registry, send, now = () => performanc
       mode: 'solo', name: who.username, epoch: randomUUID(), attempts: new Map(), members: new Map(), touched: now(),
       failure: null, resetReason: null, lobby: soloLobby(who.username, now()), section: who.section,
       rotation: createLevelRotation(random, { varyProblems }), keysAwardedEpoch: null, skillId: pinned, lastProblemId: null,
-      level: null, emptyTeamAt: null,
+      level: null, emptyTeamAt: null, recognitionRound: null,
     };
-    room.level = soloLevel(room);
+    setLevel(room, soloLevel(room));
     if (!room.level) return null;
     soloRooms.set(key, room);
     wallet.ensure(who.section);
     clears.ensure(who.section);
+    srs.ensure(who.section);
     return room;
   }
   // What a solo student sees while the section has no playable skill yet: no epoch, no roster,
@@ -144,18 +173,57 @@ export function createCalculatorService({ registry, send, now = () => performanc
   }
   // Teacher 2026-10-07: keys are a spendable count. A completed round pays +1 key to every roster
   // member, once per round (epoch). Persistence and retries live in the wallet.
-  // ABSORB_SPEC §6 (Phase 4) pays the solo clear its key; until then a solo clear counts only
-  // toward the hint rung.
+  // ABSORB_SPEC §6 (Phase 4): a solo clear pays its key through the same path (roster of one).
   function awardKeys(room) {
     if (room.keysAwardedEpoch === room.epoch) return;
     room.keysAwardedEpoch = room.epoch;
-    if (room.mode !== 'solo') wallet.award(room.section, room.lobby.roster);
+    wallet.award(room.section, room.lobby.roster);
+    // Protocol 15 (§5): the same moment advances every member's recall record for this skill, at
+    // the quality of their own attempt and the hint rung they played at (before this clear counts).
+    const skillId = room.level?.skillId, today = schoolDate(wallNow());
+    for (const name of room.lobby.roster) {
+      const attempt = room.attempts.get(name);
+      if (!attempt || !skillId) continue;
+      const quality = qualityFor(attempt.state);
+      const rung = rungFor(clears.clearsOf(room.section, name, skillId));
+      const mastery = isMasteryClear({ solo: room.mode === 'solo', rung, quality });
+      const result = srs.record(room.section, name, skillId, quality, today, { mastery });
+      attempt.review = { quality, rung, ...result?.record, masteredNow: result?.masteredNow === true };
+      if (result?.masteredNow) notifyMastery(room, name, skillId);
+      // Protocol 16 (§7): a solo clear may go on to the handheld check (the round's first numeric
+      // result, judged here with the trainer's tolerance). Not offered once the skill is mastered.
+      const prompt = room.mode === 'solo' && !attempt.review.mastered ? handheldFor(room.level) : null;
+      attempt.state.handheld = prompt ? { label: prompt.label, attempts: 0, status: null } : null;
+    }
     // Protocol 10: the same moment counts one clear per student for this round's skill.
     clears.record(room.section, room.lobby.roster, room.level?.skillId);
   }
+  function notifyMastery(room, name, skillId) {
+    try { onMastery({ section: room.section, username: name, skillId }); }
+    catch (error) { log('park calculator mastery hook failed for', name, skillId, error?.message || error); }
+  }
+  // §7: the typed handheld result. Pass: the skill is mastered (first time pays the bonus point).
+  // Fail: one retry, then the check closes and nothing is recorded.
+  function receiveHandheld(room, binding, message) {
+    const attempt = attemptFor(room, binding.name), state = attempt.state;
+    if (room.mode !== 'solo' || !state.complete || !state.handheld || state.handheld.status) return false;
+    const prompt = handheldFor(missionFor(state));
+    if (!prompt) return false;
+    if (handheldMatches(message.value, prompt.expected)) {
+      state.handheld = { ...state.handheld, status: 'passed', attempts: state.handheld.attempts + 1 };
+      const result = srs.master(room.section, binding.name, room.level?.skillId, schoolDate(wallNow()));
+      attempt.review = { ...(attempt.review || {}), ...(result?.record || {}), mastered: true, masteredNow: result?.masteredNow === true };
+      if (result?.masteredNow) notifyMastery(room, binding.name, room.level?.skillId);
+    } else {
+      const attempts = state.handheld.attempts + 1;
+      state.handheld = { ...state.handheld, attempts, status: attempts >= HANDHELD_ATTEMPTS ? 'failed' : null };
+    }
+    state.revision++;
+    return true;
+  }
   function attemptFor(room, name) {
     if (!room.attempts.has(name)) room.attempts.set(name, {
-      state: createMission(now(), room.level), engine: createCalculatorRuntime(room.level),
+      state: createMission(now(), room.level, room.recognitionRound), engine: createCalculatorRuntime(room.level),
     });
     return room.attempts.get(name);
   }
@@ -173,7 +241,13 @@ export function createCalculatorService({ registry, send, now = () => performanc
       name, ...(room.members.get(name) || { pose: { x: 65, y: WORLD.floor - 24 } }),
       online: room.members.has(name), step: attemptFor(room, name).state.step, solved: attemptFor(room, name).state.complete,
     }));
+    const attempt = attemptFor(room, name);
     return { type: 'calculator_state', protocol: CALCULATOR_PROTOCOL, epoch: room.epoch, ...state, clock: now(),
+      // Protocol 14: the right procedure stays on the relay until the pick is made.
+      recognition: state.recognition && !state.recognition.picked ? { ...state.recognition, skill: null } : state.recognition,
+      // Protocol 15: once the round completed, this member's recall review (quality, next review).
+      review: attempt.review ? { quality: attempt.review.quality, intervalDays: attempt.review.intervalDays,
+        nextReview: attempt.review.nextReview, mastered: attempt.review.mastered === true, masteredNow: attempt.review.masteredNow } : null,
       mode: room.mode || 'team', pinnedSkill: room.skillId || null,
       teamSize: room.lobby.roster.length, clears: cleared, rung: rungFor(cleared),
       failure: room.failure, resetReason: room.resetReason,
@@ -198,6 +272,8 @@ export function createCalculatorService({ registry, send, now = () => performanc
     const campaign = wallet.view(room.section);
     return { type: 'calculator_lobby_state', protocol: CALCULATOR_PROTOCOL, epoch: room.epoch,
       mode: room.mode || 'team', pinnedSkill: room.skillId || null,
+      // Protocol 14: whether this room's rounds open with the recognition step.
+      recognition: room.mode === 'solo' || room.recognition === true,
       // Kept for older desks: the players holding at least one unspent key.
       campaignKeyHolders: Object.keys(campaign.keys),
       // Teacher 2026-10-07 (additive): unspent key counts {name: n > 0}, cleared stage indexes
@@ -233,7 +309,7 @@ export function createCalculatorService({ registry, send, now = () => performanc
       const member = lobby.members.get(name);
       return member?.ready && now() - member.at < 1500;
     })) return;
-    room.level ||= nextLevel(room);
+    if (!room.level) setLevel(room, nextLevel(room));
     if (!room.level) return;
     lobby.phase = 'active';
     for (const name of lobby.roster) {
@@ -249,16 +325,20 @@ export function createCalculatorService({ registry, send, now = () => performanc
       if (room.mode === 'solo') {
         // The next solo round starts at once: same pinned skill with new data, or the rotation.
         room.lobby = soloLobby(room.name, now());
-        room.level = soloLevel(room);
+        setLevel(room, soloLevel(room));
         return;
       }
       room.lobby = createLobby(now());
-      room.level = nextLevel(room);
+      setLevel(room, nextLevel(room));
       return;
     }
     else for (const attempt of room.attempts.values()) {
       const previous = attempt.state;
-      attempt.state = createMission(now(), room.level);
+      // A timeout keeps the answered recognition step: the procedure was already named once.
+      attempt.state = createMission(now(), room.level, previous.recognition);
+      // Protocol 15: the restart counts against the recall quality, as do the wrong keys so far.
+      attempt.state.timeoutCount = (previous.timeoutCount || 0) + 1;
+      attempt.state.wrongKeys = previous.wrongKeys || 0;
       if (previous.step < room.level.route.length) continue;
       // Reaching the summary earns a permanent checkpoint for this run.
       // Team deaths clear the plot, not the calculator work that unlocked it.
@@ -274,7 +354,8 @@ export function createCalculatorService({ registry, send, now = () => performanc
     if (room.failure) return true;
     for (const name of room.lobby.roster) {
       const state = attemptFor(room, name).state;
-      if (state.complete || time - state.startedAt < timeLimitFor(state)) continue;
+      // No clock while the word problem is open: it starts at the pick.
+      if (state.complete || recognitionPending(state) || time - state.startedAt < timeLimitFor(state)) continue;
       room.failure = { name, at: time, until: time + DEATH_MS };
       return true;
     }
@@ -301,6 +382,15 @@ export function createCalculatorService({ registry, send, now = () => performanc
       if (message.type === 'calculator_rtc_signal') { rtc.relay(ws, message); return null; }
       if (message.type === 'calculator_leave') { detached(ws); return null; }
       if (message.type === 'calculator_lobby') return receiveLobby(ws, who, message);
+      if (message.type === 'calculator_recognition') {
+        // The teacher's toggle for the section's team room; it takes effect from the next round
+        // (a round in progress keeps whatever it opened with).
+        if (who.role !== 'teacher') throw new Error('Only the teacher can switch the recognition step.');
+        const room = roomFor(who.section);
+        room.recognition = message.on === true;
+        if (room.lobby.phase !== 'active') setLevel(room, room.level);
+        room.touched = now(); broadcast(room); return null;
+      }
       if (message.type === 'calculator_join') {
         if (!checkProtocol(ws, message)) return null;
         const old = bindings.get(ws);
@@ -364,6 +454,19 @@ export function createCalculatorService({ registry, send, now = () => performanc
         }
         broadcast(room); return null;
       }
+      if (message.type === 'calculator_handheld') {
+        if (!receiveHandheld(room, binding, message)) return null;
+        room.members.get(binding.name).at = now();
+        room.touched = now();
+        broadcast(room); return null;
+      }
+      if (message.type === 'calculator_pick') {
+        const time = now();
+        if (!pickRecognition(state, message.skill, time)) return null;
+        room.members.get(binding.name).at = time;
+        room.touched = time;
+        broadcast(room); return null;
+      }
       if (message.type === 'calculator_press') {
         const time = now();
         pressMissionKey(state, message.key, time, engine.transitions(state), key => engine.isWrongKey(state, key));
@@ -390,6 +493,7 @@ export function createCalculatorService({ registry, send, now = () => performanc
     // Wallet rows are written from the tick, so they are retried even after the team left.
     wallet.flush();
     clears.flush();
+    srs.flush();
     for (const [key, room] of soloRooms) {
       // A solo room with nobody in it for 30 s is dropped (a reload or a brief disconnect survives).
       // emptyTeamAt is stamped by detached() and cleared by seatSolo(); the fallback covers a
@@ -451,6 +555,18 @@ export function createCalculatorService({ registry, send, now = () => performanc
     canEnterCampaign() {
       return true;
     },
+    // Protocol 15 (§5): GET /park/calc/due. The due skills most overdue first, then today's
+    // skills (the Desk resolves its topics through the lesson map and passes the skill ids).
+    due(section, username, todaySkills = []) {
+      const today = schoolDate(wallNow());
+      const due = srs.due(section, username, today).filter(entry => pinnedSkillFor(entry.skillId))
+        .map(entry => ({ ...entry, title: levelById(entry.skillId).title }));
+      const dueIds = new Set(due.map(entry => entry.skillId));
+      const todayIds = [...new Set((todaySkills || []).map(pinnedSkillFor).filter(Boolean))].filter(id => !dueIds.has(id));
+      return { today, due, todaySkills: todayIds.map(skillId => ({ skillId, title: levelById(skillId).title })), count: due.length };
+    },
+    // Test and sweep access to the recall records (read-only shape).
+    recall(section, username) { return srs.recordsOf(section, username); },
     // Do not call roomFor/attemptFor: watching must never create an attempt.
     watch(section) {
       // Protocol 12: the section's solo rounds in progress, with or without a team room.
